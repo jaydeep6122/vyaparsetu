@@ -390,6 +390,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
               inv.partyId != null &&
               (inv.invoiceType == InvoiceType.sale || inv.invoiceType == InvoiceType.purchase))
           ? FloatingActionButton.extended(
+              heroTag: 'invoice_detail_fab',
               onPressed: () {
                 Navigator.of(context).push(getPageRoute(PaymentFormScreen.fromInvoice(invoice: inv))).then((_) {
                   _loadInvoiceDetail(inv.id);

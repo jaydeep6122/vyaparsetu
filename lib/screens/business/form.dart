@@ -29,7 +29,7 @@ class BusinessFormScreen extends StatefulWidget {
 
 class _BusinessFormScreenState extends State<BusinessFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  
+
   Business? _existingBusiness;
   bool _isEdit = false;
   bool _canScroll = true;
@@ -44,7 +44,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
   final _gstinController = TextEditingController();
   final _panController = TextEditingController();
   final _prefixController = TextEditingController();
-  
+
   final _bankNameController = TextEditingController();
   final _accNoController = TextEditingController();
   final _ifscController = TextEditingController();
@@ -84,7 +84,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
     _gstinController.text = b.gstin ?? '';
     _panController.text = b.panNumber ?? '';
     _prefixController.text = b.invoicePrefix;
-    
+
     _bankNameController.text = b.bankName ?? '';
     _accNoController.text = b.accountNumber ?? '';
     _ifscController.text = b.ifscCode ?? '';
@@ -115,7 +115,11 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
     super.dispose();
   }
 
-  Future<bool> _showTermsBottomSheet(Map<String, dynamic> data, bool isEdit, {String? businessId}) async {
+  Future<bool> _showTermsBottomSheet(
+    Map<String, dynamic> data,
+    bool isEdit, {
+    String? businessId,
+  }) async {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     bool accepted = false;
@@ -128,12 +132,16 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setStateSheet) {
-            final isLoading = context.select<Core, bool>((c) => c.business.isLoading);
+            final isLoading = context.select<Core, bool>(
+              (c) => c.business.isLoading,
+            );
 
             return Container(
               decoration: BoxDecoration(
                 color: isDark ? AppTheme.backgroundDark : Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
@@ -143,7 +151,9 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                 ],
               ),
               padding: EdgeInsets.fromLTRB(
-                20, 16, 20,
+                20,
+                16,
+                20,
                 20 + MediaQuery.of(context).viewInsets.bottom,
               ),
               child: SingleChildScrollView(
@@ -165,7 +175,8 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                     Text(
                       'Terms & Conditions',
                       style: GoogleFonts.outfit(
-                        fontWeight: FontWeight.bold, fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
                         color: isDark ? Colors.white : AppTheme.gray900,
                       ),
                     ),
@@ -174,7 +185,10 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: isDark ? AppTheme.gray800.withValues(alpha: 0.3) : AppTheme.gray50,
+                        color:
+                            isDark
+                                ? AppTheme.gray800.withValues(alpha: 0.3)
+                                : AppTheme.gray50,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isDark ? AppTheme.gray700 : AppTheme.gray200,
@@ -193,7 +207,8 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                     Text(
                       'Privacy Policy',
                       style: GoogleFonts.outfit(
-                        fontWeight: FontWeight.bold, fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
                         color: isDark ? Colors.white : AppTheme.gray900,
                       ),
                     ),
@@ -202,7 +217,10 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: isDark ? AppTheme.gray800.withValues(alpha: 0.3) : AppTheme.gray50,
+                        color:
+                            isDark
+                                ? AppTheme.gray800.withValues(alpha: 0.3)
+                                : AppTheme.gray50,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isDark ? AppTheme.gray700 : AppTheme.gray200,
@@ -211,36 +229,57 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _ppSection(isDark, '1. Information We Collect',
-                              'Personal information: name, email address, phone number\n'
-                              'Business information: business name, address, GSTIN, PAN, bank details, UPI ID\n'
-                              'Usage data: app interactions, device information'),
+                          _ppSection(
+                            isDark,
+                            '1. Information We Collect',
+                            'Personal information: name, email address, phone number\n'
+                                'Business information: business name, address, GSTIN, PAN, bank details, UPI ID\n'
+                                'Usage data: app interactions, device information',
+                          ),
                           const SizedBox(height: 10),
-                          _ppSection(isDark, '2. How We Use Your Information',
-                              'To provide and maintain our services\n'
-                              'To generate invoices, reports, and business documents\n'
-                              'To communicate with you regarding your account\n'
-                              'To comply with legal obligations'),
+                          _ppSection(
+                            isDark,
+                            '2. How We Use Your Information',
+                            'To provide and maintain our services\n'
+                                'To generate invoices, reports, and business documents\n'
+                                'To communicate with you regarding your account\n'
+                                'To comply with legal obligations',
+                          ),
                           const SizedBox(height: 10),
-                          _ppSection(isDark, '3. Data Sharing & Disclosure',
-                              'We do not sell your personal information.\n'
-                              'We may share data only with your consent, to comply with legal obligations, '
-                              'or to protect against fraud or legal liability.'),
+                          _ppSection(
+                            isDark,
+                            '3. Data Sharing & Disclosure',
+                            'We do not sell your personal information.\n'
+                                'We may share data only with your consent, to comply with legal obligations, '
+                                'or to protect against fraud or legal liability.',
+                          ),
                           const SizedBox(height: 10),
-                          _ppSection(isDark, '4. Data Security',
-                              'We implement reasonable security measures to protect your data. '
-                              'However, no method of transmission over the internet is 100% secure.'),
+                          _ppSection(
+                            isDark,
+                            '4. Data Security',
+                            'We implement reasonable security measures to protect your data. '
+                                'However, no method of transmission over the internet is 100% secure.',
+                          ),
                           const SizedBox(height: 10),
-                          _ppSection(isDark, '5. Your Responsibility',
-                              'You are solely responsible for the accuracy of the data you enter, '
-                              'including GST details. Any fraudulent use of this app is strictly prohibited '
-                              'and may result in legal action.'),
+                          _ppSection(
+                            isDark,
+                            '5. Your Responsibility',
+                            'You are solely responsible for the accuracy of the data you enter, '
+                                'including GST details. Any fraudulent use of this app is strictly prohibited '
+                                'and may result in legal action.',
+                          ),
                           const SizedBox(height: 10),
-                          _ppSection(isDark, '6. Contact Us',
-                              'For questions about this policy, contact: jdsarvaiya281@gmail.com'),
+                          _ppSection(
+                            isDark,
+                            '6. Contact Us',
+                            'For questions about this policy, contact: jdsarvaiya281@gmail.com',
+                          ),
                           const SizedBox(height: 10),
-                          _ppSection(isDark, '7. Changes to This Policy',
-                              'We may update this policy. Continued use of the app after changes constitutes acceptance.'),
+                          _ppSection(
+                            isDark,
+                            '7. Changes to This Policy',
+                            'We may update this policy. Continued use of the app after changes constitutes acceptance.',
+                          ),
                         ],
                       ),
                     ),
@@ -248,7 +287,8 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                     Row(
                       children: [
                         SizedBox(
-                          width: 24, height: 24,
+                          width: 24,
+                          height: 24,
                           child: Checkbox(
                             value: accepted,
                             onChanged: (val) {
@@ -276,39 +316,54 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: accepted && !isLoading
-                            ? () async {
-                                final businessProvider = context.read<Core>().business;
-                                bool apiSuccess;
-                                if (isEdit) {
-                                  apiSuccess = await businessProvider.updateBusiness(businessId!, data);
-                                } else {
-                                  apiSuccess = await businessProvider.createBusiness(data);
+                        onPressed:
+                            accepted && !isLoading
+                                ? () async {
+                                  final businessProvider =
+                                      context.read<Core>().business;
+                                  bool apiSuccess;
+                                  if (isEdit) {
+                                    apiSuccess = await businessProvider
+                                        .updateBusiness(businessId!, data);
+                                  } else {
+                                    apiSuccess = await businessProvider
+                                        .createBusiness(data);
+                                  }
+                                  if (apiSuccess && context.mounted) {
+                                    Navigator.of(context).pop(true);
+                                  } else if (context.mounted) {
+                                    showErrorToast(
+                                      businessProvider.error ??
+                                          'Failed to save business',
+                                    );
+                                  }
                                 }
-                                if (apiSuccess && context.mounted) {
-                                  Navigator.of(context).pop(true);
-                                } else if (context.mounted) {
-                                  showErrorToast(businessProvider.error ?? 'Failed to save business');
-                                }
-                              }
-                            : null,
+                                : null,
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: isLoading
-                            ? const SizedBox(
-                                width: 20, height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : Text(
-                                isEdit ? 'update_business'.tr() : 'create_business'.tr(),
-                                style: GoogleFonts.outfit(
-                                  fontWeight: FontWeight.bold, fontSize: 16,
+                        child:
+                            isLoading
+                                ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                                : Text(
+                                  isEdit
+                                      ? 'update_business'.tr()
+                                      : 'create_business'.tr(),
+                                  style: GoogleFonts.outfit(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
                                 ),
-                              ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -356,9 +411,10 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
       if (image == null) return null;
 
       final maxDimension = 300;
-      final resized = image.width > image.height
-          ? img.copyResize(image, width: maxDimension)
-          : img.copyResize(image, height: maxDimension);
+      final resized =
+          image.width > image.height
+              ? img.copyResize(image, width: maxDimension)
+              : img.copyResize(image, height: maxDimension);
 
       final compressed = img.encodeJpg(resized, quality: 80);
       return 'data:image/jpeg;base64,${base64Encode(compressed)}';
@@ -375,26 +431,54 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
 
     final data = {
       'name': _nameController.text.trim(),
-      'email': _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
-      'phone': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+      'email':
+          _emailController.text.trim().isEmpty
+              ? null
+              : _emailController.text.trim(),
+      'phone':
+          _phoneController.text.trim().isEmpty
+              ? null
+              : _phoneController.text.trim(),
       'address': _addressController.text.trim(),
       'city': _cityController.text.trim(),
       'state': _stateController.text.trim(),
       'pincode': _pincodeController.text.trim(),
-      'gstin': _gstinController.text.trim().isEmpty ? null : _gstinController.text.trim().toUpperCase(),
-      'pan_number': _panController.text.trim().isEmpty ? null : _panController.text.trim().toUpperCase(),
+      'gstin':
+          _gstinController.text.trim().isEmpty
+              ? null
+              : _gstinController.text.trim().toUpperCase(),
+      'pan_number':
+          _panController.text.trim().isEmpty
+              ? null
+              : _panController.text.trim().toUpperCase(),
       'business_type': _businessType.value,
       'invoice_prefix': _prefixController.text.trim(),
       'financial_year': _financialYear,
       'logo_url': _logoUrlBase64,
       'signature_url': _signatureUrlBase64,
-      'bank_name': _bankNameController.text.trim().isEmpty ? null : _bankNameController.text.trim(),
-      'account_number': _accNoController.text.trim().isEmpty ? null : _accNoController.text.trim(),
-      'ifsc_code': _ifscController.text.trim().isEmpty ? null : _ifscController.text.trim().toUpperCase(),
-      'upi_id': _upiIdController.text.trim().isEmpty ? null : _upiIdController.text.trim(),
+      'bank_name':
+          _bankNameController.text.trim().isEmpty
+              ? null
+              : _bankNameController.text.trim(),
+      'account_number':
+          _accNoController.text.trim().isEmpty
+              ? null
+              : _accNoController.text.trim(),
+      'ifsc_code':
+          _ifscController.text.trim().isEmpty
+              ? null
+              : _ifscController.text.trim().toUpperCase(),
+      'upi_id':
+          _upiIdController.text.trim().isEmpty
+              ? null
+              : _upiIdController.text.trim(),
     };
 
-    final success = await _showTermsBottomSheet(data, _isEdit, businessId: _existingBusiness?.id);
+    final success = await _showTermsBottomSheet(
+      data,
+      _isEdit,
+      businessId: _existingBusiness?.id,
+    );
     if (!success || !mounted) return;
 
     if (_isEdit) {
@@ -403,14 +487,18 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
       Navigator.of(context).pushReplacement(getPageRoute(const HomeScreen()));
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) showSuccessToast(_isEdit ? 'Business updated successfully' : 'Business created successfully');
+      if (mounted)
+        showSuccessToast(
+          _isEdit
+              ? 'Business updated successfully'
+              : 'Business created successfully',
+        );
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -436,7 +524,9 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                   labelText: 'name'.tr(),
                   hintText: 'Enter business/store name',
                   prefixIcon: Icons.store_outlined,
-                  validator: (val) => Validators.validateRequired(val, 'Business name'),
+                  validator:
+                      (val) =>
+                          Validators.validateRequired(val, 'Business name'),
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -479,21 +569,30 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                   style: GoogleFonts.outfit(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.7),
+                    color: theme.textTheme.bodyLarge?.color?.withValues(
+                      alpha: 0.7,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<BusinessType>(
                   value: _businessType,
                   decoration: const InputDecoration(
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                   ),
-                  items: BusinessType.values.map((type) {
-                    return DropdownMenuItem<BusinessType>(
-                      value: type,
-                      child: Text(type.displayName, style: GoogleFonts.outfit()),
-                    );
-                  }).toList(),
+                  items:
+                      BusinessType.values.map((type) {
+                        return DropdownMenuItem<BusinessType>(
+                          value: type,
+                          child: Text(
+                            type.displayName,
+                            style: GoogleFonts.outfit(),
+                          ),
+                        );
+                      }).toList(),
                   onChanged: (val) {
                     if (val != null) {
                       setState(() {
@@ -502,7 +601,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                     }
                   },
                 ),
-                
+
                 const SizedBox(height: 28),
 
                 // SECTION 2: ADDRESS
@@ -513,7 +612,8 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                   labelText: 'address'.tr(),
                   hintText: 'Building, Street name, Area',
                   prefixIcon: Icons.location_on_outlined,
-                  validator: (val) => Validators.validateRequired(val, 'Address'),
+                  validator:
+                      (val) => Validators.validateRequired(val, 'Address'),
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -523,7 +623,8 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                         controller: _cityController,
                         labelText: 'city'.tr(),
                         hintText: 'City',
-                        validator: (val) => Validators.validateRequired(val, 'City'),
+                        validator:
+                            (val) => Validators.validateRequired(val, 'City'),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -532,7 +633,8 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                         controller: _stateController,
                         labelText: 'state'.tr(),
                         hintText: 'State',
-                        validator: (val) => Validators.validateRequired(val, 'State'),
+                        validator:
+                            (val) => Validators.validateRequired(val, 'State'),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -542,7 +644,9 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                         labelText: 'pincode'.tr(),
                         hintText: '6 digits',
                         keyboardType: TextInputType.number,
-                        validator: (val) => Validators.validateRequired(val, 'Pincode'),
+                        validator:
+                            (val) =>
+                                Validators.validateRequired(val, 'Pincode'),
                       ),
                     ),
                   ],
@@ -582,7 +686,11 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                         controller: _prefixController,
                         labelText: 'invoice_prefix'.tr(),
                         hintText: 'e.g. INV',
-                        validator: (val) => Validators.validateRequired(val, 'Invoice Prefix'),
+                        validator:
+                            (val) => Validators.validateRequired(
+                              val,
+                              'Invoice Prefix',
+                            ),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -595,19 +703,32 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                             style: GoogleFonts.outfit(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.7),
+                              color: theme.textTheme.bodyLarge?.color
+                                  ?.withValues(alpha: 0.7),
                             ),
                           ),
                           const SizedBox(height: 6),
                           DropdownButtonFormField<String>(
                             value: _financialYear,
                             decoration: const InputDecoration(
-                              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 4,
+                              ),
                             ),
                             items: const [
-                              DropdownMenuItem(value: '2025-2026', child: Text('2025-2026')),
-                              DropdownMenuItem(value: '2026-2027', child: Text('2026-2027')),
-                              DropdownMenuItem(value: '2027-2028', child: Text('2027-2028')),
+                              DropdownMenuItem(
+                                value: '2025-2026',
+                                child: Text('2025-2026'),
+                              ),
+                              DropdownMenuItem(
+                                value: '2026-2027',
+                                child: Text('2026-2027'),
+                              ),
+                              DropdownMenuItem(
+                                value: '2027-2028',
+                                child: Text('2027-2028'),
+                              ),
                             ],
                             onChanged: (val) {
                               if (val != null) {
@@ -702,7 +823,8 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                   onSignatureSaved: (bytes) {
                     setState(() {
                       if (bytes != null) {
-                        _signatureUrlBase64 = 'data:image/png;base64,${base64Encode(bytes)}';
+                        _signatureUrlBase64 =
+                            'data:image/png;base64,${base64Encode(bytes)}';
                       } else {
                         _signatureUrlBase64 = null;
                       }
@@ -719,7 +841,8 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
 
                 // SUBMIT BUTTON
                 AppButton(
-                  text: _isEdit ? 'update_business'.tr() : 'create_business'.tr(),
+                  text:
+                      _isEdit ? 'update_business'.tr() : 'create_business'.tr(),
                   onPressed: _submit,
                 ),
                 const SizedBox(height: 20),

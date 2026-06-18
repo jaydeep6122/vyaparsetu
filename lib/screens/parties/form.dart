@@ -14,7 +14,8 @@ import 'package:vyaparsetu/core/Core.dart';
 
 class PartyFormScreen extends StatefulWidget {
   final Party? existingParty;
-  const PartyFormScreen({super.key, this.existingParty});
+  final PartyType? initialPartyType;
+  const PartyFormScreen({super.key, this.existingParty, this.initialPartyType});
 
   @override
   State<PartyFormScreen> createState() => _PartyFormScreenState();
@@ -49,6 +50,9 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
         _isEdit = true;
         _initForm();
       } else {
+        if (widget.initialPartyType != null) {
+          _partyType = widget.initialPartyType!;
+        }
         _billingAddressControllers.add(TextEditingController());
         _shippingAddressControllers.add(TextEditingController());
       }

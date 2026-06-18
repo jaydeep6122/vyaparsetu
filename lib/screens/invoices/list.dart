@@ -103,6 +103,7 @@ context.read<Core>().invoice.fetchInvoices(
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'invoices_fab',
         onPressed: () {
           Navigator.of(context).push(
             getPageRoute(_filterType == 'sale'

@@ -38,7 +38,7 @@ class DashboardModule {
     _summary = null;
     _isLoadingSummary = true;
     _summaryError = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final data = await Api.instance.dashboard.getSummary(businessId);
@@ -48,14 +48,18 @@ class DashboardModule {
     }
 
     _isLoadingSummary = false;
-    core.notifyListeners();
+    core.notify();
   }
 
-  Future<void> fetchProfitLoss(String businessId, {String? fromDate, String? toDate}) async {
+  Future<void> fetchProfitLoss(
+    String businessId, {
+    String? fromDate,
+    String? toDate,
+  }) async {
     _profitLoss = null;
     _isLoadingProfitLoss = true;
     _profitLossError = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final data = await Api.instance.dashboard.getProfitLoss(
@@ -69,14 +73,14 @@ class DashboardModule {
     }
 
     _isLoadingProfitLoss = false;
-    core.notifyListeners();
+    core.notify();
   }
 
   // Future<void> fetchPartyLedger(String businessId, String partyId) async {
   //   _partyLedger = null;
   //   _isLoadingPartyLedger = true;
   //   _partyLedgerError = null;
-  //   core.notifyListeners();
+  //   core.notify();
   //
   //   try {
   //     final data = await Api.instance.dashboard.getPartyLedger(businessId, partyId);
@@ -86,7 +90,7 @@ class DashboardModule {
   //   }
   //
   //   _isLoadingPartyLedger = false;
-  //   core.notifyListeners();
+  //   core.notify();
   // }
 
   void clearAll() {
@@ -96,6 +100,6 @@ class DashboardModule {
     _summaryError = null;
     _profitLossError = null;
     // _partyLedgerError = null;
-    core.notifyListeners();
+    core.notify();
   }
 }

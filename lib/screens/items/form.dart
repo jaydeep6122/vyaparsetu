@@ -34,7 +34,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
 
   void _showUnitPicker() {
     final customController = TextEditingController();
-        showModalBottomSheet(
+    showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -141,7 +141,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
           ),
         );
       },
-    );
+    ).whenComplete(() => customController.dispose());
   }
 
   @override
@@ -191,20 +191,26 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
       'measuring_unit': _measuringUnit,
     };
 
-    bool success;
     if (_isEdit) {
-      success = await itemModule.updateItem(businessId, _existingItem!.id, data);
+      final success = await itemModule.updateItem(businessId, _existingItem!.id, data);
+      if (success && mounted) {
+        Navigator.of(context).pop();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) showSuccessToast('Item updated successfully');
+        });
+      } else if (mounted) {
+        showErrorToast(itemModule.error ?? 'Failed to save item');
+      }
     } else {
-      success = await itemModule.createItem(businessId, data);
-    }
-
-    if (success && mounted) {
-      Navigator.of(context).pop();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) showSuccessToast(_isEdit ? 'Item updated successfully' : 'Item created successfully');
-      });
-    } else if (mounted) {
-      showErrorToast(itemModule.error ?? 'Failed to save item');
+      final createdItem = await itemModule.createItem(businessId, data);
+      if (createdItem != null && mounted) {
+        Navigator.of(context).pop(createdItem);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) showSuccessToast('Item created successfully');
+        });
+      } else if (mounted) {
+        showErrorToast(itemModule.error ?? 'Failed to save item');
+      }
     }
   }
 

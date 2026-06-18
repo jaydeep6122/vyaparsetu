@@ -21,7 +21,7 @@ class BusinessModule {
   Future<void> fetchBusinesses() async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final list = await Api.instance.business.list();
@@ -48,7 +48,7 @@ class BusinessModule {
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
   }
 
   void restoreSelectedBusiness() {
@@ -76,33 +76,33 @@ class BusinessModule {
     core.party.clearAll();
     core.payment.clearAll();
     core.expense.clearAll();
-    core.notifyListeners();
+    core.notify();
   }
 
   Future<bool> createBusiness(Map<String, dynamic> data) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.business.create(data);
       await fetchBusinesses();
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
   Future<bool> updateBusiness(String id, Map<String, dynamic> data) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.business.update(id, data);
@@ -116,21 +116,21 @@ class BusinessModule {
       }
 
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
   Future<bool> deleteBusiness(String id) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.business.delete(id);
@@ -147,21 +147,21 @@ class BusinessModule {
       }
 
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
   Future<void> clearSelectedBusiness() async {
     _selectedBusiness = null;
     await CacheBox.setSelectedBusinessId(null);
-    core.notifyListeners();
+    core.notify();
   }
 
 }

@@ -27,7 +27,7 @@ class ItemModule {
   Future<void> fetchItems(String businessId) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final list = await Api.instance.item.list(businessId);
@@ -37,66 +37,69 @@ class ItemModule {
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
   }
 
-  Future<bool> createItem(String businessId, Map<String, dynamic> data) async {
+  Future<Item?> createItem(String businessId, Map<String, dynamic> data) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
-      await Api.instance.item.create(businessId, data);
+      final response = await Api.instance.item.create(businessId, data);
       await fetchItems(businessId);
       _isLoading = false;
-      core.notifyListeners();
-      return true;
+      core.notify();
+      final createdId = response['id'] as String?;
+      return createdId != null
+          ? _items.where((i) => i.id == createdId).firstOrNull
+          : null;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
-    return false;
+    core.notify();
+    return null;
   }
 
   Future<bool> updateItem(String businessId, String itemId, Map<String, dynamic> data) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.item.update(businessId, itemId, data);
       await fetchItems(businessId);
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
   Future<bool> deleteItem(String businessId, String itemId) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.item.delete(businessId, itemId);
       await fetchItems(businessId);
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
@@ -104,7 +107,7 @@ class ItemModule {
     _quantitySummary = null;
     _isLoadingQuantitySummary = true;
     _quantitySummaryError = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final data = await Api.instance.item.getQuantitySummary(businessId, itemId);
@@ -114,13 +117,13 @@ class ItemModule {
     }
 
     _isLoadingQuantitySummary = false;
-    core.notifyListeners();
+    core.notify();
   }
 
   void clearQuantitySummary() {
     _quantitySummary = null;
     _quantitySummaryError = null;
-    core.notifyListeners();
+    core.notify();
   }
 
   void clearAll() {
@@ -130,6 +133,6 @@ class ItemModule {
     _quantitySummary = null;
     _isLoadingQuantitySummary = false;
     _quantitySummaryError = null;
-    core.notifyListeners();
+    core.notify();
   }
 }

@@ -24,7 +24,7 @@ class ExpenseModule {
   }) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final list = await Api.instance.expense.list(
@@ -40,66 +40,66 @@ class ExpenseModule {
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
   }
 
   Future<bool> createExpense(String businessId, Map<String, dynamic> data) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.expense.create(businessId, data);
       await fetchExpenses(businessId);
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
   Future<bool> updateExpense(String businessId, String expenseId, Map<String, dynamic> data) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.expense.update(businessId, expenseId, data);
       await fetchExpenses(businessId);
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
   Future<bool> deleteExpense(String businessId, String expenseId) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.expense.delete(businessId, expenseId);
       await fetchExpenses(businessId);
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
@@ -107,6 +107,6 @@ class ExpenseModule {
     _expenses = [];
     _isLoading = false;
     _error = null;
-    core.notifyListeners();
+    core.notify();
   }
 }

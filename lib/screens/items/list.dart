@@ -38,16 +38,23 @@ class _ItemListScreenState extends State<ItemListScreen> {
     }
   }
 
-  Widget _buildItemList(bool isDark, ThemeData theme, bool isLoading, List<Item> items, String? error, String? businessId) {
+  Widget _buildItemList(
+    bool isDark,
+    ThemeData theme,
+    bool isLoading,
+    List<Item> items,
+    String? error,
+    String? businessId,
+  ) {
     if (isLoading && items.isEmpty) {
-      return const LoadingIndicator(message: 'Loading items...', isShimmer: true);
+      return const LoadingIndicator(
+        message: 'Loading items...',
+        isShimmer: true,
+      );
     }
 
     if (error != null) {
-      return AppErrorWidget(
-        errorMessage: error!,
-        onRetry: _loadData,
-      );
+      return AppErrorWidget(errorMessage: error, onRetry: _loadData);
     }
 
     final filtered = _filterItems(items);
@@ -63,11 +70,11 @@ class _ItemListScreenState extends State<ItemListScreen> {
         buttonText: _searchQuery.isEmpty ? 'add_item'.tr() : null,
         onButtonPressed:
             _searchQuery.isEmpty
-                ? () => Navigator.of(context)
-                    .push(getPageRoute(const ItemFormScreen()))
-                    .then((_) {
-                      if (mounted) _loadData();
-                    })
+                ? () => Navigator.of(
+                  context,
+                ).push(getPageRoute(const ItemFormScreen())).then((_) {
+                  if (mounted) _loadData();
+                })
                 : null,
       );
     }
@@ -80,10 +87,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
         }
       },
       child: ListView.builder(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 8,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: filtered.length,
         itemBuilder: (context, index) {
           final item = filtered[index];
@@ -91,22 +95,16 @@ class _ItemListScreenState extends State<ItemListScreen> {
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(
-                AppTheme.radiusMd,
-              ),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
             ),
             child: InkWell(
-              borderRadius: BorderRadius.circular(
-                AppTheme.radiusMd,
-              ),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
               onTap: () {
-                Navigator.of(context)
-                    .push(
-                      getPageRoute(ItemDetailScreen(item: item)),
-                    )
-                    .then((_) {
-                      if (mounted) _loadData();
-                    });
+                Navigator.of(
+                  context,
+                ).push(getPageRoute(ItemDetailScreen(item: item))).then((_) {
+                  if (mounted) _loadData();
+                });
               },
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
@@ -117,23 +115,17 @@ class _ItemListScreenState extends State<ItemListScreen> {
                       backgroundColor:
                           isDark
                               ? AppTheme.gray800
-                              : AppTheme.primary.withValues(
-                                alpha: 0.08,
-                              ),
+                              : AppTheme.primary.withValues(alpha: 0.08),
                       child: Icon(
                         Icons.shopping_bag_outlined,
-                        color:
-                            isDark
-                                ? Colors.white
-                                : AppTheme.primary,
+                        color: isDark ? Colors.white : AppTheme.primary,
                         size: 22,
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             item.name,
@@ -148,7 +140,8 @@ class _ItemListScreenState extends State<ItemListScreen> {
                             'Unit: ${item.measuringUnit}${item.hsnCode != null ? " | HSN: ${item.hsnCode}" : ""}',
                             style: GoogleFonts.outfit(
                               fontSize: 13,
-                              color: isDark ? AppTheme.gray400 : AppTheme.gray600,
+                              color:
+                                  isDark ? AppTheme.gray400 : AppTheme.gray600,
                             ),
                           ),
                         ],
@@ -156,9 +149,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                     ),
                     Icon(
                       Icons.chevron_right_rounded,
-                      color: theme.iconTheme.color?.withValues(
-                        alpha: 0.4,
-                      ),
+                      color: theme.iconTheme.color?.withValues(alpha: 0.4),
                     ),
                   ],
                 ),
@@ -184,12 +175,12 @@ class _ItemListScreenState extends State<ItemListScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final businessId =
-context.select<Core, String?>((c) => c.business.selectedBusiness?.id);
+    final businessId = context.select<Core, String?>(
+      (c) => c.business.selectedBusiness?.id,
+    );
     final isLoading = context.select<Core, bool>((c) => c.item.isLoading);
     final items = context.select<Core, List<Item>>((c) => c.item.items);
     final error = context.select<Core, String?>((c) => c.item.error);
-
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -213,11 +204,19 @@ context.select<Core, String?>((c) => c.business.selectedBusiness?.id);
             ),
           ),
           Expanded(
-            child: _buildItemList(isDark, theme, isLoading, items, error, businessId),
+            child: _buildItemList(
+              isDark,
+              theme,
+              isLoading,
+              items,
+              error,
+              businessId,
+            ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'items_fab',
         onPressed: () {
           Navigator.of(context).push(getPageRoute(const ItemFormScreen())).then(
             (_) {

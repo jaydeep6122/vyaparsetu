@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:vyaparsetu/storage/hive/preferences.dart';
-import 'package:vyaparsetu/core/Core.dart';
 
 class AppTheme {
   // ── Brand Colors (Light) ──
@@ -474,7 +473,7 @@ class AppTheme {
           vertical: 14,
         ),
         floatingLabelStyle: GoogleFonts.outfit(
-              color: Colors.white,
+          color: Colors.white,
           fontWeight: FontWeight.w500,
         ),
         floatingLabelBehavior: FloatingLabelBehavior.auto,
@@ -525,13 +524,13 @@ class AppTheme {
             return GoogleFonts.outfit(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-          color: AppTheme.gray300,
+              color: AppTheme.gray300,
             );
           }
           return GoogleFonts.outfit(
             fontSize: 11,
             fontWeight: FontWeight.w500,
-          color: AppTheme.gray400,
+            color: AppTheme.gray400,
           );
         }),
         elevation: 0,
@@ -581,7 +580,7 @@ class AppTheme {
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: primaryDark,
-          foregroundColor: Colors.white,
+        foregroundColor: Colors.white,
         elevation: 4,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusMd),

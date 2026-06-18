@@ -21,13 +21,13 @@ class AuthModule {
 
   void setError(String? error) {
     _error = error;
-    core.notifyListeners();
+    core.notify();
   }
 
   Future<bool> login(String email, String password) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final response = await Api.instance.auth.login(
@@ -48,7 +48,7 @@ class AuthModule {
         await UserBox.setLastLoginEmail(email);
 
         _isLoading = false;
-        core.notifyListeners();
+        core.notify();
         return true;
       } else {
         _error = 'Invalid response from server';
@@ -58,14 +58,14 @@ class AuthModule {
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
   Future<bool> signup(String name, String email, String password, String confirmPassword) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final response = await Api.instance.auth.signup(
@@ -88,7 +88,7 @@ class AuthModule {
         await UserBox.setLastLoginEmail(email);
 
         _isLoading = false;
-        core.notifyListeners();
+        core.notify();
         return true;
       } else {
         _error = 'Invalid response from server';
@@ -98,7 +98,7 @@ class AuthModule {
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
@@ -111,7 +111,7 @@ class AuthModule {
     }
 
     _user = User.fromJson(cachedUser);
-    core.notifyListeners();
+    core.notify();
 
     try {
       final response = await Api.instance.auth.getMe();
@@ -119,14 +119,14 @@ class AuthModule {
       if (userJson != null) {
         _user = User.fromJson(Map<String, dynamic>.from(userJson));
         await CacheBox.setUser(_user!.toJson());
-        core.notifyListeners();
+        core.notify();
         return true;
       }
     } catch (e) {
       final currentToken = await SecureStorage.getAccessToken();
       if (currentToken == null) {
         _user = null;
-        core.notifyListeners();
+        core.notify();
         return false;
       }
     }
@@ -136,7 +136,7 @@ class AuthModule {
 
   Future<void> logout({bool allDevices = false}) async {
     _isLoading = true;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final refreshToken = await SecureStorage.getRefreshToken();
@@ -153,13 +153,13 @@ class AuthModule {
       await SecureStorage.deleteAll();
       await clearBoxes();
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
     }
   }
 
   void handleSessionExpired() {
     _user = null;
-    core.notifyListeners();
+    core.notify();
   }
 
 }

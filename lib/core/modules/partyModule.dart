@@ -40,7 +40,7 @@ class PartyModule {
   }) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final list = await Api.instance.party.list(
@@ -54,66 +54,66 @@ class PartyModule {
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
   }
 
   Future<bool> createParty(String businessId, Map<String, dynamic> data) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.party.create(businessId, data);
       await fetchParties(businessId);
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
   Future<bool> updateParty(String businessId, String partyId, Map<String, dynamic> data) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.party.update(businessId, partyId, data);
       await fetchParties(businessId);
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
   Future<bool> deleteParty(String businessId, String partyId) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.party.delete(businessId, partyId);
       await fetchParties(businessId);
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
@@ -121,7 +121,7 @@ class PartyModule {
     _partyLedger = null;
     _isLoadingPartyLedger = true;
     _partyLedgerError = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final data = await Api.instance.party.getPartyLedger(businessId, partyId);
@@ -131,20 +131,20 @@ class PartyModule {
     }
 
     _isLoadingPartyLedger = false;
-    core.notifyListeners();
+    core.notify();
   }
 
   void clearPartyLedger() {
     _partyLedger = null;
     _partyLedgerError = null;
-    core.notifyListeners();
+    core.notify();
   }
 
   Future<void> fetchPartyQuantitySummary(String businessId, String partyId) async {
     _partyQuantitySummary = null;
     _isLoadingPartyQuantitySummary = true;
     _partyQuantitySummaryError = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final data = await Api.instance.party.getPartyQuantitySummary(businessId, partyId);
@@ -154,13 +154,13 @@ class PartyModule {
     }
 
     _isLoadingPartyQuantitySummary = false;
-    core.notifyListeners();
+    core.notify();
   }
 
   void clearPartyQuantitySummary() {
     _partyQuantitySummary = null;
     _partyQuantitySummaryError = null;
-    core.notifyListeners();
+    core.notify();
   }
 
   void clearAll() {
@@ -173,6 +173,6 @@ class PartyModule {
     _partyQuantitySummary = null;
     _isLoadingPartyQuantitySummary = false;
     _partyQuantitySummaryError = null;
-    core.notifyListeners();
+    core.notify();
   }
 }
