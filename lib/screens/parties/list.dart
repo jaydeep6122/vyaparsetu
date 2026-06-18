@@ -105,6 +105,7 @@ context.read<Core>().party.fetchParties(businessId);
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'parties_fab',
         onPressed: () {
           Navigator.of(context).push(
             getPageRoute(const PartyFormScreen()),

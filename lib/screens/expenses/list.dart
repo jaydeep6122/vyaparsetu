@@ -207,6 +207,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'expenses_fab',
         onPressed: () {
           Navigator.of(
             context,

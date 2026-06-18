@@ -24,7 +24,7 @@ class PaymentModule {
   }) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final list = await Api.instance.payment.list(
@@ -40,66 +40,66 @@ class PaymentModule {
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
   }
 
   Future<bool> createPayment(String businessId, Map<String, dynamic> data) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.payment.create(businessId, data);
       await fetchPayments(businessId);
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
   Future<bool> updatePayment(String businessId, String paymentId, Map<String, dynamic> data) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.payment.update(businessId, paymentId, data);
       await fetchPayments(businessId);
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
   Future<bool> deletePayment(String businessId, String paymentId) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.payment.delete(businessId, paymentId);
       await fetchPayments(businessId);
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
@@ -107,6 +107,6 @@ class PaymentModule {
     _payments = [];
     _isLoading = false;
     _error = null;
-    core.notifyListeners();
+    core.notify();
   }
 }

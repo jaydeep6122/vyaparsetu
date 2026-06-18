@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:vyaparsetu/storage/hive/preferences.dart';
-import 'package:vyaparsetu/global/themes.dart';
 import 'package:vyaparsetu/core/Core.dart';
 
 class SettingsModule {
@@ -23,13 +22,13 @@ class SettingsModule {
   void _loadTheme() {
     final themeStr = PreferencesBox.getThemeMode();
     _themeMode = themeStr == 'dark' ? ThemeMode.dark : ThemeMode.light;
-    core.notifyListeners();
+    core.notify();
   }
 
   void _loadLocale() {
     final code = PreferencesBox.getLocaleCode();
     _locale = Locale(code);
-    core.notifyListeners();
+    core.notify();
   }
 
   Future<void> toggleTheme() async {
@@ -40,7 +39,7 @@ class SettingsModule {
       _themeMode = ThemeMode.light;
       await PreferencesBox.setThemeMode('light');
     }
-    core.notifyListeners();
+    core.notify();
   }
 
   Future<void> changeLocale(BuildContext context, Locale newLocale) async {
@@ -49,6 +48,6 @@ class SettingsModule {
     if (context.mounted) {
       await context.setLocale(newLocale);
     }
-    core.notifyListeners();
+    core.notify();
   }
 }

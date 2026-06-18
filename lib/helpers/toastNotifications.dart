@@ -3,8 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:vyaparsetu/global/themes.dart';
 import 'package:vyaparsetu/helpers/navigation.dart';
 
+void _showToast(Flushbar toast) {
+  final ctx = navigatorKey.currentContext;
+  if (ctx == null) return;
+  toast.show(ctx);
+}
+
 void showSuccessToast(String message, {int durationSeconds = 3}) {
-  Flushbar(
+  _showToast(Flushbar(
     message: message,
     backgroundColor: AppTheme.success,
     duration: Duration(seconds: durationSeconds),
@@ -16,11 +22,11 @@ void showSuccessToast(String message, {int durationSeconds = 3}) {
     animationDuration: const Duration(milliseconds: 400),
     forwardAnimationCurve: Curves.decelerate,
     isDismissible: true,
-  ).show(navigatorKey.currentContext!);
+  ));
 }
 
 void showErrorToast(String message, {int durationSeconds = 3}) {
-  Flushbar(
+  _showToast(Flushbar(
     message: message,
     backgroundColor: AppTheme.error,
     duration: Duration(seconds: durationSeconds),
@@ -32,11 +38,11 @@ void showErrorToast(String message, {int durationSeconds = 3}) {
     animationDuration: const Duration(milliseconds: 400),
     forwardAnimationCurve: Curves.decelerate,
     isDismissible: true,
-  ).show(navigatorKey.currentContext!);
+  ));
 }
 
 void showInfoToast(String message, {int durationSeconds = 3}) {
-  Flushbar(
+  _showToast(Flushbar(
     message: message,
     backgroundColor: AppTheme.info,
     duration: Duration(seconds: durationSeconds),
@@ -49,5 +55,5 @@ void showInfoToast(String message, {int durationSeconds = 3}) {
     forwardAnimationCurve: Curves.decelerate,
     icon: const Icon(Icons.info, color: Colors.white),
     isDismissible: true,
-  ).show(navigatorKey.currentContext!);
+  ));
 }

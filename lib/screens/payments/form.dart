@@ -22,7 +22,7 @@ class PaymentFormScreen extends StatefulWidget {
   final double? initialAmount;
   final PaymentType paymentType;
 
-  const PaymentFormScreen._({
+  const PaymentFormScreen({
     super.key,
     this.existingPayment,
     this.invoice,
@@ -47,25 +47,20 @@ class PaymentFormScreen extends StatefulWidget {
        invoice = null,
        paymentType = PaymentType.payment_out;
 
-  PaymentFormScreen.edit({
-    super.key,
-    required Payment existingPayment,
-  }) : existingPayment = existingPayment,
-       invoice = null,
-       partyId = null,
-       initialAmount = null,
-       paymentType = existingPayment.paymentType;
+  PaymentFormScreen.edit({super.key, required this.existingPayment})
+    : invoice = null,
+      partyId = null,
+      initialAmount = null,
+      paymentType = existingPayment!.paymentType;
 
-  PaymentFormScreen.fromInvoice({
-    super.key,
-    required Invoice invoice,
-  }) : existingPayment = null,
-       invoice = invoice,
-       partyId = null,
-       initialAmount = null,
-       paymentType = invoice.invoiceType == InvoiceType.sale
-           ? PaymentType.payment_in
-           : PaymentType.payment_out;
+  PaymentFormScreen.fromInvoice({super.key, required this.invoice})
+    : existingPayment = null,
+      partyId = null,
+      initialAmount = null,
+      paymentType =
+          invoice!.invoiceType == InvoiceType.sale
+              ? PaymentType.payment_in
+              : PaymentType.payment_out;
 
   @override
   State<PaymentFormScreen> createState() => _PaymentFormScreenState();
@@ -92,6 +87,14 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
   bool _lockPartyAndInvoice = false;
 
   @override
+  void dispose() {
+    _amountController.dispose();
+    _refNoController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_isInitialized) return;
@@ -116,7 +119,9 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
       final arg = widget.invoice!;
       if (arg.partyId == null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          showErrorToast('Cannot record payment for a cash/walk-in customer invoice');
+          showErrorToast(
+            'Cannot record payment for a cash/walk-in customer invoice',
+          );
           Navigator.of(context).pop();
         });
         return;
@@ -150,32 +155,42 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
     final businessId = context.read<Core>().business.selectedBusiness?.id;
     if (businessId == null) return;
 
-    setState(() => _isLoadingInvoices = true);
+    if (mounted) setState(() => _isLoadingInvoices = true);
 
     try {
       final invoiceModule = context.read<Core>().invoice;
       await invoiceModule.fetchInvoices(businessId, partyId: partyId);
 
-      final targetType = widget.paymentType == PaymentType.payment_in
-          ? InvoiceType.sale
-          : InvoiceType.purchase;
+      if (!mounted) return;
+
+      final targetType =
+          widget.paymentType == PaymentType.payment_in
+              ? InvoiceType.sale
+              : InvoiceType.purchase;
 
       setState(() {
-        _unpaidInvoices = invoiceModule.invoices
-            .where((inv) => inv.invoiceType == targetType && inv.paymentStatus != PaymentStatus.paid)
-            .toList();
+        _unpaidInvoices =
+            invoiceModule.invoices
+                .where(
+                  (inv) =>
+                      inv.invoiceType == targetType &&
+                      inv.paymentStatus != PaymentStatus.paid,
+                )
+                .toList();
 
         if (_lockPartyAndInvoice && _selectedInvoiceId != null) {
-          final isPresent = _unpaidInvoices.any((i) => i.id == _selectedInvoiceId);
+          final isPresent = _unpaidInvoices.any(
+            (i) => i.id == _selectedInvoiceId,
+          );
           if (!isPresent && widget.invoice != null) {
             _unpaidInvoices.add(widget.invoice!);
           }
         }
       });
     } catch (e) {
-      showErrorToast('Failed to load party invoices');
+      if (mounted) showErrorToast('Failed to load party invoices');
     } finally {
-      setState(() => _isLoadingInvoices = false);
+      if (mounted) setState(() => _isLoadingInvoices = false);
     }
   }
 
@@ -215,15 +230,25 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
       'amount': double.parse(_amountController.text.trim()),
       'payment_date': _paymentDate.toUtc().toIso8601String(),
       'payment_mode': _paymentMode.value,
-      'reference_number': _refNoController.text.trim().isEmpty ? null : _refNoController.text.trim(),
-      'description': _descController.text.trim().isEmpty ? null : _descController.text.trim(),
+      'reference_number':
+          _refNoController.text.trim().isEmpty
+              ? null
+              : _refNoController.text.trim(),
+      'description':
+          _descController.text.trim().isEmpty
+              ? null
+              : _descController.text.trim(),
     };
 
     final provider = context.read<Core>().payment;
 
     bool success;
     if (_isEdit && _existingPayment != null) {
-      success = await provider.updatePayment(businessId, _existingPayment!.id, data);
+      success = await provider.updatePayment(
+        businessId,
+        _existingPayment!.id,
+        data,
+      );
     } else {
       success = await provider.createPayment(businessId, data);
     }
@@ -232,7 +257,12 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
       Navigator.of(context).pop();
       context.read<Core>().business.fetchBusinesses();
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) showSuccessToast(_isEdit ? 'Payment updated successfully' : 'Payment recorded successfully');
+        if (mounted)
+          showSuccessToast(
+            _isEdit
+                ? 'Payment updated successfully'
+                : 'Payment recorded successfully',
+          );
       });
     } else if (mounted) {
       showErrorToast(provider.error ?? 'Failed to save payment');
@@ -245,17 +275,21 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => const ConfirmationDialog(
-        title: 'Delete Payment',
-        content: 'Are you sure you want to delete this recorded payment?',
-        confirmText: 'Delete',
-        isDestructive: true,
-        icon: Icons.delete_outline_rounded,
-      ),
+      builder:
+          (context) => const ConfirmationDialog(
+            title: 'Delete Payment',
+            content: 'Are you sure you want to delete this recorded payment?',
+            confirmText: 'Delete',
+            isDestructive: true,
+            icon: Icons.delete_outline_rounded,
+          ),
     );
 
     if (confirm == true && mounted) {
-      final success = await context.read<Core>().payment.deletePayment(businessId, _existingPayment!.id);
+      final success = await context.read<Core>().payment.deletePayment(
+        businessId,
+        _existingPayment!.id,
+      );
       if (success && mounted) {
         Navigator.of(context).pop();
         context.read<Core>().business.fetchBusinesses();
@@ -297,30 +331,55 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                   ),
                 ),
               ),
-              Text('Select Invoice',
-                style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(
+                'Select Invoice',
+                style: GoogleFonts.outfit(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 12),
               Divider(color: isDark ? AppTheme.gray700 : Colors.grey.shade200),
               ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.4),
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(ctx).size.height * 0.4,
+                ),
                 child: ListView(
                   shrinkWrap: true,
                   children: [
                     ..._unpaidInvoices.map((inv) {
                       final due = inv.totalAmount - inv.paidAmount;
                       final isSelected = inv.id == _selectedInvoiceId;
-                      final accent = widget.paymentType == PaymentType.payment_in
-                          ? AppTheme.success : AppTheme.error;
+                      final accent =
+                          widget.paymentType == PaymentType.payment_in
+                              ? AppTheme.success
+                              : AppTheme.error;
                       return ListTile(
                         leading: Icon(
-                          isSelected ? Icons.check_circle : Icons.description_outlined,
+                          isSelected
+                              ? Icons.check_circle
+                              : Icons.description_outlined,
                           color: isSelected ? accent : AppTheme.slate500,
                         ),
-                        title: Text(inv.invoiceNumber, style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
-                        subtitle: Text('${Formatters.formatCurrency(due)} due',
-                          style: GoogleFonts.outfit(color: AppTheme.successDark)),
-                        trailing: Text(Formatters.formatDate(inv.invoiceDate),
-                          style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.slate500)),
+                        title: Text(
+                          inv.invoiceNumber,
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${Formatters.formatCurrency(due)} due',
+                          style: GoogleFonts.outfit(
+                            color: AppTheme.successDark,
+                          ),
+                        ),
+                        trailing: Text(
+                          Formatters.formatDate(inv.invoiceDate),
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            color: AppTheme.slate500,
+                          ),
+                        ),
                         onTap: () => Navigator.of(ctx).pop(inv.id),
                       );
                     }),
@@ -347,30 +406,45 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final accentColor = widget.paymentType == PaymentType.payment_in
-        ? AppTheme.success : AppTheme.error;
+    final accentColor =
+        widget.paymentType == PaymentType.payment_in
+            ? AppTheme.success
+            : AppTheme.error;
     final parties = context.select<Core, List<Party>>((c) => c.party.parties);
 
-    final filteredParties = parties.where((p) {
-      if (widget.partyId != null && p.id == widget.partyId) return true;
-      if (widget.paymentType == PaymentType.payment_in) {
-        return p.partyType == PartyType.customer || p.partyType == PartyType.both;
-      }
-      return p.partyType == PartyType.supplier || p.partyType == PartyType.both;
-    }).toList();
+    final filteredParties =
+        parties.where((p) {
+          if (widget.partyId != null && p.id == widget.partyId) return true;
+          if (widget.paymentType == PaymentType.payment_in) {
+            return p.partyType == PartyType.customer ||
+                p.partyType == PartyType.both;
+          }
+          return p.partyType == PartyType.supplier ||
+              p.partyType == PartyType.both;
+        }).toList();
 
-    final selectedParty = _selectedPartyId != null
-        ? parties.where((p) => p.id == _selectedPartyId).firstOrNull
-        : null;
-    final selectedPartyName = _existingPayment?.partyName ?? selectedParty?.name;
+    final selectedParty =
+        _selectedPartyId != null
+            ? parties.where((p) => p.id == _selectedPartyId).firstOrNull
+            : null;
+    final selectedPartyName =
+        _existingPayment?.partyName ?? selectedParty?.name;
 
     final showPartySelector = _selectedPartyId == null && !_lockPartyAndInvoice;
-    final showInvoiceSelector = _selectedPartyId != null && !_lockPartyAndInvoice;
-    final showSubtitle = (_lockPartyAndInvoice || widget.partyId != null) && selectedPartyName != null;
+    final showInvoiceSelector =
+        _selectedPartyId != null && !_lockPartyAndInvoice;
+    final showSubtitle =
+        (_lockPartyAndInvoice || widget.partyId != null) &&
+        selectedPartyName != null;
 
-    final invoiceLabel = _selectedInvoiceId != null
-        ? (_unpaidInvoices.where((i) => i.id == _selectedInvoiceId).firstOrNull?.invoiceNumber ?? 'Invoice selected')
-        : 'Select Invoice *';
+    final invoiceLabel =
+        _selectedInvoiceId != null
+            ? (_unpaidInvoices
+                    .where((i) => i.id == _selectedInvoiceId)
+                    .firstOrNull
+                    ?.invoiceNumber ??
+                'Invoice selected')
+            : 'Select Invoice *';
 
     return Scaffold(
       appBar: AppBar(
@@ -378,22 +452,32 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _isEdit ? 'Edit Payment'
-                  : widget.paymentType == PaymentType.payment_in ? 'Record Payment In'
+              _isEdit
+                  ? 'Edit Payment'
+                  : widget.paymentType == PaymentType.payment_in
+                  ? 'Record Payment In'
                   : 'Record Payment Out',
               style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
             ),
             if (showSubtitle)
-              Text(selectedPartyName!,
-                style: GoogleFonts.outfit(fontSize: 13, color: isDark ? Colors.white70 : Colors.black54)),
+              Text(
+                selectedPartyName,
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  color: isDark ? Colors.white70 : Colors.black54,
+                ),
+              ),
           ],
         ),
-        actions: _isEdit
-            ? [IconButton(
-                icon: const Icon(Icons.delete_outline_rounded),
-                onPressed: _deletePayment,
-              )]
-            : null,
+        actions:
+            _isEdit
+                ? [
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    onPressed: _deletePayment,
+                  ),
+                ]
+                : null,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -406,19 +490,28 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                 if (showPartySelector) ...[
                   DropdownButtonFormField<String>(
                     decoration: InputDecoration(
-                      labelText: widget.paymentType == PaymentType.payment_in
-                          ? 'Select Customer' : 'Select Supplier',
+                      labelText:
+                          widget.paymentType == PaymentType.payment_in
+                              ? 'Select Customer'
+                              : 'Select Supplier',
                       prefixIcon: const Icon(Icons.person_outline_rounded),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
                     ),
                     isExpanded: true,
                     value: null,
-                    items: filteredParties.map((party) {
-                      return DropdownMenuItem<String>(
-                        value: party.id,
-                        child: Text(party.name, style: GoogleFonts.outfit()),
-                      );
-                    }).toList(),
+                    items:
+                        filteredParties.map((party) {
+                          return DropdownMenuItem<String>(
+                            value: party.id,
+                            child: Text(
+                              party.name,
+                              style: GoogleFonts.outfit(),
+                            ),
+                          );
+                        }).toList(),
                     onChanged: (val) {
                       if (val != null) {
                         setState(() {
@@ -432,34 +525,56 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                   const SizedBox(height: 20),
                 ],
 
-                if (_selectedPartyId != null && !_lockPartyAndInvoice && selectedPartyName != null) ...[
+                if (_selectedPartyId != null &&
+                    !_lockPartyAndInvoice &&
+                    selectedPartyName != null) ...[
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: accentColor.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: accentColor.withValues(alpha: 0.2)),
+                      border: Border.all(
+                        color: accentColor.withValues(alpha: 0.2),
+                      ),
                     ),
                     child: Row(
                       children: [
                         Container(
-                          width: 40, height: 40,
+                          width: 40,
+                          height: 40,
                           decoration: BoxDecoration(
                             color: accentColor.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Icon(Icons.person_rounded, color: accentColor, size: 20),
+                          child: Icon(
+                            Icons.person_rounded,
+                            color: accentColor,
+                            size: 20,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(selectedPartyName!,
-                                style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 15,
-                                  color: isDark ? Colors.white : AppTheme.primary)),
-                              Text(widget.paymentType == PaymentType.payment_in ? 'Customer' : 'Supplier',
-                                style: GoogleFonts.outfit(fontSize: 12, color: accentColor)),
+                              Text(
+                                selectedPartyName,
+                                style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                  color:
+                                      isDark ? Colors.white : AppTheme.primary,
+                                ),
+                              ),
+                              Text(
+                                widget.paymentType == PaymentType.payment_in
+                                    ? 'Customer'
+                                    : 'Supplier',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 12,
+                                  color: accentColor,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -476,9 +591,14 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
-                          child: Text('Change',
-                            style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600,
-                              color: accentColor)),
+                          child: Text(
+                            'Change',
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: accentColor,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -488,47 +608,72 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
 
                 if (showInvoiceSelector) ...[
                   _isLoadingInvoices
-                      ? const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
+                      ? const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
                       : InkWell(
-                          onTap: _showInvoicePicker,
-                          borderRadius: BorderRadius.circular(12),
-                          child: InputDecorator(
-                            decoration: InputDecoration(
-                              labelText: 'Link to Invoice',
-                              prefixIcon: const Icon(Icons.description_outlined),
-                              suffixIcon: const Icon(Icons.arrow_forward_ios, size: 14),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        onTap: _showInvoicePicker,
+                        borderRadius: BorderRadius.circular(12),
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Link to Invoice',
+                            prefixIcon: const Icon(Icons.description_outlined),
+                            suffixIcon: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 14,
                             ),
-                            child: Text(
-                              invoiceLabel,
-                              style: GoogleFonts.outfit(
-                                fontWeight: _selectedInvoiceId != null ? FontWeight.w600 : FontWeight.w400,
-                              ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                          ),
+                          child: Text(
+                            invoiceLabel,
+                            style: GoogleFonts.outfit(
+                              fontWeight:
+                                  _selectedInvoiceId != null
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
                             ),
                           ),
                         ),
+                      ),
                   const SizedBox(height: 20),
                 ],
 
-                Text('Amount',
+                Text(
+                  'Amount',
                   style: GoogleFonts.outfit(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.7),
+                    color: theme.textTheme.bodyLarge?.color?.withValues(
+                      alpha: 0.7,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _amountController,
                   keyboardType: TextInputType.number,
-                  style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.outfit(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
                   decoration: InputDecoration(
                     prefixText: '₹  ',
-                    prefixStyle: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.bold),
+                    prefixStyle: GoogleFonts.outfit(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
                     filled: true,
-                    fillColor: isDark
-                        ? AppTheme.cardDark
-                        : accentColor.withValues(alpha: 0.05),
+                    fillColor:
+                        isDark
+                            ? AppTheme.cardDark
+                            : accentColor.withValues(alpha: 0.05),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
@@ -545,17 +690,24 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(color: accentColor, width: 1.5),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 20,
+                    ),
                   ),
-                  validator: (val) => Validators.validatePositiveAmount(val, 'Amount'),
+                  validator:
+                      (val) => Validators.validatePositiveAmount(val, 'Amount'),
                 ),
                 const SizedBox(height: 24),
 
-                Text('payment_mode'.tr(),
+                Text(
+                  'payment_mode'.tr(),
                   style: GoogleFonts.outfit(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.7),
+                    color: theme.textTheme.bodyLarge?.color?.withValues(
+                      alpha: 0.7,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -598,7 +750,10 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                     ),
                     child: Text(
                       Formatters.formatDate(_paymentDate),
-                      style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -623,7 +778,9 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
 
                 AppButton(
                   text: _isEdit ? 'Update Payment' : 'Record Payment',
-                  isLoading: context.select<Core, bool>((c) => c.payment.isLoading),
+                  isLoading: context.select<Core, bool>(
+                    (c) => c.payment.isLoading,
+                  ),
                   onPressed: _submit,
                 ),
               ],
@@ -648,27 +805,39 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: isSelected
-                ? accentColor.withValues(alpha: 0.1)
-                : (isDark ? AppTheme.cardDark : AppTheme.gray50),
+            color:
+                isSelected
+                    ? accentColor.withValues(alpha: 0.1)
+                    : (isDark ? AppTheme.cardDark : AppTheme.gray50),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? accentColor : (isDark ? AppTheme.gray600 : AppTheme.gray300),
+              color:
+                  isSelected
+                      ? accentColor
+                      : (isDark ? AppTheme.gray600 : AppTheme.gray300),
               width: isSelected ? 2 : 1,
             ),
           ),
           child: Column(
             children: [
-              Icon(icon, size: 24,
-                color: isSelected ? accentColor : (isDark ? Colors.white60 : AppTheme.slate500)),
+              Icon(
+                icon,
+                size: 24,
+                color:
+                    isSelected
+                        ? accentColor
+                        : (isDark ? Colors.white60 : AppTheme.slate500),
+              ),
               const SizedBox(height: 6),
-              Text(label,
+              Text(
+                label,
                 style: GoogleFonts.outfit(
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: isSelected
-                      ? (isDark ? Colors.white : accentColor)
-                      : (isDark ? Colors.white60 : AppTheme.slate500),
+                  color:
+                      isSelected
+                          ? (isDark ? Colors.white : accentColor)
+                          : (isDark ? Colors.white60 : AppTheme.slate500),
                 ),
               ),
             ],

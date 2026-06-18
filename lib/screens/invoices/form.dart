@@ -9,11 +9,14 @@ import 'package:vyaparsetu/types/invoiceItem.dart';
 import 'package:vyaparsetu/global/constants.dart';
 import 'package:vyaparsetu/components/appTextField.dart';
 import 'package:vyaparsetu/components/appButton.dart';
+import 'package:vyaparsetu/screens/items/form.dart';
+import 'package:vyaparsetu/screens/parties/form.dart';
 import 'package:vyaparsetu/helpers/validators.dart';
 import 'package:vyaparsetu/helpers/formatters.dart';
 import 'package:vyaparsetu/helpers/toastNotifications.dart';
 import 'package:vyaparsetu/global/themes.dart';
 import 'package:vyaparsetu/core/Core.dart';
+import 'package:vyaparsetu/helpers/navigation.dart';
 
 class InvoiceFormScreen extends StatefulWidget {
   final bool isSale;
@@ -61,6 +64,18 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
   bool _isEdit = false;
   bool _isInitialized = false;
+  Item? _pendingItem;
+
+  @override
+  void dispose() {
+    _invoiceNumberController.dispose();
+    _chalanNoController.dispose();
+    _transportQtyController.dispose();
+    _transportRateController.dispose();
+    _paidAmountController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -69,7 +84,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       _isEdit = widget.existingInvoice != null;
       _isSale = widget.isSale;
       _invoiceType = _isSale ? InvoiceType.sale : InvoiceType.purchase;
-      _loadPartiesAndItems();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadPartiesAndItems());
 
       if (_isEdit) {
         final inv = widget.existingInvoice!;
@@ -146,9 +161,8 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   }
 
   void _onAddItemDialog() {
-    final items = context.read<Core>().item.items;
-
-    Item? tempItem;
+    Item? tempItem = _pendingItem;
+    _pendingItem = null;
     final qtyController = TextEditingController();
     final rateController = TextEditingController();
     final discController = TextEditingController();
@@ -231,7 +245,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       ),
                       value: tempItem?.id,
                       items:
-                          items.map((item) {
+                          context.read<Core>().item.items.map((item) {
                             return DropdownMenuItem<String>(
                               value: item.id,
                               child: Text(
@@ -243,7 +257,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       onChanged: (val) {
                         if (val != null) {
                           setStateDialog(() {
-                            final matchedItem = items.firstWhere(
+                            final matchedItem = context.read<Core>().item.items.firstWhere(
                               (item) => item.id == val,
                             );
                             tempItem = matchedItem;
@@ -252,6 +266,31 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                           });
                         }
                       },
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () async {
+                          final core = context.read<Core>();
+                          final businessId = core.business.selectedBusiness?.id;
+                          Navigator.of(context).pop();
+                          final result = await Navigator.of(context).push<Item>(
+                            getPageRoute(const ItemFormScreen()),
+                          );
+                          if (result != null) {
+                            _pendingItem = result;
+                          }
+                          if (businessId != null) {
+                            await core.item.fetchItems(businessId);
+                          }
+                          _onAddItemDialog();
+                        },
+                        icon: Icon(Icons.add, size: 16),
+                        label: Text('Create New Product/Service', style: TextStyle(fontSize: 13)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppTheme.primary,
+                        ),
+                      ),
                     ),
                     if (tempItem != null) ...[
                       const SizedBox(height: 12),
@@ -897,6 +936,25 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                 });
               },
             ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () async {
+                  final businessId = context.read<Core>().business.selectedBusiness?.id;
+                  await Navigator.of(context).push(
+                    getPageRoute(PartyFormScreen(initialPartyType: PartyType.customer)),
+                  );
+                  if (businessId != null && mounted) {
+                    context.read<Core>().party.fetchParties(businessId);
+                  }
+                },
+                icon: Icon(Icons.add, size: 16),
+                label: Text('Add Customer', style: TextStyle(fontSize: 13)),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppTheme.primary,
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
 
             Row(
@@ -1070,6 +1128,25 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   }
                 });
               },
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () async {
+                  final businessId = context.read<Core>().business.selectedBusiness?.id;
+                  await Navigator.of(context).push(
+                    getPageRoute(PartyFormScreen(initialPartyType: PartyType.supplier)),
+                  );
+                  if (businessId != null && mounted) {
+                    context.read<Core>().party.fetchParties(businessId);
+                  }
+                },
+                icon: Icon(Icons.add, size: 16),
+                label: Text('Add Supplier', style: TextStyle(fontSize: 13)),
+                style: TextButton.styleFrom(
+                  foregroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppTheme.primary,
+                ),
+              ),
             ),
             const SizedBox(height: 16),
 
@@ -1518,7 +1595,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           },
         );
       },
-    );
+    ).whenComplete(() => isCustomController.dispose());
   }
 
   Widget _addressOption({

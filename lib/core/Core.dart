@@ -37,4 +37,6 @@ class Core extends ChangeNotifier {
   }
 
   factory Core() => _instance ?? Core._();
+
+  void notify() => notifyListeners();
 }

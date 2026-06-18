@@ -30,7 +30,7 @@ class InvoiceModule {
   }) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final list = await Api.instance.invoice.list(
@@ -47,92 +47,92 @@ class InvoiceModule {
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
   }
 
   Future<Invoice?> fetchInvoiceDetail(String businessId, String invoiceId) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final data = await Api.instance.invoice.getById(businessId, invoiceId);
       final invoice = Invoice.fromJson(data);
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return invoice;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return null;
   }
 
   Future<bool> createInvoice(String businessId, Map<String, dynamic> data) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.invoice.create(businessId, data);
       await fetchInvoices(businessId);
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
   Future<bool> updateInvoice(String businessId, String invoiceId, Map<String, dynamic> data) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.invoice.update(businessId, invoiceId, data);
       await fetchInvoices(businessId);
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
   Future<bool> deleteInvoice(String businessId, String invoiceId) async {
     _isLoading = true;
     _error = null;
-    core.notifyListeners();
+    core.notify();
 
     try {
       await Api.instance.invoice.delete(businessId, invoiceId);
       await fetchInvoices(businessId);
       _isLoading = false;
-      core.notifyListeners();
+      core.notify();
       return true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
-    core.notifyListeners();
+    core.notify();
     return false;
   }
 
   Future<void> fetchPartyInvoices(String businessId, String partyId) async {
     _isLoadingPartyInvoices = true;
-    core.notifyListeners();
+    core.notify();
 
     try {
       final list = await Api.instance.invoice.list(businessId, partyId: partyId);
@@ -142,12 +142,12 @@ class InvoiceModule {
     }
 
     _isLoadingPartyInvoices = false;
-    core.notifyListeners();
+    core.notify();
   }
 
   void clearPartyInvoices() {
     _partyInvoices = [];
-    core.notifyListeners();
+    core.notify();
   }
 
   void clearAll() {
@@ -156,6 +156,6 @@ class InvoiceModule {
     _isLoading = false;
     _isLoadingPartyInvoices = false;
     _error = null;
-    core.notifyListeners();
+    core.notify();
   }
 }
