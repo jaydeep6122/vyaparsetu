@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ucrop_color_statusbar">#FF37474F</color>
+    <color name="ucrop_color_toolbar">#FF37474F</color>
+    <color name="ucrop_color_toolbar_widget">#FFFFFFFF</color>
+</resources>
