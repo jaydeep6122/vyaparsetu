@@ -84,7 +84,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    if (summaryError != null) {
+    if (summaryError != null && summary == null) {
       return Scaffold(
         body: AppErrorWidget(errorMessage: summaryError, onRetry: _loadData),
       );

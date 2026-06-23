@@ -9,6 +9,7 @@ class Formatters {
 
   static final DateFormat _dateFormat = DateFormat('dd MMM yyyy');
   static final DateFormat _dateTimeFormat = DateFormat('dd MMM yyyy, hh:mm a');
+  static final DateFormat _apiDateFormat = DateFormat('yyyy-MM-dd');
 
   static String formatCurrency(double amount) {
     return _indianRupeesFormat.format(amount);
@@ -20,6 +21,10 @@ class Formatters {
 
   static String formatDateTime(DateTime date) {
     return _dateTimeFormat.format(date.toLocal());
+  }
+
+  static String apiDateFormat(DateTime date) {
+    return _apiDateFormat.format(date.toLocal());
   }
 
   static String numberToWords(int number) {

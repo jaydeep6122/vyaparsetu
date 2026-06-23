@@ -6,6 +6,7 @@ class CacheBox {
   static const String userKey = 'user';
   static const String businessesKey = 'businesses';
   static const String selectedBusinessIdKey = 'selectedBusinessId';
+  static const String selectedFactoryIdKey = 'selectedFactoryId';
 
   static Future<void> open() async {
     await Hive.openBox(boxName);
@@ -60,5 +61,59 @@ class CacheBox {
   static String? getSelectedBusinessId() {
     final box = Hive.box(boxName);
     return box.get(selectedBusinessIdKey);
+  }
+
+  static Future<void> setSelectedFactoryId(String? factoryId) async {
+    final box = Hive.box(boxName);
+    if (factoryId == null) {
+      await box.delete(selectedFactoryIdKey);
+    } else {
+      await box.put(selectedFactoryIdKey, factoryId);
+    }
+  }
+
+  static String? getSelectedFactoryId() {
+    final box = Hive.box(boxName);
+    return box.get(selectedFactoryIdKey);
+  }
+
+  // --- Persistent Factory Caching ---
+  static const String cachedFactoriesKey = 'cachedFactories';
+  static const String cachedSummariesKey = 'cachedSummaries';
+
+  static Future<void> setCachedFactories(List<Map<String, dynamic>> list) async {
+    final box = Hive.box(boxName);
+    await box.put(cachedFactoriesKey, list);
+  }
+
+  static List<Map<String, dynamic>> getCachedFactories() {
+    final box = Hive.box(boxName);
+    final list = box.get(cachedFactoriesKey) ?? [];
+    return (list as List).map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  static Future<void> setCachedSummaries(Map<String, dynamic> summaries) async {
+    final box = Hive.box(boxName);
+    await box.put(cachedSummariesKey, summaries);
+  }
+
+  static Map<String, dynamic> getCachedSummaries() {
+    final box = Hive.box(boxName);
+    final data = box.get(cachedSummariesKey) ?? {};
+    return Map<String, dynamic>.from(data);
+  }
+
+  // --- Persistent Business Dashboard Caching ---
+  static const String cachedBusinessSummariesKey = 'cachedBusinessSummaries';
+
+  static Future<void> setCachedBusinessSummaries(Map<String, dynamic> summaries) async {
+    final box = Hive.box(boxName);
+    await box.put(cachedBusinessSummariesKey, summaries);
+  }
+
+  static Map<String, dynamic> getCachedBusinessSummaries() {
+    final box = Hive.box(boxName);
+    final data = box.get(cachedBusinessSummariesKey) ?? {};
+    return Map<String, dynamic>.from(data);
   }
 }
