@@ -21,12 +21,17 @@ import 'package:vyaparsetu/helpers/navigation.dart';
 class InvoiceFormScreen extends StatefulWidget {
   final bool isSale;
   final Invoice? existingInvoice;
+  final BillType billType;
 
-  const InvoiceFormScreen.sale({super.key, this.existingInvoice})
-      : isSale = true;
+  const InvoiceFormScreen.sale({
+    super.key,
+    this.existingInvoice,
+    this.billType = BillType.gst,
+  }) : isSale = true;
 
   const InvoiceFormScreen.purchase({super.key, this.existingInvoice})
-      : isSale = false;
+      : isSale = false,
+        billType = BillType.gst;
 
   @override
   State<InvoiceFormScreen> createState() => _InvoiceFormScreenState();
@@ -37,6 +42,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
   late InvoiceType _invoiceType;
   late bool _isSale;
+  late BillType _billType;
 
   final _invoiceNumberController = TextEditingController();
   final _chalanNoController = TextEditingController();
@@ -84,6 +90,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       _isEdit = widget.existingInvoice != null;
       _isSale = widget.isSale;
       _invoiceType = _isSale ? InvoiceType.sale : InvoiceType.purchase;
+      _billType = widget.billType;
       WidgetsBinding.instance.addPostFrameCallback((_) => _loadPartiesAndItems());
 
       if (_isEdit) {
@@ -390,29 +397,30 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    // Discount and Tax
-                    Row(
-                      children: [
-                        Expanded(
-                          child: AppTextField(
-                            controller: discController,
-                            labelText: 'Discount (%)',
-                            keyboardType: TextInputType.number,
-                            prefixIcon: Icons.percent_rounded,
+                    if (_billType == BillType.gst) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: AppTextField(
+                              controller: discController,
+                              labelText: 'Discount (%)',
+                              keyboardType: TextInputType.number,
+                              prefixIcon: Icons.percent_rounded,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: AppTextField(
-                            controller: taxController,
-                            labelText: 'Tax Rate (%)',
-                            keyboardType: TextInputType.number,
-                            prefixIcon: Icons.gavel_rounded,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: AppTextField(
+                              controller: taxController,
+                              labelText: 'Tax Rate (%)',
+                              keyboardType: TextInputType.number,
+                              prefixIcon: Icons.gavel_rounded,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                     if (tempItem != null) ...[
                       const SizedBox(height: 20),
                       // Summary breakdown panel
@@ -460,7 +468,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                                 ),
                               ],
                             ),
-                            if (lineDisc > 0) ...[
+                            if (_billType == BillType.gst && lineDisc > 0) ...[
                               const SizedBox(height: 6),
                               Row(
                                 mainAxisAlignment:
@@ -487,7 +495,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                                 ],
                               ),
                             ],
-                            if (lineTax > 0) ...[
+                            if (_billType == BillType.gst && lineTax > 0) ...[
                               const SizedBox(height: 6),
                               Row(
                                 mainAxisAlignment:
@@ -739,8 +747,8 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       'payment_mode': _paymentMode.value,
       'notes':
           _notesController.text.trim().isEmpty
-              ? null
-              : _notesController.text.trim(),
+              ? '[bill_type:${_billType.value}]'
+              : '[bill_type:${_billType.value}] ${_notesController.text.trim()}',
       'items': _lineItems.map((e) => e.toJson()).toList(),
       if (_billingAddress != null && _billingAddress!.isNotEmpty)
         'billing_address': _billingAddress,
@@ -789,7 +797,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         title: Text(
           _isEdit
               ? 'Edit ${widget.existingInvoice!.invoiceNumber}'
-              : 'New ${_isSale ? "Sale" : "Purchase"} Invoice',
+              : 'New ${_isSale ? (_billType == BillType.gst ? "GST" : "Normal") : "Purchase"} Invoice',
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
       ),
@@ -1034,8 +1042,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               controller: _chalanNoController,
               labelText: '',
               hintText: 'e.g. CH-2041',
-              validator: (val) =>
-                  Validators.validateRequired(val, 'Chalan number'),
+              validator: _billType == BillType.gst
+                  ? (val) => Validators.validateRequired(val, 'Chalan number')
+                  : null,
             ),
             const SizedBox(height: 16),
 
@@ -1697,7 +1706,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               ),
             ),
             subtitle: Text(
-              '${item.quantity} qty x ${Formatters.formatCurrency(item.unitPrice)} | Disc: ${item.discountPercentage}% | Tax: ${item.taxRate}%',
+              _billType == BillType.gst
+                  ? '${item.quantity} qty x ${Formatters.formatCurrency(item.unitPrice)} | Disc: ${item.discountPercentage}% | Tax: ${item.taxRate}%'
+                  : '${item.quantity} qty x ${Formatters.formatCurrency(item.unitPrice)}',
               style: GoogleFonts.outfit(fontSize: 12),
             ),
             trailing: Row(
@@ -1742,18 +1753,20 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         child: Column(
           children: [
             _buildTotalRow('Sub Total', Formatters.formatCurrency(_subTotal)),
-            const SizedBox(height: 8),
-            _buildTotalRow(
-              'Discount Total (-)',
-              Formatters.formatCurrency(_discountAmount),
-              color: AppTheme.success,
-            ),
-            const SizedBox(height: 8),
-            _buildTotalRow(
-              'Tax Total (+)',
-              Formatters.formatCurrency(_taxAmount),
-              color: AppTheme.warning,
-            ),
+            if (_billType == BillType.gst) ...[
+              const SizedBox(height: 8),
+              _buildTotalRow(
+                'Discount Total (-)',
+                Formatters.formatCurrency(_discountAmount),
+                color: AppTheme.success,
+              ),
+              const SizedBox(height: 8),
+              _buildTotalRow(
+                'Tax Total (+)',
+                Formatters.formatCurrency(_taxAmount),
+                color: AppTheme.warning,
+              ),
+            ],
             if (!_isSale) ...[
               const SizedBox(height: 8),
               _buildTotalRow(

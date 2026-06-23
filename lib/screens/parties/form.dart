@@ -157,7 +157,6 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -218,36 +217,7 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Party Type
-                Text(
-                  'party_type'.tr(),
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.7),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<PartyType>(
-                  value: _partyType,
-                  decoration: const InputDecoration(
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  ),
-                  items: PartyType.values.map((type) {
-                    return DropdownMenuItem<PartyType>(
-                      value: type,
-                      child: Text(type.displayName, style: GoogleFonts.outfit()),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _partyType = val;
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
+
 
                 // GSTIN
                 AppTextField(
@@ -350,7 +320,8 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                                   controller: _billingAddressControllers[index],
                                   labelText: 'Billing Address ${index + 1}',
                                   hintText: 'Street, city, pincode',
-                                  maxLines: 2,
+                                  maxLines: null,
+                                  keyboardType: TextInputType.multiline,
                                   prefixIcon: Icons.receipt_outlined,
                                 ),
                               ),
@@ -411,7 +382,8 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                                   controller: _shippingAddressControllers[index],
                                   labelText: 'Shipping Address ${index + 1}',
                                   hintText: 'Delivery address (Leave blank if same as billing)',
-                                  maxLines: 2,
+                                  maxLines: null,
+                                  keyboardType: TextInputType.multiline,
                                   prefixIcon: Icons.local_shipping_outlined,
                                 ),
                               ),

@@ -267,6 +267,63 @@ enum SupportedLocale {
   String get code => name;
 }
 
+enum BillType {
+  gst,
+  normal;
+
+  String get value => name;
+
+  static BillType fromString(String val) {
+    return BillType.values.firstWhere(
+      (e) => e.name.toLowerCase() == val.toLowerCase(),
+      orElse: () => BillType.gst,
+    );
+  }
+
+  String get displayName {
+    switch (this) {
+      case BillType.gst:
+        return 'GST Invoice';
+      case BillType.normal:
+        return 'Normal Invoice';
+    }
+  }
+}
+
+enum BillDesign {
+  gstClassic,
+  gstModern1,
+  gstModern2,
+  normalSimple,
+  normalDetailed;
+
+  String get value => name;
+
+  static BillDesign fromString(String val) {
+    return BillDesign.values.firstWhere(
+      (e) => e.name.toLowerCase() == val.toLowerCase(),
+      orElse: () => BillDesign.gstClassic,
+    );
+  }
+
+  String get displayName {
+    switch (this) {
+      case BillDesign.gstClassic:
+        return 'Classic';
+      case BillDesign.gstModern1:
+        return 'Modern Minimal';
+      case BillDesign.gstModern2:
+        return 'Professional Slate';
+      case BillDesign.normalSimple:
+        return 'Simple Receipt';
+      case BillDesign.normalDetailed:
+        return 'Detailed Retail';
+    }
+  }
+
+  bool get isGst => this == BillDesign.gstClassic || this == BillDesign.gstModern1 || this == BillDesign.gstModern2;
+}
+
 class AppConstants {
   static const String appName = 'Vyapar Setu';
 

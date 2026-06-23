@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:vyaparsetu/global/themes.dart';
 import 'package:vyaparsetu/helpers/navigation.dart';
 import 'package:vyaparsetu/screens/auth/login.dart';
@@ -71,70 +70,19 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: isDark
-              ? const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppTheme.gray950, AppTheme.gray900],
-                )
-              : const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppTheme.gray100, Colors.white],
-                ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primary.withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.account_balance_wallet_rounded,
-                  color: Colors.white,
-                  size: 48,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'VyaparSetu',
-                style: GoogleFonts.outfit(
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                  color: isDark ? Colors.white : AppTheme.gray800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Bridge to Smart Business Invoicing',
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  color: (isDark ? Colors.white : AppTheme.gray800).withValues(alpha: 0.6),
-                ),
-              ),
-            ],
+      backgroundColor: isDark ? AppTheme.backgroundDark : const Color(0xFFFAFBF6),
+      body: Center(
+        child: SizedBox(
+          width: 140,
+          height: 140,
+          child: Image.asset(
+            isDark
+                ? 'assets/images/app_logo_foreground.png'
+                : 'assets/images/app_logo.png',
+            fit: BoxFit.contain,
           ),
         ),
       ),

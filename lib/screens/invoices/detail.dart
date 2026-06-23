@@ -17,6 +17,7 @@ import 'package:vyaparsetu/helpers/navigation.dart';
 import 'package:vyaparsetu/screens/invoices/pdfPreview.dart';
 import 'package:vyaparsetu/screens/payments/form.dart';
 import 'package:vyaparsetu/core/Core.dart';
+import 'package:vyaparsetu/storage/hive/preferences.dart';
 
 class InvoiceDetailScreen extends StatefulWidget {
   final String invoiceId;
@@ -75,7 +76,8 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
       context: context,
       builder: (context) => const ConfirmationDialog(
         title: 'Delete Invoice',
-        content: 'Are you sure you want to delete this invoice? Stock counts and party balances will be automatically adjusted back.',
+        content:
+            'Are you sure you want to delete this invoice? Stock counts and party balances will be automatically adjusted back.',
         confirmText: 'Delete',
         isDestructive: true,
         icon: Icons.delete_outline_rounded,
@@ -94,15 +96,28 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     }
   }
 
-  void _viewPdf() {
+  BillDesign _preferredDesign() {
+    final inv = _invoice;
+    if (inv == null) return BillDesign.gstClassic;
+    final billType = InvoicePdfService.billTypeFromNotes(inv);
+    return PreferencesBox.getPreferredDesign(billType) ??
+        PreferencesBox.defaultDesignFor(billType);
+  }
+
+  Future<void> _viewPdf() async {
     if (_invoice == null) return;
     final party = _resolveParty(_invoice!.partyId);
     final items = context.read<Core>().item.items;
-    Navigator.of(context).push(getPageRoute(InvoicePdfScreen(
-      invoice: _invoice!,
-      party: party,
-      catalogItems: items,
-    )));
+    Navigator.of(context).push(
+      getPageRoute(
+        InvoicePdfScreen(
+          invoice: _invoice!,
+          party: party,
+          catalogItems: items,
+          design: _preferredDesign(),
+        ),
+      ),
+    );
   }
 
   Party? _resolveParty(String? partyId) {
@@ -124,13 +139,17 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
       showInfoToast('Generating PDF to share...');
       final party = _resolveParty(_invoice!.partyId);
       final items = context.read<Core>().item.items;
-      final pdf = await InvoicePdfService.generateInvoicePdf(
+      final pdf = await InvoicePdfService.generatePdfByDesign(
         invoice: _invoice!,
         business: business,
         party: party,
         catalogItems: items,
+        design: _preferredDesign(),
       );
-      await InvoicePdfService.sharePdf(pdf, 'Invoice-${_invoice!.invoiceNumber}');
+      await InvoicePdfService.sharePdf(
+        pdf,
+        'Invoice-${_invoice!.invoiceNumber}',
+      );
     } catch (e) {
       showErrorToast('Failed to share PDF: $e');
     }
@@ -145,11 +164,12 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
       showInfoToast('Opening print preview...');
       final party = _resolveParty(_invoice!.partyId);
       final items = context.read<Core>().item.items;
-      final pdf = await InvoicePdfService.generateInvoicePdf(
+      final pdf = await InvoicePdfService.generatePdfByDesign(
         invoice: _invoice!,
         business: business,
         party: party,
         catalogItems: items,
+        design: _preferredDesign(),
       );
       await InvoicePdfService.printPdf(pdf);
     } catch (e) {
@@ -199,9 +219,11 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                getPageRoute(inv.invoiceType == InvoiceType.sale
-                    ? InvoiceFormScreen.sale(existingInvoice: inv)
-                    : InvoiceFormScreen.purchase(existingInvoice: inv)),
+                getPageRoute(
+                  inv.invoiceType == InvoiceType.sale
+                      ? InvoiceFormScreen.sale(existingInvoice: inv)
+                      : InvoiceFormScreen.purchase(existingInvoice: inv),
+                ),
               ).then((_) => _loadInvoiceDetail(inv.id));
             },
           ),
@@ -224,10 +246,18 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                     child: OutlinedButton.icon(
                       onPressed: _viewPdf,
                       icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                      label: Text('generate_pdf'.tr(), style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold)),
+                      label: Text(
+                        'generate_pdf'.tr(),
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                   ),
@@ -236,10 +266,18 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                     child: OutlinedButton.icon(
                       onPressed: _shareInvoice,
                       icon: const Icon(Icons.share_outlined, size: 18),
-                      label: Text('Share', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold)),
+                      label: Text(
+                        'Share',
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                   ),
@@ -248,10 +286,18 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                     child: OutlinedButton.icon(
                       onPressed: _printInvoice,
                       icon: const Icon(Icons.print_outlined, size: 18),
-                      label: Text('Print', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold)),
+                      label: Text(
+                        'Print',
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                   ),
@@ -290,7 +336,9 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                               'Type: ${inv.invoiceType.displayName}',
                               style: GoogleFonts.outfit(
                                 fontSize: 13,
-                                color: isDark ? AppTheme.gray400 : AppTheme.gray600,
+                                color: isDark
+                                    ? AppTheme.gray400
+                                    : AppTheme.gray600,
                               ),
                             ),
                           ],
@@ -301,26 +349,61 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                     const Divider(height: 24),
                     Row(
                       children: [
-                        Expanded(child: _buildHeaderMeta('Date', Formatters.formatDate(inv.invoiceDate))),
-                        Expanded(child: _buildHeaderMeta('Due Date', inv.dueDate != null ? Formatters.formatDate(inv.dueDate!) : 'N/A')),
-                        Expanded(child: _buildHeaderMeta('Payment Mode', inv.paymentMode.displayName)),
+                        Expanded(
+                          child: _buildHeaderMeta(
+                            'Date',
+                            Formatters.formatDate(inv.invoiceDate),
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildHeaderMeta(
+                            'Due Date',
+                            inv.dueDate != null
+                                ? Formatters.formatDate(inv.dueDate!)
+                                : 'N/A',
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildHeaderMeta(
+                            'Payment Mode',
+                            inv.paymentMode.displayName,
+                          ),
+                        ),
                       ],
                     ),
-                    if (inv.invoiceType == InvoiceType.sale && inv.deliveryDate != null) ...[
+                    if (inv.invoiceType == InvoiceType.sale &&
+                        inv.deliveryDate != null) ...[
                       const Divider(height: 24),
                       Row(
                         children: [
-                          Expanded(child: _buildHeaderMeta('Delivery Date', Formatters.formatDate(inv.deliveryDate!))),
-                          Expanded(child: _buildHeaderMeta('Chalan Number', inv.chalanNo ?? 'N/A')),
+                          Expanded(
+                            child: _buildHeaderMeta(
+                              'Delivery Date',
+                              Formatters.formatDate(inv.deliveryDate!),
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildHeaderMeta(
+                              'Chalan Number',
+                              inv.chalanNo ?? 'N/A',
+                            ),
+                          ),
                           const Expanded(child: SizedBox.shrink()),
                         ],
                       ),
                     ],
-                    if (inv.invoiceType == InvoiceType.purchase && inv.chalanNo != null && inv.chalanNo!.isNotEmpty) ...[
+                    if (inv.invoiceType == InvoiceType.purchase &&
+                        inv.chalanNo != null &&
+                        inv.chalanNo!.isNotEmpty) ...[
                       const Divider(height: 24),
                       Row(
                         children: [
-                          Expanded(child: _buildHeaderMeta('Chalan Number', inv.chalanNo!)),
+                          Expanded(
+                            child: _buildHeaderMeta(
+                              'Chalan Number',
+                              inv.chalanNo!,
+                            ),
+                          ),
                           const Expanded(child: SizedBox.shrink()),
                           const Expanded(child: SizedBox.shrink()),
                         ],
@@ -370,7 +453,11 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                     children: [
                       Text(
                         'notes'.tr(),
-                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.grey),
+                        style: GoogleFonts.outfit(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -386,15 +473,21 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
           ],
         ),
       ),
-      floatingActionButton: (inv.paymentStatus != PaymentStatus.paid &&
+      floatingActionButton:
+          (inv.paymentStatus != PaymentStatus.paid &&
               inv.partyId != null &&
-              (inv.invoiceType == InvoiceType.sale || inv.invoiceType == InvoiceType.purchase))
+              (inv.invoiceType == InvoiceType.sale ||
+                  inv.invoiceType == InvoiceType.purchase))
           ? FloatingActionButton.extended(
               heroTag: 'invoice_detail_fab',
               onPressed: () {
-                Navigator.of(context).push(getPageRoute(PaymentFormScreen.fromInvoice(invoice: inv))).then((_) {
-                  _loadInvoiceDetail(inv.id);
-                });
+                Navigator.of(context)
+                    .push(
+                      getPageRoute(PaymentFormScreen.fromInvoice(invoice: inv)),
+                    )
+                    .then((_) {
+                      _loadInvoiceDetail(inv.id);
+                    });
               },
               label: Text('record_payment'.tr()),
               icon: const Icon(Icons.payment_rounded),
@@ -411,7 +504,11 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
       children: [
         Text(
           label,
-          style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w500),
+          style: GoogleFonts.outfit(
+            fontSize: 12,
+            color: Colors.grey,
+            fontWeight: FontWeight.w500,
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -440,7 +537,6 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
         text = Colors.orange;
         break;
       case PaymentStatus.unpaid:
-      default:
         bg = Colors.red.withValues(alpha: 0.1);
         text = Colors.red;
         break;
@@ -466,22 +562,21 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   Widget _buildAddressSection(Invoice inv) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final hasBilling = inv.billingAddress != null && inv.billingAddress!.isNotEmpty;
-    final hasShipping = inv.shippingAddress != null && inv.shippingAddress!.isNotEmpty;
+    final hasBilling =
+        inv.billingAddress != null && inv.billingAddress!.isNotEmpty;
+    final hasShipping =
+        inv.shippingAddress != null && inv.shippingAddress!.isNotEmpty;
 
     return Row(
       children: [
         if (hasBilling)
-          Expanded(
-            child: _addressCard('Bill To', inv.billingAddress!, isDark),
-          ),
+          Expanded(child: _addressCard('Bill To', inv.billingAddress!, isDark)),
         if (hasBilling && hasShipping) const SizedBox(width: 12),
         if (hasShipping)
           Expanded(
             child: _addressCard('Ship To', inv.shippingAddress!, isDark),
           ),
-        if (!hasBilling && hasShipping)
-          const Spacer(),
+        if (!hasBilling && hasShipping) const Spacer(),
       ],
     );
   }
@@ -525,9 +620,6 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   }
 
   Widget _buildItemsTable() {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     final items = _invoice?.items ?? [];
     if (items.isEmpty) return const SizedBox.shrink();
 
@@ -539,7 +631,10 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
             dense: true,
             title: Text(
               item.name,
-              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15),
+              style: GoogleFonts.outfit(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
             ),
             subtitle: Text(
               '${item.quantity} qty x ${Formatters.formatCurrency(item.unitPrice)} | Disc: ${item.discountPercentage}% | Tax: ${item.taxRate}%',
@@ -547,7 +642,10 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
             ),
             trailing: Text(
               Formatters.formatCurrency(item.totalAmount),
-              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14),
+              style: GoogleFonts.outfit(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
             ),
           ),
         );
@@ -570,13 +668,28 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            _buildTotalRow('Sub Total', Formatters.formatCurrency(inv.subTotal)),
+            _buildTotalRow(
+              'Sub Total',
+              Formatters.formatCurrency(inv.subTotal),
+            ),
             const SizedBox(height: 8),
-            _buildTotalRow('Discount (-)', Formatters.formatCurrency(inv.discountAmount), color: Colors.green),
+            _buildTotalRow(
+              'Discount (-)',
+              Formatters.formatCurrency(inv.discountAmount),
+              color: Colors.green,
+            ),
             const SizedBox(height: 8),
-            _buildTotalRow('Tax (+)', Formatters.formatCurrency(inv.taxAmount), color: Colors.orange),
+            _buildTotalRow(
+              'Tax (+)',
+              Formatters.formatCurrency(inv.taxAmount),
+              color: Colors.orange,
+            ),
             const SizedBox(height: 8),
-            _buildTotalRow('Transport Cost (+)', Formatters.formatCurrency(inv.transportCost), color: Colors.blueGrey),
+            _buildTotalRow(
+              'Transport Cost (+)',
+              Formatters.formatCurrency(inv.transportCost),
+              color: Colors.blueGrey,
+            ),
             const Divider(height: 20),
             _buildTotalRow(
               'Total Bill Amount',
@@ -586,7 +699,10 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
               color: isDark ? Colors.white : AppTheme.primary,
             ),
             const SizedBox(height: 8),
-            _buildTotalRow('Paid Amount', Formatters.formatCurrency(inv.paidAmount)),
+            _buildTotalRow(
+              'Paid Amount',
+              Formatters.formatCurrency(inv.paidAmount),
+            ),
             const Divider(height: 20),
             _buildTotalRow(
               'Balance Due',
@@ -600,7 +716,13 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     );
   }
 
-  Widget _buildTotalRow(String label, String val, {bool isBold = false, Color? color, double? fontSize}) {
+  Widget _buildTotalRow(
+    String label,
+    String val, {
+    bool isBold = false,
+    Color? color,
+    double? fontSize,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [

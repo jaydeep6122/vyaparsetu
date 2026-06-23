@@ -50,7 +50,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
   final _ifscController = TextEditingController();
   final _upiIdController = TextEditingController();
 
-  BusinessType _businessType = BusinessType.retailer;
+  BusinessType _businessType = BusinessType.service;
   String _financialYear = '2026-2027';
 
   File? _logoFile;
@@ -90,7 +90,6 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
     _ifscController.text = b.ifscCode ?? '';
     _upiIdController.text = b.upiId ?? '';
 
-    _businessType = b.businessType;
     _financialYear = b.financialYear;
     _logoUrlBase64 = b.logoUrl;
     _signatureUrlBase64 = b.signatureUrl;
@@ -563,45 +562,6 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'business_type'.tr(),
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: theme.textTheme.bodyLarge?.color?.withValues(
-                      alpha: 0.7,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<BusinessType>(
-                  value: _businessType,
-                  decoration: const InputDecoration(
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
-                    ),
-                  ),
-                  items:
-                      BusinessType.values.map((type) {
-                        return DropdownMenuItem<BusinessType>(
-                          value: type,
-                          child: Text(
-                            type.displayName,
-                            style: GoogleFonts.outfit(),
-                          ),
-                        );
-                      }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _businessType = val;
-                      });
-                    }
-                  },
-                ),
-
                 const SizedBox(height: 28),
 
                 // SECTION 2: ADDRESS

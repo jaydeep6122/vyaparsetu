@@ -8,6 +8,7 @@ import 'package:vyaparsetu/components/loadingIndicator.dart';
 import 'package:vyaparsetu/components/errorWidget.dart';
 import 'package:vyaparsetu/helpers/formatters.dart';
 import 'package:vyaparsetu/global/themes.dart';
+import 'package:vyaparsetu/global/constants.dart';
 import 'package:vyaparsetu/helpers/navigation.dart';
 import 'package:vyaparsetu/screens/invoices/form.dart';
 import 'package:vyaparsetu/screens/payments/form.dart';
@@ -16,6 +17,7 @@ import 'package:vyaparsetu/screens/items/list.dart';
 import 'package:vyaparsetu/screens/reports/reportCenter.dart';
 import 'package:vyaparsetu/screens/home/home.dart';
 import 'package:vyaparsetu/screens/business/list.dart';
+import 'package:vyaparsetu/screens/business/form.dart';
 import 'package:vyaparsetu/types/dashboardSummary.dart';
 import 'package:vyaparsetu/types/business.dart';
 import 'package:vyaparsetu/types/user.dart';
@@ -959,6 +961,167 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  void _onNewSale() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.cardDark : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40, height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.gray700 : AppTheme.gray200,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Text(
+                'Select Invoice Type',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold, fontSize: 20,
+                  color: isDark ? Colors.white : AppTheme.gray900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Choose the type of invoice you want to generate',
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  color: isDark ? AppTheme.gray400 : AppTheme.gray500,
+                ),
+              ),
+              const SizedBox(height: 24),
+              _billTypeOption(
+                icon: Icons.receipt_long_rounded,
+                title: 'GST Invoice',
+                subtitle: 'With tax breakdown, GSTIN, HSN codes',
+                isDark: isDark,
+                onTap: () {
+                  final business =
+                      context.read<Core>().business.selectedBusiness;
+                  final hasGstin =
+                      business?.gstin != null && business!.gstin!.isNotEmpty;
+                  if (!hasGstin) {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('GST Number Required'),
+                        content: const Text(
+                          'To create GST invoices, please add your GST number in business settings first.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              Navigator.of(context).pop();
+                              Navigator.of(this.context).push(
+                                getPageRoute(const BusinessFormScreen()),
+                              );
+                            },
+                            child: const Text('Go to Settings'),
+                          ),
+                        ],
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.pop(context);
+                  Navigator.of(this.context).push(
+                    getPageRoute(const InvoiceFormScreen.sale(billType: BillType.gst)),
+                  ).then((_) => _loadData());
+                },
+              ),
+              const SizedBox(height: 12),
+              _billTypeOption(
+                icon: Icons.receipt_rounded,
+                title: 'Normal Invoice',
+                subtitle: 'Simple invoice without tax/GST details',
+                isDark: isDark,
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(this.context).push(
+                    getPageRoute(const InvoiceFormScreen.sale(billType: BillType.normal)),
+                  ).then((_) => _loadData());
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _billTypeOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.gray800 : AppTheme.gray50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? AppTheme.gray700 : AppTheme.gray200,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.primaryDark.withValues(alpha: 0.2) : AppTheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: isDark ? Colors.white : AppTheme.primary, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold, fontSize: 16,
+                      color: isDark ? Colors.white : AppTheme.gray900,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                    style: GoogleFonts.outfit(fontSize: 13, color: isDark ? AppTheme.gray400 : AppTheme.gray500),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: isDark ? AppTheme.gray500 : AppTheme.gray400),
+          ],
+        ),
+      ),
+    );
+  }
+
   // --- Quick Actions Hub Component ---
   Widget _buildQuickActionsDock(bool isDark) {
     return Column(
@@ -970,10 +1133,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               icon: Icons.add_shopping_cart_rounded,
               label: 'new_sale'.tr(),
               color: AppTheme.success,
-              onTap:
-                  () => Navigator.of(context)
-                      .push(getPageRoute(const InvoiceFormScreen.sale()))
-                      .then((_) => _loadData()),
+              onTap: _onNewSale,
             )),
             const SizedBox(width: 12),
             Expanded(child: _buildActionTile(

@@ -69,9 +69,9 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
         actions: [
-          Selector<Core, Business?>(
-            selector: (context, core) => core.business.selectedBusiness,
-            builder: (context, b, child) {
+              Consumer<Core>(
+            builder: (context, core, child) {
+              final b = core.business.selectedBusiness;
               if (b == null) return const SizedBox.shrink();
               return IconButton(
                 icon: const Icon(Icons.edit_outlined),
@@ -83,9 +83,9 @@ class _BusinessDetailScreenState extends State<BusinessDetailScreen> {
           ),
         ],
       ),
-      body: Selector<Core, Business?>(
-        selector: (context, core) => core.business.selectedBusiness,
-        builder: (context, b, child) {
+      body: Consumer<Core>(
+        builder: (context, core, child) {
+          final b = core.business.selectedBusiness;
           if (b == null) {
             return Center(
               child: Text(

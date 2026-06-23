@@ -1,4 +1,5 @@
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:vyaparsetu/global/constants.dart';
 
 class PreferencesBox {
   static const String boxName = 'preferencesBox';
@@ -7,6 +8,7 @@ class PreferencesBox {
   static const String localeKey = 'locale';
   static const String prevVersionKey = 'prevVersion';
   static const String appModeKey = 'appMode';
+  static const String invoiceDesignKey = 'invoiceDesign';
 
   static Future<void> open() async {
     await Hive.openBox(boxName);
@@ -61,5 +63,31 @@ class PreferencesBox {
   static String getAppMode() {
     final box = Hive.box(boxName);
     return box.get(appModeKey) ?? 'business';
+  }
+
+  static Future<void> setInvoiceDesign(String design) async {
+    final box = Hive.box(boxName);
+    await box.put(invoiceDesignKey, design);
+  }
+
+  static String getInvoiceDesign() {
+    final box = Hive.box(boxName);
+    return box.get(invoiceDesignKey) ?? '';
+  }
+
+  static BillDesign? getPreferredDesign(BillType billType) {
+    final saved = getInvoiceDesign();
+    if (saved.isNotEmpty) {
+      final design = BillDesign.fromString(saved);
+      if (design.isGst == (billType == BillType.gst)) {
+        return design;
+      }
+    }
+    return null;
+  }
+
+  static BillDesign defaultDesignFor(BillType billType) {
+    if (billType == BillType.gst) return BillDesign.gstClassic;
+    return BillDesign.normalSimple;
   }
 }

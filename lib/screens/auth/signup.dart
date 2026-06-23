@@ -88,7 +88,6 @@ class _SignupScreenState extends State<SignupScreen> {
                     children: [
                       const SizedBox(height: 10),
                       const _AnimatedLogo(),
-                      const SizedBox(height: 16),
                       Text(
                         'create_account'.tr(),
                         style: GoogleFonts.outfit(
@@ -320,24 +319,12 @@ class _AnimatedLogoState extends State<_AnimatedLogo> with SingleTickerProviderS
       scale: _scaleAnimation,
       child: FadeTransition(
         opacity: _fadeAnimation,
-        child: Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            gradient: AppTheme.primaryGradient,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.primary.withValues(alpha: 0.35),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.person_add_rounded,
-            color: Colors.white,
-            size: 30,
+        child: SizedBox(
+          width: 80,
+          height: 80,
+          child: Image.asset(
+            'assets/images/app_logo_foreground.png',
+            fit: BoxFit.contain,
           ),
         ),
       ),

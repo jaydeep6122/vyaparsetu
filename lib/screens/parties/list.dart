@@ -107,8 +107,10 @@ context.read<Core>().party.fetchParties(businessId);
       floatingActionButton: FloatingActionButton(
         heroTag: 'parties_fab',
         onPressed: () {
+          final initialType =
+              _filterType == 'customer' ? PartyType.customer : PartyType.supplier;
           Navigator.of(context).push(
-            getPageRoute(const PartyFormScreen()),
+            getPageRoute(PartyFormScreen(initialPartyType: initialType)),
           ).then((_) {
             if (mounted) _loadData();
           });
@@ -142,24 +144,21 @@ context.read<Core>().party.fetchParties(businessId);
     final filtered = _filterParties(parties);
 
     if (filtered.isEmpty) {
+      final isCustomer = _filterType == 'customer';
       return SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         child: SizedBox(
           height: MediaQuery.of(context).size.height * 0.6,
           child: EmptyState(
-        icon: Icons.people_outline_rounded,
-        title: 'No parties found',
-        description: _searchQuery.isNotEmpty
-            ? 'No match for "$_searchQuery" inside this category.'
-            : 'Add customer or supplier contacts to start recording transactions.',
-        buttonText: _searchQuery.isEmpty ? 'add_party'.tr() : null,
-        onButtonPressed: _searchQuery.isEmpty
-            ? () => Navigator.of(context).push(
-                getPageRoute(const PartyFormScreen()),
-              ).then((_) {
-                if (mounted) _loadData();
-              })
-            : null,
+            icon: isCustomer ? Icons.person_outline_rounded : Icons.business_outlined,
+            title: isCustomer ? 'No customers found' : 'No suppliers found',
+            description: _searchQuery.isNotEmpty
+                ? 'No match for "$_searchQuery" inside this category.'
+                : isCustomer
+                    ? 'No customer contacts found. Use the "+" button to add one.'
+                    : 'No supplier contacts found. Use the "+" button to add one.',
+            buttonText: null,
+            onButtonPressed: null,
           ),
         ),
       );
