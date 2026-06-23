@@ -150,8 +150,21 @@ class AuthModule {
       // Ignore API errors during logout
     } finally {
       _user = null;
+
+      // Clear all in-memory module state
+      core.factory.clearAll();
+      core.business.clearAll();
+      core.party.clearAll();
+      core.item.clearAll();
+      core.invoice.clearAll();
+      core.payment.clearAll();
+      core.expense.clearAll();
+      core.dashboard.clearAll();
+
+      // Clear persisted storage
       await SecureStorage.deleteAll();
       await clearBoxes();
+
       _isLoading = false;
       core.notify();
     }
@@ -159,6 +172,14 @@ class AuthModule {
 
   void handleSessionExpired() {
     _user = null;
+    core.factory.clearAll();
+    core.business.clearAll();
+    core.party.clearAll();
+    core.item.clearAll();
+    core.invoice.clearAll();
+    core.payment.clearAll();
+    core.expense.clearAll();
+    core.dashboard.clearAll();
     core.notify();
   }
 

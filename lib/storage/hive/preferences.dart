@@ -6,6 +6,7 @@ class PreferencesBox {
   static const String themeModeKey = 'themeMode';
   static const String localeKey = 'locale';
   static const String prevVersionKey = 'prevVersion';
+  static const String appModeKey = 'appMode';
 
   static Future<void> open() async {
     await Hive.openBox(boxName);
@@ -50,5 +51,15 @@ class PreferencesBox {
   static String getPrevVersion() {
     final box = Hive.box(boxName);
     return box.get(prevVersionKey) ?? '';
+  }
+
+  static Future<void> setAppMode(String mode) async {
+    final box = Hive.box(boxName);
+    await box.put(appModeKey, mode);
+  }
+
+  static String getAppMode() {
+    final box = Hive.box(boxName);
+    return box.get(appModeKey) ?? 'business';
   }
 }

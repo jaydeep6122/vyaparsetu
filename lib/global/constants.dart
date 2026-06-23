@@ -1,3 +1,5 @@
+import 'package:easy_localization/easy_localization.dart';
+
 enum BusinessType {
   retailer,
   wholesaler,
@@ -190,6 +192,69 @@ enum PaymentType {
         return 'Payment In';
       case PaymentType.payment_out:
         return 'Payment Out';
+    }
+  }
+}
+
+enum WorkerType {
+  producer_molder,
+  kiln_worker,
+  truck_worker;
+
+  String get value => name;
+
+  static WorkerType fromString(String val) {
+    final normalized = val
+        .toLowerCase()
+        .replaceAll('-', '_')
+        .replaceAll(' ', '_');
+    return WorkerType.values.firstWhere(
+      (e) => e.name.toLowerCase() == normalized,
+      orElse: () => WorkerType.producer_molder,
+    );
+  }
+
+  String get displayName {
+    switch (this) {
+      case WorkerType.producer_molder:
+        return 'factory.producer_molder'.tr();
+      case WorkerType.kiln_worker:
+        return 'factory.kiln_worker'.tr();
+      case WorkerType.truck_worker:
+        return 'factory.truck_worker'.tr();
+    }
+  }
+}
+
+enum TransactionType {
+  handoff,
+  direct,
+  truck_dist,
+  money_given;
+
+  String get value => name;
+
+  static TransactionType fromString(String val) {
+    final normalized = val
+        .toLowerCase()
+        .replaceAll('-', '_')
+        .replaceAll(' ', '_');
+    return TransactionType.values.firstWhere(
+      (e) => e.name.toLowerCase() == normalized,
+      orElse: () => TransactionType.handoff,
+    );
+  }
+
+  String get displayName {
+    switch (this) {
+      case TransactionType.handoff:
+        return 'factory.handoff'.tr();
+      case TransactionType.direct:
+        return 'factory.direct'.tr();
+      case TransactionType.truck_dist:
+        return 'factory.truck_distribution'.tr();
+      case TransactionType.money_given:
+        return 'factory.money_given'.tr();
     }
   }
 }

@@ -70,7 +70,7 @@ class BusinessModule {
   Future<void> selectBusiness(Business business) async {
     _selectedBusiness = business;
     await CacheBox.setSelectedBusinessId(business.id);
-    core.dashboard.clearAll();
+    core.dashboard.loadCachedSummary(business.id);
     core.invoice.clearAll();
     core.item.clearAll();
     core.party.clearAll();
@@ -162,6 +162,13 @@ class BusinessModule {
     _selectedBusiness = null;
     await CacheBox.setSelectedBusinessId(null);
     core.notify();
+  }
+
+  void clearAll() {
+    _businesses = [];
+    _selectedBusiness = null;
+    _isLoading = false;
+    _error = null;
   }
 
 }

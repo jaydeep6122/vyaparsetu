@@ -3,10 +3,39 @@ import 'package:vyaparsetu/types/dashboardSummary.dart';
 import 'package:vyaparsetu/types/profitLoss.dart';
 // import 'package:vyaparsetu/types/partyLedger.dart';
 import 'package:vyaparsetu/core/Core.dart';
+import 'package:vyaparsetu/storage/hive/cache.dart';
+import 'package:vyaparsetu/helpers/toastNotifications.dart';
 
 class DashboardModule {
   final Core core;
-  DashboardModule(this.core);
+  DashboardModule(this.core) {
+    try {
+      final selectedId = CacheBox.getSelectedBusinessId();
+      if (selectedId != null) {
+        final cached = CacheBox.getCachedBusinessSummaries();
+        if (cached.containsKey(selectedId)) {
+          _summary = DashboardSummary.fromJson(Map<String, dynamic>.from(cached[selectedId]));
+        }
+      }
+    } catch (_) {}
+  }
+
+  void loadCachedSummary(String businessId) {
+    try {
+      final cached = CacheBox.getCachedBusinessSummaries();
+      if (cached.containsKey(businessId)) {
+        _summary = DashboardSummary.fromJson(Map<String, dynamic>.from(cached[businessId]));
+      } else {
+        _summary = null;
+      }
+    } catch (_) {
+      _summary = null;
+    }
+    _profitLoss = null;
+    _summaryError = null;
+    _profitLossError = null;
+    core.notify();
+  }
 
   DashboardSummary? _summary;
   ProfitLoss? _profitLoss;
@@ -35,7 +64,6 @@ class DashboardModule {
   // String? get partyLedgerError => _partyLedgerError;
 
   Future<void> fetchSummary(String businessId) async {
-    _summary = null;
     _isLoadingSummary = true;
     _summaryError = null;
     core.notify();
@@ -43,8 +71,18 @@ class DashboardModule {
     try {
       final data = await Api.instance.dashboard.getSummary(businessId);
       _summary = DashboardSummary.fromJson(data);
+      _summaryError = null;
+
+      try {
+        final cached = CacheBox.getCachedBusinessSummaries();
+        cached[businessId] = data;
+        await CacheBox.setCachedBusinessSummaries(cached);
+      } catch (_) {}
     } catch (e) {
       _summaryError = e.toString();
+      if (_summary != null) {
+        showErrorToast('Failed to update dashboard: $_summaryError');
+      }
     }
 
     _isLoadingSummary = false;
