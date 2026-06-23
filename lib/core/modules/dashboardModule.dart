@@ -63,10 +63,15 @@ class DashboardModule {
   String? get profitLossError => _profitLossError;
   // String? get partyLedgerError => _partyLedgerError;
 
-  Future<void> fetchSummary(String businessId) async {
-    _isLoadingSummary = true;
-    _summaryError = null;
-    core.notify();
+  Future<void> fetchSummary(String businessId, {bool forceRefresh = false}) async {
+    final showLoading = _summary == null || forceRefresh;
+    if (showLoading) {
+      _isLoadingSummary = true;
+      _summaryError = null;
+      core.notify();
+    } else {
+      _summaryError = null;
+    }
 
     try {
       final data = await Api.instance.dashboard.getSummary(businessId);

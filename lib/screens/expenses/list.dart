@@ -48,15 +48,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   void _loadData() {
     final businessId = context.read<Core>().business.selectedBusiness?.id;
     if (businessId != null) {
-      context.read<Core>().expense.fetchExpenses(
-        businessId,
-        expenseCategory:
-            _selectedCategory != null && _selectedCategory != 'All'
-                ? _selectedCategory
-                : null,
-        fromDate: _fromDate?.toIso8601String(),
-        toDate: _toDate?.toIso8601String(),
-      );
+      context.read<Core>().expense.fetchExpenses(businessId);
     }
   }
 
@@ -75,7 +67,6 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
           _toDate = picked;
         }
       });
-      _loadData();
     }
   }
 
@@ -85,7 +76,6 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
       _fromDate = null;
       _toDate = null;
     });
-    _loadData();
   }
 
   @override
@@ -146,7 +136,6 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                             setState(() {
                               _selectedCategory = val;
                             });
-                            _loadData();
                           },
                         ),
                       ),
@@ -220,6 +209,21 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     );
   }
 
+  List<Expense> _filterExpenses(List<Expense> list) {
+    return list.where((ex) {
+      final matchesCategory = _selectedCategory == null ||
+          _selectedCategory == 'All' ||
+          ex.expenseCategory == _selectedCategory;
+
+      if (!matchesCategory) return false;
+
+      if (_fromDate != null && ex.expenseDate.isBefore(_fromDate!)) return false;
+      if (_toDate != null && ex.expenseDate.isAfter(_toDate!.add(const Duration(days: 1)))) return false;
+
+      return true;
+    }).toList();
+  }
+
   Widget _buildExpenseList(
     bool isDark,
     ThemeData theme,
@@ -233,45 +237,54 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     }
 
     if (error != null) {
-      return AppErrorWidget(errorMessage: error!, onRetry: _loadData);
+      return AppErrorWidget(errorMessage: error, onRetry: _loadData);
     }
 
-    if (expenses.isEmpty) {
-      return EmptyState(
-        icon: Icons.money_off_rounded,
-        title: 'No expenses found',
-        description:
-            'Record operating expenses like rent, salaries, utilities, etc.',
-        buttonText: 'add_expense'.tr(),
-        onButtonPressed:
-            () => Navigator.of(
-              context,
-            ).push(getPageRoute(const ExpenseFormScreen())).then((_) {
-              if (mounted) _loadData();
-            }),
-      );
-    }
+    final filtered = _filterExpenses(expenses);
 
     return RefreshIndicator(
       color: isDark ? Colors.white : AppTheme.primary,
       onRefresh: () async {
         if (businessId != null) {
-          context.read<Core>().expense.fetchExpenses(
+          await context.read<Core>().expense.fetchExpenses(
             businessId,
-            expenseCategory:
-                _selectedCategory != null && _selectedCategory != 'All'
-                    ? _selectedCategory
-                    : null,
-            fromDate: _fromDate?.toIso8601String(),
-            toDate: _toDate?.toIso8601String(),
+            forceRefresh: true,
           );
         }
       },
-      child: ListView.builder(
+      child: filtered.isEmpty
+          ? LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Center(
+                      child: EmptyState(
+                        icon: Icons.money_off_rounded,
+                        title: 'No expenses found',
+                        description:
+                            'Record operating expenses like rent, salaries, utilities, etc.',
+                        buttonText: 'add_expense'.tr(),
+                        onButtonPressed:
+                            () => Navigator.of(
+                              context,
+                            ).push(getPageRoute(const ExpenseFormScreen())).then((_) {
+                              if (mounted) _loadData();
+                            }),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            )
+          : ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: expenses.length,
+        itemCount: filtered.length,
         itemBuilder: (context, index) {
-          final ex = expenses[index];
+          final ex = filtered[index];
 
           return Card(
             margin: const EdgeInsets.only(bottom: 10),

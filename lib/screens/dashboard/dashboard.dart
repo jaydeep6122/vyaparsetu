@@ -255,7 +255,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: isDark ? Colors.white : AppTheme.primary,
               onRefresh: () async {
                 if (businessId != null) {
-                  await context.read<Core>().dashboard.fetchSummary(businessId);
+                  await context.read<Core>().dashboard.fetchSummary(businessId, forceRefresh: true);
                 }
               },
               child: SingleChildScrollView(

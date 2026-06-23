@@ -89,14 +89,12 @@ context.read<Core>().party.fetchParties(businessId);
               ],
             ),
           ),
-          if (isLoading && parties.isNotEmpty)
-            const LinearProgressIndicator(),
           Expanded(
             child: RefreshIndicator(
               color: isDark ? Colors.white : AppTheme.primary,
               onRefresh: () async {
                 if (businessId != null) {
-                  await context.read<Core>().party.fetchParties(businessId);
+                  await context.read<Core>().party.fetchParties(businessId, forceRefresh: true);
                 }
               },
               child: _buildPartyList(isDark, theme, isLoading, parties, error, businessId),
@@ -145,22 +143,30 @@ context.read<Core>().party.fetchParties(businessId);
 
     if (filtered.isEmpty) {
       final isCustomer = _filterType == 'customer';
-      return SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: EmptyState(
-            icon: isCustomer ? Icons.person_outline_rounded : Icons.business_outlined,
-            title: isCustomer ? 'No customers found' : 'No suppliers found',
-            description: _searchQuery.isNotEmpty
-                ? 'No match for "$_searchQuery" inside this category.'
-                : isCustomer
-                    ? 'No customer contacts found. Use the "+" button to add one.'
-                    : 'No supplier contacts found. Use the "+" button to add one.',
-            buttonText: null,
-            onButtonPressed: null,
-          ),
-        ),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
+              ),
+              child: Center(
+                child: EmptyState(
+                  icon: isCustomer ? Icons.person_outline_rounded : Icons.business_outlined,
+                  title: isCustomer ? 'No customers found' : 'No suppliers found',
+                  description: _searchQuery.isNotEmpty
+                      ? 'No match for "$_searchQuery" inside this category.'
+                      : isCustomer
+                          ? 'No customer contacts found. Use the "+" button to add one.'
+                          : 'No supplier contacts found. Use the "+" button to add one.',
+                  buttonText: null,
+                  onButtonPressed: null,
+                ),
+              ),
+            ),
+          );
+        },
       );
     }
 

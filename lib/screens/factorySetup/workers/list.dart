@@ -36,7 +36,7 @@ class _WorkerListScreenState extends State<WorkerListScreen> {
   void _loadData({bool force = false}) {
     final module = context.read<Core>().factory;
     if (force || module.workers.isEmpty) {
-      module.fetchWorkers(widget.factoryId);
+      module.fetchWorkers(widget.factoryId, forceRefresh: force);
     }
   }
 
@@ -151,24 +151,32 @@ class _WorkerListScreenState extends State<WorkerListScreen> {
     }
 
     if (workers.isEmpty) {
-      return SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: EmptyState(
-            icon: Icons.people_outline_rounded,
-            title: 'factory.no_workers'.tr(),
-            description: 'factory.add_workers_started'.tr(),
-            buttonText: 'factory.add_worker'.tr(),
-            onButtonPressed: () {
-              Navigator.of(context).push(
-                getPageRoute(WorkerFormScreen(factoryId: widget.factoryId)),
-              ).then((_) {
-                if (mounted) _loadData(force: true);
-              });
-            },
-          ),
-        ),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
+              ),
+              child: Center(
+                child: EmptyState(
+                  icon: Icons.people_outline_rounded,
+                  title: 'factory.no_workers'.tr(),
+                  description: 'factory.add_workers_started'.tr(),
+                  buttonText: 'factory.add_worker'.tr(),
+                  onButtonPressed: () {
+                    Navigator.of(context).push(
+                      getPageRoute(WorkerFormScreen(factoryId: widget.factoryId)),
+                    ).then((_) {
+                      if (mounted) _loadData(force: true);
+                    });
+                  },
+                ),
+              ),
+            ),
+          );
+        },
       );
     }
 
@@ -180,18 +188,26 @@ class _WorkerListScreenState extends State<WorkerListScreen> {
     }).toList();
 
     if (filtered.isEmpty) {
-      return SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: EmptyState(
-            icon: Icons.people_outline_rounded,
-            title: 'factory.no_workers_found'.tr(),
-            description: _searchQuery.isNotEmpty
-                ? 'factory.no_worker_matches'.tr()
-                : 'factory.no_workers_category'.tr(),
-          ),
-        ),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
+              ),
+              child: Center(
+                child: EmptyState(
+                  icon: Icons.people_outline_rounded,
+                  title: 'factory.no_workers_found'.tr(),
+                  description: _searchQuery.isNotEmpty
+                      ? 'factory.no_worker_matches'.tr()
+                      : 'factory.no_workers_category'.tr(),
+                ),
+              ),
+            ),
+          );
+        },
       );
     }
 

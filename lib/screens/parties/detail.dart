@@ -32,14 +32,12 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
   }
 
-  void _loadData() {
+  void _loadData({bool forceRefresh = false}) {
     final businessId = context.read<Core>().business.selectedBusiness?.id;
     if (businessId != null) {
-      context.read<Core>().party.clearPartyLedger();
-      context.read<Core>().invoice.clearPartyInvoices();
-      context.read<Core>().party.fetchPartyLedger(businessId, widget.party.id);
-      context.read<Core>().invoice.fetchPartyInvoices(businessId, widget.party.id);
-      context.read<Core>().party.fetchPartyQuantitySummary(businessId, widget.party.id);
+      context.read<Core>().party.fetchPartyLedger(businessId, widget.party.id, forceRefresh: forceRefresh);
+      context.read<Core>().invoice.fetchPartyInvoices(businessId, widget.party.id, forceRefresh: forceRefresh);
+      context.read<Core>().party.fetchPartyQuantitySummary(businessId, widget.party.id, forceRefresh: forceRefresh);
     }
   }
 
@@ -84,7 +82,7 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
     );
 
     final partyLedger = context.select<Core, PartyLedger?>(
-      (c) => c.party.partyLedger,
+      (c) => c.party.getPartyLedgerFor(widget.party.id),
     );
     final isLoading = context.select<Core, bool>(
       (c) => c.party.isLoadingPartyLedger,
@@ -109,20 +107,20 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
     final outstanding = totalInvoiceAmount - totalPaid;
 
     final partyQuantitySummary = context.select<Core, PartyQuantitySummary?>(
-      (c) => c.party.partyQuantitySummary,
+      (c) => c.party.getPartyQuantitySummaryFor(widget.party.id),
     );
     final isLoadingPartyQuantity = context.select<Core, bool>(
       (c) => c.party.isLoadingPartyQuantitySummary,
     );
 
     final partyInvoices = context.select<Core, List<Invoice>>(
-      (c) => c.invoice.partyInvoices,
+      (c) => c.invoice.getPartyInvoicesFor(widget.party.id),
     );
 
     return Scaffold(
       body: RefreshIndicator(
         color: AppTheme.primary,
-        onRefresh: () async => _loadData(),
+        onRefresh: () async => _loadData(forceRefresh: true),
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
         slivers: [

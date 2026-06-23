@@ -38,16 +38,10 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     });
   }
 
-  String get _typeParam => _filterType;
-
   void _loadData() {
     final businessId = context.read<Core>().business.selectedBusiness?.id;
     if (businessId != null) {
-      context.read<Core>().invoice.fetchInvoices(
-        businessId,
-        type: _typeParam,
-        search: _searchQuery.isNotEmpty ? _searchQuery : null,
-      );
+      context.read<Core>().invoice.fetchInvoices(businessId);
     }
   }
 
@@ -82,10 +76,6 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                 setState(() {
                   _searchQuery = val;
                 });
-                _debounce?.cancel();
-                _debounce = Timer(const Duration(milliseconds: 400), () {
-                  _loadData();
-                });
               },
             ),
           ),
@@ -99,8 +89,6 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 4),
-          if (isLoading && invoices.isNotEmpty) const LinearProgressIndicator(),
           Expanded(
             child: _buildInvoiceList(
               isDark,
@@ -180,8 +168,10 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                 subtitle: 'With tax breakdown, GSTIN, HSN codes',
                 isDark: isDark,
                 onTap: () {
-                  final business =
-                      context.read<Core>().business.selectedBusiness;
+                  final business = context
+                      .read<Core>()
+                      .business
+                      .selectedBusiness;
                   final hasGstin =
                       business?.gstin != null && business!.gstin!.isNotEmpty;
                   if (!hasGstin) {
@@ -201,9 +191,9 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                             onPressed: () {
                               Navigator.of(ctx).pop();
                               Navigator.of(context).pop();
-                              Navigator.of(context).push(
-                                getPageRoute(const BusinessFormScreen()),
-                              );
+                              Navigator.of(
+                                context,
+                              ).push(getPageRoute(const BusinessFormScreen()));
                             },
                             child: const Text('Go to Settings'),
                           ),
@@ -323,6 +313,22 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     );
   }
 
+  List<Invoice> _filterInvoices(List<Invoice> list) {
+    return list.where((inv) {
+      final matchesType = inv.invoiceType.name == _filterType;
+      final matchesSearch =
+          _searchQuery.isEmpty ||
+          inv.invoiceNumber.toLowerCase().contains(
+            _searchQuery.toLowerCase(),
+          ) ||
+          (inv.partyName != null &&
+              inv.partyName!.toLowerCase().contains(
+                _searchQuery.toLowerCase(),
+              ));
+      return matchesType && matchesSearch;
+    }).toList();
+  }
+
   Widget _buildInvoiceList(
     bool isDark,
     ThemeData theme,
@@ -342,29 +348,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
       return AppErrorWidget(errorMessage: error, onRetry: _loadData);
     }
 
-    if (invoices.isEmpty) {
-      return EmptyState(
-        icon: Icons.receipt_long_rounded,
-        title: 'No invoices found',
-        description: _searchQuery.isNotEmpty
-            ? 'No match for "$_searchQuery" inside this category.'
-            : 'Create invoices to track sales and purchases.',
-        buttonText: _searchQuery.isEmpty ? 'create_invoice'.tr() : null,
-        onButtonPressed: _searchQuery.isEmpty
-            ? () {
-                if (_filterType == 'sale') {
-                  _showBillTypeSelection();
-                } else {
-                  Navigator.of(context)
-                      .push(getPageRoute(const InvoiceFormScreen.purchase()))
-                      .then((_) {
-                        if (mounted) _loadData();
-                      });
-                }
-              }
-            : null,
-      );
-    }
+    final filtered = _filterInvoices(invoices);
 
     return RefreshIndicator(
       color: isDark ? Colors.white : AppTheme.primary,
@@ -372,124 +356,180 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         if (businessId != null) {
           await context.read<Core>().invoice.fetchInvoices(
             businessId,
-            type: _typeParam,
-            search: _searchQuery.isNotEmpty ? _searchQuery : null,
+            forceRefresh: true,
           );
         }
       },
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        itemCount: invoices.length,
-        itemBuilder: (context, index) {
-          final inv = invoices[index];
-          final isSale = inv.invoiceType == InvoiceType.sale;
-
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(
-              color: isDark ? AppTheme.cardDark : Colors.white,
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-              border: Border.all(
-                color: isDark ? AppTheme.gray800 : AppTheme.slate50,
-                width: 1.5,
-              ),
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-              onTap: () {
-                Navigator.of(context)
-                    .push(getPageRoute(InvoiceDetailScreen(invoiceId: inv.id)))
-                    .then((_) {
-                      if (mounted) _loadData();
-                    });
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.gray800 : AppTheme.gray100,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                      ),
-                      child: Icon(
-                        isSale
-                            ? Icons.receipt_long_rounded
-                            : Icons.shopping_cart_outlined,
-                        color: isDark ? AppTheme.gray400 : AppTheme.gray500,
-                        size: 20,
+      child: filtered.isEmpty
+          ? LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Center(
+                      child: EmptyState(
+                        icon: Icons.receipt_long_rounded,
+                        title: 'No invoices found',
+                        description: _searchQuery.isNotEmpty
+                            ? 'No match for "$_searchQuery" inside this category.'
+                            : 'Create invoices to track sales and purchases.',
+                        buttonText: _searchQuery.isEmpty
+                            ? 'create_invoice'.tr()
+                            : null,
+                        onButtonPressed: _searchQuery.isEmpty
+                            ? () {
+                                if (_filterType == 'sale') {
+                                  _showBillTypeSelection();
+                                } else {
+                                  Navigator.of(context)
+                                      .push(
+                                        getPageRoute(
+                                          const InvoiceFormScreen.purchase(),
+                                        ),
+                                      )
+                                      .then((_) {
+                                        if (mounted) _loadData();
+                                      });
+                                }
+                              }
+                            : null,
                       ),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            inv.invoiceNumber,
-                            style: GoogleFonts.outfit(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: isDark ? Colors.white : AppTheme.gray900,
+                  ),
+                );
+              },
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              itemCount: filtered.length,
+              itemBuilder: (context, index) {
+                final inv = filtered[index];
+                final isSale = inv.invoiceType == InvoiceType.sale;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppTheme.cardDark : Colors.white,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                    border: Border.all(
+                      color: isDark ? AppTheme.gray800 : AppTheme.slate50,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                    onTap: () {
+                      Navigator.of(context)
+                          .push(
+                            getPageRoute(
+                              InvoiceDetailScreen(invoiceId: inv.id),
                             ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            inv.partyName ?? 'Walk-in Customer',
-                            style: GoogleFonts.outfit(
-                              fontWeight: FontWeight.w500,
-                              fontSize: 13,
+                          )
+                          .then((_) {
+                            if (mounted) _loadData();
+                          });
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppTheme.gray800
+                                  : AppTheme.gray100,
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusSm,
+                              ),
+                            ),
+                            child: Icon(
+                              isSale
+                                  ? Icons.receipt_long_rounded
+                                  : Icons.shopping_cart_outlined,
                               color: isDark
                                   ? AppTheme.gray400
-                                  : AppTheme.gray600,
+                                  : AppTheme.gray500,
+                              size: 20,
                             ),
                           ),
-                          const SizedBox(height: 1),
-                          Text(
-                            Formatters.formatDate(inv.invoiceDate),
-                            style: GoogleFonts.outfit(
-                              fontSize: 11,
-                              color: isDark
-                                  ? AppTheme.gray500
-                                  : AppTheme.gray400,
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  inv.invoiceNumber,
+                                  style: GoogleFonts.outfit(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: isDark
+                                        ? Colors.white
+                                        : AppTheme.gray900,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  inv.partyName ?? 'Walk-in Customer',
+                                  style: GoogleFonts.outfit(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 13,
+                                    color: isDark
+                                        ? AppTheme.gray400
+                                        : AppTheme.gray600,
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  Formatters.formatDate(inv.invoiceDate),
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 11,
+                                    color: isDark
+                                        ? AppTheme.gray500
+                                        : AppTheme.gray400,
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                Formatters.formatCurrency(inv.totalAmount),
+                                style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                  color: isDark
+                                      ? Colors.white
+                                      : AppTheme.gray900,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              StatusChip(
+                                label: inv.paymentStatus.displayName,
+                                dotColor:
+                                    inv.paymentStatus == PaymentStatus.paid
+                                    ? AppTheme.success
+                                    : inv.paymentStatus ==
+                                          PaymentStatus.partially_paid
+                                    ? AppTheme.warning
+                                    : AppTheme.error,
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          Formatters.formatCurrency(inv.totalAmount),
-                          style: GoogleFonts.outfit(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                            color: isDark ? Colors.white : AppTheme.gray900,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        StatusChip(
-                          label: inv.paymentStatus.displayName,
-                          dotColor: inv.paymentStatus == PaymentStatus.paid
-                              ? AppTheme.success
-                              : inv.paymentStatus ==
-                                    PaymentStatus.partially_paid
-                              ? AppTheme.warning
-                              : AppTheme.error,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
     );
   }
 
@@ -504,7 +544,6 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           setState(() {
             _filterType = type;
           });
-          _loadData();
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),

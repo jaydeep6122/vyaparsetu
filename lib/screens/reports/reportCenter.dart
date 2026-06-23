@@ -5,7 +5,6 @@ import 'package:vyaparsetu/global/themes.dart';
 import 'package:vyaparsetu/helpers/toastNotifications.dart';
 import 'package:vyaparsetu/helpers/formatters.dart';
 import 'package:vyaparsetu/types/party.dart';
-import 'package:vyaparsetu/types/invoice.dart';
 import 'package:vyaparsetu/global/constants.dart';
 import 'package:vyaparsetu/services/reportService.dart';
 import 'package:vyaparsetu/core/Core.dart';
@@ -107,8 +106,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
       final from = _dateParam(range.start);
       final to = _dateParam(range.end);
 
-      await core.invoice.fetchInvoices(business.id, fromDate: from, toDate: to);
-      final invoices = List<Invoice>.from(core.invoice.invoices);
+      final invoices = await core.invoice.fetchInvoices(business.id, fromDate: from, toDate: to);
 
       await ReportService.generateBusinessHealthReport(
         business: business,
@@ -132,8 +130,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
       final from = _dateParam(range.start);
       final to = _dateParam(range.end);
 
-      await core.invoice.fetchInvoices(business.id, type: 'sale', fromDate: from, toDate: to);
-      final invoices = List<Invoice>.from(core.invoice.invoices);
+      final invoices = await core.invoice.fetchInvoices(business.id, type: 'sale', fromDate: from, toDate: to);
 
       await ReportService.generateSalesReport(
         business: business,
@@ -157,8 +154,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
       final from = _dateParam(range.start);
       final to = _dateParam(range.end);
 
-      await core.invoice.fetchInvoices(business.id, type: 'purchase', fromDate: from, toDate: to);
-      final invoices = List<Invoice>.from(core.invoice.invoices);
+      final invoices = await core.invoice.fetchInvoices(business.id, type: 'purchase', fromDate: from, toDate: to);
 
       await ReportService.generatePurchaseReport(
         business: business,
@@ -182,14 +178,13 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
       final from = _dateParam(range.start);
       final to = _dateParam(range.end);
 
-      await core.invoice.fetchInvoices(
+      final invoices = await core.invoice.fetchInvoices(
         business.id,
         type: 'sale',
         partyId: party.id,
         fromDate: from,
         toDate: to,
       );
-      final invoices = List<Invoice>.from(core.invoice.invoices);
 
       await ReportService.generateCustomerReport(
         business: business,
@@ -214,14 +209,13 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
       final from = _dateParam(range.start);
       final to = _dateParam(range.end);
 
-      await core.invoice.fetchInvoices(
+      final invoices = await core.invoice.fetchInvoices(
         business.id,
         type: 'purchase',
         partyId: party.id,
         fromDate: from,
         toDate: to,
       );
-      final invoices = List<Invoice>.from(core.invoice.invoices);
 
       await ReportService.generateSupplierReport(
         business: business,

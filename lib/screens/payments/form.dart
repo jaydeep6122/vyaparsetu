@@ -159,7 +159,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
 
     try {
       final invoiceModule = context.read<Core>().invoice;
-      await invoiceModule.fetchInvoices(businessId, partyId: partyId);
+      await invoiceModule.fetchInvoices(businessId);
 
       if (!mounted) return;
 
@@ -173,6 +173,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
             invoiceModule.invoices
                 .where(
                   (inv) =>
+                      inv.partyId == partyId &&
                       inv.invoiceType == targetType &&
                       inv.paymentStatus != PaymentStatus.paid,
                 )

@@ -59,34 +59,46 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
     final filtered = _filterItems(items);
 
-    if (filtered.isEmpty) {
-      return EmptyState(
-        icon: Icons.inventory_2_outlined,
-        title: 'No items found',
-        description:
-            _searchQuery.isNotEmpty
-                ? 'No match for "$_searchQuery" inside this catalog.'
-                : 'Add items here to reference in invoices.',
-        buttonText: _searchQuery.isEmpty ? 'add_item'.tr() : null,
-        onButtonPressed:
-            _searchQuery.isEmpty
-                ? () => Navigator.of(
-                  context,
-                ).push(getPageRoute(const ItemFormScreen())).then((_) {
-                  if (mounted) _loadData();
-                })
-                : null,
-      );
-    }
-
     return RefreshIndicator(
       color: isDark ? Colors.white : AppTheme.primary,
       onRefresh: () async {
         if (businessId != null) {
-          await context.read<Core>().item.fetchItems(businessId);
+          await context.read<Core>().item.fetchItems(businessId, forceRefresh: true);
         }
       },
-      child: ListView.builder(
+      child: filtered.isEmpty
+          ? LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Center(
+                      child: EmptyState(
+                        icon: Icons.inventory_2_outlined,
+                        title: 'No items found',
+                        description:
+                            _searchQuery.isNotEmpty
+                                ? 'No match for "$_searchQuery" inside this catalog.'
+                                : 'Add items here to reference in invoices.',
+                        buttonText: _searchQuery.isEmpty ? 'add_item'.tr() : null,
+                        onButtonPressed:
+                            _searchQuery.isEmpty
+                                ? () => Navigator.of(
+                                  context,
+                                ).push(getPageRoute(const ItemFormScreen())).then((_) {
+                                  if (mounted) _loadData();
+                                })
+                                : null,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            )
+          : ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: filtered.length,
         itemBuilder: (context, index) {
