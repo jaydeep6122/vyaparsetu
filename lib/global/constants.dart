@@ -321,7 +321,10 @@ enum BillDesign {
     }
   }
 
-  bool get isGst => this == BillDesign.gstClassic || this == BillDesign.gstModern1 || this == BillDesign.gstModern2;
+  bool get isGst =>
+      this == BillDesign.gstClassic ||
+      this == BillDesign.gstModern1 ||
+      this == BillDesign.gstModern2;
 }
 
 class AppConstants {
@@ -330,5 +333,11 @@ class AppConstants {
   // Default base URL for local development.
   // In iOS simulator / Web: localhost
   // In Android Emulator: 10.0.2.2
-  static const String apiBaseUrl = 'https://vyaparsetubackend.onrender.com/v1/';
+  // old
+  // static const String apiBaseUrl = 'https://vyaparsetubackend.onrender.com/v1/';
+
+  // new
+
+  static const String apiBaseUrl =
+      'https://vyaparsetubackendsingapore.onrender.com/v1/';
 }

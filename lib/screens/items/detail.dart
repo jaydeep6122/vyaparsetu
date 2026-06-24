@@ -253,16 +253,22 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 4),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              label.toUpperCase(),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              style: GoogleFonts.outfit(
-                fontSize: 9,
-                color: isDark ? AppTheme.gray400 : AppTheme.slate500,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.6,
+            SizedBox(
+              height: 26,
+              child: Center(
+                child: Text(
+                  label.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  style: GoogleFonts.outfit(
+                    fontSize: 9,
+                    color: isDark ? AppTheme.gray400 : AppTheme.slate500,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.6,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 8),

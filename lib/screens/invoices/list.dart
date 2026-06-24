@@ -463,7 +463,10 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  inv.invoiceNumber,
+                                  inv.partyName ??
+                                      (isSale
+                                          ? 'Walk-in Customer'
+                                          : 'Walk-in Supplier'),
                                   style: GoogleFonts.outfit(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15,
@@ -474,7 +477,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
-                                  inv.partyName ?? 'Walk-in Customer',
+                                  inv.invoiceNumber,
                                   style: GoogleFonts.outfit(
                                     fontWeight: FontWeight.w500,
                                     fontSize: 13,

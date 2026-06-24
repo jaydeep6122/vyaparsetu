@@ -10,6 +10,7 @@ class InvoiceItem {
   final double taxRate;
   final double taxAmount;
   final double totalAmount;
+  final String? hsnCode;
 
   InvoiceItem({
     required this.id,
@@ -23,6 +24,7 @@ class InvoiceItem {
     required this.taxRate,
     required this.taxAmount,
     required this.totalAmount,
+    this.hsnCode,
   });
 
   factory InvoiceItem.fromJson(Map<String, dynamic> json) {
@@ -33,11 +35,16 @@ class InvoiceItem {
       name: json['name'] as String? ?? '',
       quantity: double.tryParse(json['quantity']?.toString() ?? '0') ?? 0.0,
       unitPrice: double.tryParse(json['unit_price']?.toString() ?? '0') ?? 0.0,
-      discountPercentage: double.tryParse(json['discount_percentage']?.toString() ?? '0') ?? 0.0,
-      discountAmount: double.tryParse(json['discount_amount']?.toString() ?? '0') ?? 0.0,
+      discountPercentage:
+          double.tryParse(json['discount_percentage']?.toString() ?? '0') ??
+          0.0,
+      discountAmount:
+          double.tryParse(json['discount_amount']?.toString() ?? '0') ?? 0.0,
       taxRate: double.tryParse(json['tax_rate']?.toString() ?? '0') ?? 0.0,
       taxAmount: double.tryParse(json['tax_amount']?.toString() ?? '0') ?? 0.0,
-      totalAmount: double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0,
+      totalAmount:
+          double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0,
+      hsnCode: json['hsn_code'] as String?,
     );
   }
 
@@ -54,6 +61,7 @@ class InvoiceItem {
       'tax_rate': taxRate,
       'tax_amount': taxAmount,
       'total_amount': totalAmount,
+      if (hsnCode != null) 'hsn_code': hsnCode,
     };
   }
 
@@ -69,6 +77,7 @@ class InvoiceItem {
     double? taxRate,
     double? taxAmount,
     double? totalAmount,
+    String? hsnCode,
   }) {
     return InvoiceItem(
       id: id ?? this.id,
@@ -82,6 +91,7 @@ class InvoiceItem {
       taxRate: taxRate ?? this.taxRate,
       taxAmount: taxAmount ?? this.taxAmount,
       totalAmount: totalAmount ?? this.totalAmount,
+      hsnCode: hsnCode ?? this.hsnCode,
     );
   }
 }
