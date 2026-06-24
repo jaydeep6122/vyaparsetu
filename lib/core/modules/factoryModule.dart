@@ -341,8 +341,8 @@ class FactoryModule {
       
       final list = _factoryWorkers[factoryId] ?? [];
       list.insert(0, newWorker);
-      _factoryWorkers[factoryId] = list;
-      _workers = list;
+      _factoryWorkers[factoryId] = List.from(list);
+      _workers = _factoryWorkers[factoryId]!;
 
       _isLoadingWorkers = false;
       core.notify();
@@ -377,9 +377,9 @@ class FactoryModule {
           existingMap[key] = value;
         });
         list[idx] = Worker.fromJson(existingMap);
+        _factoryWorkers[factoryId] = List.from(list);
+        _workers = _factoryWorkers[factoryId]!;
       }
-      _factoryWorkers[factoryId] = list;
-      _workers = list;
 
       _isLoadingWorkers = false;
       core.notify();
@@ -403,8 +403,8 @@ class FactoryModule {
       
       final list = _factoryWorkers[factoryId] ?? [];
       list.removeWhere((w) => w.id == workerId);
-      _factoryWorkers[factoryId] = list;
-      _workers = list;
+      _factoryWorkers[factoryId] = List.from(list);
+      _workers = _factoryWorkers[factoryId]!;
 
       _isLoadingWorkers = false;
       core.notify();
@@ -474,8 +474,8 @@ class FactoryModule {
       
       final list = _factoryTransactions[factoryId] ?? [];
       list.insert(0, newTx);
-      _factoryTransactions[factoryId] = list;
-      _transactions = list;
+      _factoryTransactions[factoryId] = List.from(list);
+      _transactions = _factoryTransactions[factoryId]!;
 
       _isLoadingTransactions = false;
       core.notify();
@@ -502,8 +502,8 @@ class FactoryModule {
       
       final list = _factoryTransactions[factoryId] ?? [];
       list.insert(0, newTx);
-      _factoryTransactions[factoryId] = list;
-      _transactions = list;
+      _factoryTransactions[factoryId] = List.from(list);
+      _transactions = _factoryTransactions[factoryId]!;
 
       _isLoadingTransactions = false;
       core.notify();
@@ -536,8 +536,8 @@ class FactoryModule {
       
       final list = _factoryTransactions[factoryId] ?? [];
       list.insert(0, newTx);
-      _factoryTransactions[factoryId] = list;
-      _transactions = list;
+      _factoryTransactions[factoryId] = List.from(list);
+      _transactions = _factoryTransactions[factoryId]!;
 
       _isLoadingTransactions = false;
       core.notify();
@@ -570,8 +570,8 @@ class FactoryModule {
       
       final list = _factoryTransactions[factoryId] ?? [];
       list.insert(0, newTx);
-      _factoryTransactions[factoryId] = list;
-      _transactions = list;
+      _factoryTransactions[factoryId] = List.from(list);
+      _transactions = _factoryTransactions[factoryId]!;
 
       _isLoadingTransactions = false;
       core.notify();

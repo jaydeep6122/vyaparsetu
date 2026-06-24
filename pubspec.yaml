@@ -50,6 +50,8 @@ dependencies:
   # Utilities
   intl: ^0.20.2               # Date/currency formatting
   another_flushbar: ^1.12.30  # Toast / snackbar notifications with slide animation
+  package_info_plus: ^9.0.1
+  url_launcher: ^6.3.1
 
   # Localization
   easy_localization: ^3.0.7    # English, Hindi, Gujarati

@@ -87,6 +87,7 @@ class ExpenseModule {
       final response = await Api.instance.expense.create(businessId, data);
       final newExpense = Expense.fromJson(response);
       _expenses.insert(0, newExpense);
+      _expenses = List.from(_expenses);
       _isLoading = false;
       core.notify();
       return true;
@@ -119,6 +120,7 @@ class ExpenseModule {
           existingMap[key] = value;
         });
         _expenses[idx] = Expense.fromJson(existingMap);
+        _expenses = List.from(_expenses);
       }
 
       _isLoading = false;
@@ -141,6 +143,7 @@ class ExpenseModule {
     try {
       await Api.instance.expense.delete(businessId, expenseId);
       _expenses.removeWhere((e) => e.id == expenseId);
+      _expenses = List.from(_expenses);
       _isLoading = false;
       core.notify();
       return true;

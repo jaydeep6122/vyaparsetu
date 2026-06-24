@@ -7,11 +7,20 @@ class Formatters {
     decimalDigits: 2,
   );
 
+  static final NumberFormat _indianRupeesFormatNoDecimal = NumberFormat.currency(
+    locale: 'en_IN',
+    symbol: '₹',
+    decimalDigits: 0,
+  );
+
   static final DateFormat _dateFormat = DateFormat('dd MMM yyyy');
   static final DateFormat _dateTimeFormat = DateFormat('dd MMM yyyy, hh:mm a');
   static final DateFormat _apiDateFormat = DateFormat('yyyy-MM-dd');
 
   static String formatCurrency(double amount) {
+    if (amount % 1 == 0) {
+      return _indianRupeesFormatNoDecimal.format(amount);
+    }
     return _indianRupeesFormat.format(amount);
   }
 

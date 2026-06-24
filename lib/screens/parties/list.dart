@@ -71,7 +71,7 @@ context.read<Core>().party.fetchParties(businessId);
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
             child: AppSearchBar(
-              hintText: 'Search parties by name or phone...',
+              hintText: 'search_parties'.tr(),
               onChanged: (val) {
                 setState(() {
                   _searchQuery = val;
@@ -124,7 +124,7 @@ context.read<Core>().party.fetchParties(businessId);
         physics: const AlwaysScrollableScrollPhysics(),
         child: SizedBox(
           height: MediaQuery.of(context).size.height * 0.6,
-          child: const LoadingIndicator(message: 'Loading parties...', isShimmer: true),
+          child: LoadingIndicator(message: 'loading_parties'.tr(), isShimmer: true),
         ),
       );
     }
@@ -154,12 +154,12 @@ context.read<Core>().party.fetchParties(businessId);
               child: Center(
                 child: EmptyState(
                   icon: isCustomer ? Icons.person_outline_rounded : Icons.business_outlined,
-                  title: isCustomer ? 'No customers found' : 'No suppliers found',
+                  title: isCustomer ? 'no_customers'.tr() : 'no_suppliers'.tr(),
                   description: _searchQuery.isNotEmpty
-                      ? 'No match for "$_searchQuery" inside this category.'
+                      ? 'no_match_category'.tr()
                       : isCustomer
-                          ? 'No customer contacts found. Use the "+" button to add one.'
-                          : 'No supplier contacts found. Use the "+" button to add one.',
+                          ? 'no_customer_contacts'.tr()
+                          : 'no_supplier_contacts'.tr(),
                   buttonText: null,
                   onButtonPressed: null,
                 ),
@@ -178,10 +178,10 @@ context.read<Core>().party.fetchParties(businessId);
           final isPositive = party.currentBalance > 0;
           final isNegative = party.currentBalance < 0;
           final balanceLabel = isPositive
-              ? 'To Receive'
+              ? 'to_receive'.tr()
               : isNegative
-                  ? 'To Pay'
-                  : 'Settled';
+                  ? 'to_pay'.tr()
+                  : 'settled'.tr();
 
           return Container(
             margin: const EdgeInsets.only(bottom: 10),
@@ -238,7 +238,7 @@ context.read<Core>().party.fetchParties(businessId);
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            party.phone ?? 'No phone',
+                            party.phone ?? 'no_phone'.tr(),
                             style: GoogleFonts.outfit(
                               fontSize: 13,
                               color: isDark ? AppTheme.gray400 : AppTheme.gray600,

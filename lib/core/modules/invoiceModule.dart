@@ -124,20 +124,23 @@ class InvoiceModule {
       final response = await Api.instance.invoice.create(businessId, data);
       final newInv = Invoice.fromJson(response);
       _invoices.insert(0, newInv);
+      _invoices = List.from(_invoices);
 
       // Cache under party invoices map if partyId matches
       if (newInv.partyId != null) {
-        if (_partyInvoicesMap.containsKey(newInv.partyId)) {
-          _partyInvoicesMap[newInv.partyId]!.insert(0, newInv);
+        final partyId = newInv.partyId!;
+        if (_partyInvoicesMap.containsKey(partyId)) {
+          _partyInvoicesMap[partyId]!.insert(0, newInv);
+          _partyInvoicesMap[partyId] = List.from(_partyInvoicesMap[partyId]!);
         } else {
-          _partyInvoicesMap[newInv.partyId!] = [newInv];
+          _partyInvoicesMap[partyId] = [newInv];
         }
 
         // Adjust party balance locally
         final change = newInv.invoiceType == InvoiceType.sale
             ? (newInv.totalAmount - newInv.paidAmount)
             : -(newInv.totalAmount - newInv.paidAmount);
-        core.party.adjustPartyBalance(newInv.partyId!, change);
+        core.party.adjustPartyBalance(partyId, change);
       }
 
       _isLoading = false;
@@ -169,6 +172,7 @@ class InvoiceModule {
             ? (oldInv.totalAmount - oldInv.paidAmount)
             : -(oldInv.totalAmount - oldInv.paidAmount);
         _invoices[idx] = updatedInv;
+        _invoices = List.from(_invoices);
       }
 
       if (updatedInv.partyId != null) {
@@ -178,6 +182,7 @@ class InvoiceModule {
           final pIdx = list.indexWhere((i) => i.id == invoiceId);
           if (pIdx != -1) {
             list[pIdx] = updatedInv;
+            _partyInvoicesMap[updatedInv.partyId!] = List.from(list);
           }
         }
 
@@ -216,10 +221,15 @@ class InvoiceModule {
 
       await Api.instance.invoice.delete(businessId, invoiceId);
       _invoices.removeWhere((i) => i.id == invoiceId);
+      _invoices = List.from(_invoices);
 
       if (oldInv != null && oldInv.partyId != null) {
         // Remove from party invoices map
-        _partyInvoicesMap[oldInv.partyId]?.removeWhere((i) => i.id == invoiceId);
+        final list = _partyInvoicesMap[oldInv.partyId];
+        if (list != null) {
+          list.removeWhere((i) => i.id == invoiceId);
+          _partyInvoicesMap[oldInv.partyId!] = List.from(list);
+        }
 
         // Revert party balance adjustment
         final oldPending = oldInv.invoiceType == InvoiceType.sale
@@ -266,6 +276,61 @@ class InvoiceModule {
 
   void clearPartyInvoices() {
     // No-op to preserve cache
+  }
+
+  void adjustInvoicePayment(String invoiceId, double amountChange) {
+    String? partyId;
+
+    final idx = _invoices.indexWhere((i) => i.id == invoiceId);
+    if (idx != -1) {
+      final oldInv = _invoices[idx];
+      partyId = oldInv.partyId;
+      final newPaidAmount = (oldInv.paidAmount + amountChange).clamp(0.0, oldInv.totalAmount);
+      PaymentStatus newStatus = PaymentStatus.unpaid;
+      if (newPaidAmount >= oldInv.totalAmount) {
+        newStatus = PaymentStatus.paid;
+      } else if (newPaidAmount > 0) {
+        newStatus = PaymentStatus.partially_paid;
+      }
+      _invoices[idx] = oldInv.copyWith(
+        paidAmount: newPaidAmount,
+        paymentStatus: newStatus,
+      );
+      _invoices = List.from(_invoices);
+    }
+
+    if (partyId == null) {
+      for (final entry in _partyInvoicesMap.entries) {
+        final pIdx = entry.value.indexWhere((i) => i.id == invoiceId);
+        if (pIdx != -1) {
+          partyId = entry.key;
+          break;
+        }
+      }
+    }
+
+    if (partyId != null && _partyInvoicesMap.containsKey(partyId)) {
+      final list = _partyInvoicesMap[partyId]!;
+      final pIdx = list.indexWhere((i) => i.id == invoiceId);
+      if (pIdx != -1) {
+        final oldInv = list[pIdx];
+        final newPaidAmount = (oldInv.paidAmount + amountChange).clamp(0.0, oldInv.totalAmount);
+        PaymentStatus newStatus = PaymentStatus.unpaid;
+        if (newPaidAmount >= oldInv.totalAmount) {
+          newStatus = PaymentStatus.paid;
+        } else if (newPaidAmount > 0) {
+          newStatus = PaymentStatus.partially_paid;
+        }
+        list[pIdx] = oldInv.copyWith(
+          paidAmount: newPaidAmount,
+          paymentStatus: newStatus,
+        );
+        _partyInvoicesMap[partyId] = List.from(list);
+        _partyInvoices = _partyInvoicesMap[partyId]!;
+      }
+    }
+
+    core.notify();
   }
 
   void clearAll() {

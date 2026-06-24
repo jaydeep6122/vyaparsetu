@@ -62,6 +62,7 @@ class ItemModule {
       final response = await Api.instance.item.create(businessId, data);
       final newItem = Item.fromJson(response);
       _items.insert(0, newItem);
+      _items = List.from(_items);
       _isLoading = false;
       core.notify();
       return newItem;
@@ -93,6 +94,7 @@ class ItemModule {
           existingMap[key] = value;
         });
         _items[idx] = Item.fromJson(existingMap);
+        _items = List.from(_items);
       }
       _isLoading = false;
       core.notify();
@@ -114,6 +116,7 @@ class ItemModule {
     try {
       await Api.instance.item.delete(businessId, itemId);
       _items.removeWhere((i) => i.id == itemId);
+      _items = List.from(_items);
       _isLoading = false;
       core.notify();
       return true;

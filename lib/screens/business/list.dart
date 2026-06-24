@@ -68,7 +68,7 @@ class _BusinessListScreenState extends State<BusinessListScreen> {
     final sorted = List<Business>.from(businesses)..sort((a, b) => a.createdAt.compareTo(b.createdAt));
     businesses = sorted;
     if (isLoading) {
-      return const LoadingIndicator(message: 'Loading businesses...', isShimmer: true);
+      return LoadingIndicator(message: 'loading_businesses'.tr(), isShimmer: true);
     }
     if (error != null) {
       return AppErrorWidget(
@@ -80,7 +80,7 @@ class _BusinessListScreenState extends State<BusinessListScreen> {
       return EmptyState(
         icon: Icons.store_rounded,
         title: 'no_businesses_found'.tr(),
-        description: 'Create your first business profile to get started.',
+        description: 'create_first_business'.tr(),
         buttonText: 'add_business'.tr(),
         onButtonPressed: () {
           Navigator.of(context).push(getPageRoute(const BusinessFormScreen()));

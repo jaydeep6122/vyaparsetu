@@ -82,7 +82,7 @@ class PartyModule {
     core.notify();
   }
 
-  Future<bool> createParty(String businessId, Map<String, dynamic> data) async {
+  Future<Party?> createParty(String businessId, Map<String, dynamic> data) async {
     _isLoading = true;
     _error = null;
     core.notify();
@@ -91,16 +91,17 @@ class PartyModule {
       final response = await Api.instance.party.create(businessId, data);
       final newParty = Party.fromJson(response);
       _parties.insert(0, newParty);
+      _parties = List.from(_parties);
       _isLoading = false;
       core.notify();
-      return true;
+      return newParty;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
     core.notify();
-    return false;
+    return null;
   }
 
   Future<bool> updateParty(
@@ -122,6 +123,7 @@ class PartyModule {
           existingMap[key] = value;
         });
         _parties[idx] = Party.fromJson(existingMap);
+        _parties = List.from(_parties);
       }
       _isLoading = false;
       core.notify();
@@ -143,6 +145,7 @@ class PartyModule {
     try {
       await Api.instance.party.delete(businessId, partyId);
       _parties.removeWhere((p) => p.id == partyId);
+      _parties = List.from(_parties);
       _isLoading = false;
       core.notify();
       return true;

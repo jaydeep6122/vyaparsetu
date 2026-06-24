@@ -73,7 +73,7 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     } else if (!success && mounted) {
-      showErrorToast(authProvider.error ?? 'Login failed. Please try again.');
+      showErrorToast(authProvider.error ?? 'login_failed'.tr());
     }
   }
 
@@ -114,7 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Smart Business Invoicing',
+                        'smart_business_invoicing'.tr(),
                         style: GoogleFonts.outfit(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -129,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Sign in to your account',
+                                'sign_in_to_account'.tr(),
                                 style: GoogleFonts.outfit(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -142,7 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               AppTextField(
                                 controller: _emailController,
                                 labelText: 'email'.tr(),
-                                hintText: 'Enter your email address',
+                                hintText: 'enter_email_hint'.tr(),
                                 keyboardType: TextInputType.emailAddress,
                                 prefixIcon: Icons.email_outlined,
                                 validator: Validators.validateEmail,
@@ -151,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               AppTextField(
                                 controller: _passwordController,
                                 labelText: 'password'.tr(),
-                                hintText: 'Enter your password',
+                                hintText: 'enter_password_hint'.tr(),
                                 isPassword: true,
                                 prefixIcon: Icons.lock_outline_rounded,
                                 validator: Validators.validatePassword,
@@ -186,7 +186,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ).push(getPageRoute(const SignupScreen()));
                             },
                             child: Text(
-                              'Sign Up',
+                              'sign_up_btn'.tr(),
                               style: GoogleFonts.outfit(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
@@ -295,7 +295,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               Text(
-                'Select Language',
+                'select_language'.tr(),
                 style: GoogleFonts.outfit(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:vyaparsetu/global/themes.dart';
 import 'package:vyaparsetu/helpers/toastNotifications.dart';
 import 'package:vyaparsetu/helpers/formatters.dart';
@@ -36,22 +37,29 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
 
   String _filterLabel(String f) {
     switch (f) {
-      case 'lifetime': return 'Lifetime';
-      case 'today': return 'Today';
-      case 'week': return 'This Week';
-      case 'month': return 'This Month';
-      case 'year': return 'This Year';
-      case 'custom': return 'Custom';
+      case 'lifetime': return 'filter_lifetime'.tr();
+      case 'today': return 'filter_today'.tr();
+      case 'week': return 'filter_this_week'.tr();
+      case 'month': return 'filter_this_month'.tr();
+      case 'year': return 'filter_this_year'.tr();
+      case 'custom': return 'filter_custom'.tr();
       default: return f;
     }
   }
 
-  String get _periodLabel {
+  String get _englishPeriodLabel {
     if (_activeFilter == 'lifetime') return 'Lifetime';
     if (_activeFilter == 'custom' && _selectedDateRange != null) {
-      return '${Formatters.formatDate(_selectedDateRange!.start)} - ${Formatters.formatDate(_selectedDateRange!.end)}';
+      final df = DateFormat('dd MMM yyyy', 'en');
+      return '${df.format(_selectedDateRange!.start.toLocal())} - ${df.format(_selectedDateRange!.end.toLocal())}';
     }
-    return _filterLabel(_activeFilter);
+    switch (_activeFilter) {
+      case 'today': return 'Today';
+      case 'week': return 'This Week';
+      case 'month': return 'This Month';
+      case 'year': return 'This Year';
+      default: return _activeFilter;
+    }
   }
 
   DateTimeRange _computeRange() {
@@ -111,7 +119,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
       await ReportService.generateBusinessHealthReport(
         business: business,
         invoices: invoices,
-        period: _periodLabel,
+        period: _englishPeriodLabel,
       );
     } catch (_) {}
 
@@ -135,7 +143,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
       await ReportService.generateSalesReport(
         business: business,
         invoices: invoices,
-        period: _periodLabel,
+        period: _englishPeriodLabel,
       );
     } catch (_) {}
 
@@ -159,7 +167,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
       await ReportService.generatePurchaseReport(
         business: business,
         invoices: invoices,
-        period: _periodLabel,
+        period: _englishPeriodLabel,
       );
     } catch (_) {}
 
@@ -190,7 +198,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
         business: business,
         partyName: party.name,
         invoices: invoices,
-        period: _periodLabel,
+        period: _englishPeriodLabel,
       );
     } catch (_) {}
 
@@ -221,7 +229,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
         business: business,
         partyName: party.name,
         invoices: invoices,
-        period: _periodLabel,
+        period: _englishPeriodLabel,
       );
     } catch (_) {}
 
@@ -239,7 +247,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
     }).toList();
 
     if (parties.isEmpty) {
-      showSuccessToast(isCustomer ? 'No customers found' : 'No suppliers found');
+      showSuccessToast(isCustomer ? 'no_customers'.tr() : 'no_suppliers'.tr());
       return;
     }
 
@@ -284,7 +292,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
                           controller: searchController,
                           onChanged: (v) => setSheetState(() => searchQuery = v),
                           decoration: InputDecoration(
-                            hintText: 'Search ${isCustomer ? 'customers' : 'suppliers'}...',
+                            hintText: isCustomer ? 'search_customers_hint'.tr() : 'search_suppliers_hint'.tr(),
                             prefixIcon: const Icon(Icons.search_rounded, size: 20),
                             filled: true,
                             fillColor: isDark ? AppTheme.cardDark : AppTheme.gray100,
@@ -303,7 +311,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
                     child: filtered.isEmpty
                         ? Center(
                             child: Text(
-                              'No ${isCustomer ? 'customers' : 'suppliers'} found',
+                              isCustomer ? 'no_customers_found'.tr() : 'no_suppliers_found'.tr(),
                               style: GoogleFonts.outfit(
                                 color: isDark ? AppTheme.gray400 : AppTheme.gray500,
                               ),
@@ -376,7 +384,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Report Center', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        title: Text('report_center'.tr(), style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
       body: Stack(
@@ -429,7 +437,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
 
                 // ── General Business Section ──
                 Text(
-                  'GENERAL BUSINESS',
+                  'general_business'.tr(),
                   style: GoogleFonts.outfit(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -441,34 +449,37 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
                 _reportTile(
                   isDark: isDark,
                   icon: Icons.analytics_rounded,
-                  title: 'Overall Business Health',
-                  subtitle: 'Revenue, expenditure & net profit summary',
-                  loading: _generatingReport == 'health' ? 'Generating...' : null,
+                  title: 'overall_business_health'.tr(),
+                  subtitle: 'health_subtitle'.tr(),
+                  color: const Color(0xFF6366F1),
+                  loading: _generatingReport == 'health' ? 'generating'.tr() : null,
                   onTap: _generateBusinessHealth,
                 ),
                 const SizedBox(height: 10),
                 _reportTile(
                   isDark: isDark,
                   icon: Icons.receipt_long_rounded,
-                  title: 'Full Sales Log',
-                  subtitle: 'Complete ledger of all sales transactions',
-                  loading: _generatingReport == 'sales' ? 'Generating...' : null,
+                  title: 'full_sales_log'.tr(),
+                  subtitle: 'sales_log_subtitle'.tr(),
+                  color: const Color(0xFF10B981),
+                  loading: _generatingReport == 'sales' ? 'generating'.tr() : null,
                   onTap: _generateSalesReport,
                 ),
                 const SizedBox(height: 10),
                 _reportTile(
                   isDark: isDark,
                   icon: Icons.shopping_cart_outlined,
-                  title: 'Full Purchase Log',
-                  subtitle: 'Complete log of all purchases from vendors',
-                  loading: _generatingReport == 'purchase' ? 'Generating...' : null,
+                  title: 'full_purchase_log'.tr(),
+                  subtitle: 'purchase_log_subtitle'.tr(),
+                  color: const Color(0xFFEF4444),
+                  loading: _generatingReport == 'purchase' ? 'generating'.tr() : null,
                   onTap: _generatePurchaseReport,
                 ),
                 const SizedBox(height: 28),
 
                 // ── Party Specific Section ──
                 Text(
-                  'PARTY SPECIFIC',
+                  'party_specific'.tr(),
                   style: GoogleFonts.outfit(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -480,18 +491,20 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
                 _reportTile(
                   isDark: isDark,
                   icon: Icons.people_outline_rounded,
-                  title: 'Customer Report',
-                  subtitle: 'Tap to select a customer & generate report',
-                  loading: _generatingReport == 'customer' ? 'Generating...' : null,
+                  title: 'customer_report'.tr(),
+                  subtitle: 'customer_report_subtitle'.tr(),
+                  color: const Color(0xFF3B82F6),
+                  loading: _generatingReport == 'customer' ? 'generating'.tr() : null,
                   onTap: () => _showPartyPicker(isCustomer: true),
                 ),
                 const SizedBox(height: 10),
                 _reportTile(
                   isDark: isDark,
                   icon: Icons.business_outlined,
-                  title: 'Supplier Report',
-                  subtitle: 'Tap to select a supplier & generate report',
-                  loading: _generatingReport == 'supplier' ? 'Generating...' : null,
+                  title: 'supplier_report'.tr(),
+                  subtitle: 'supplier_report_subtitle'.tr(),
+                  color: const Color(0xFFF59E0B),
+                  loading: _generatingReport == 'supplier' ? 'generating'.tr() : null,
                   onTap: () => _showPartyPicker(isCustomer: false),
                 ),
                 const SizedBox(height: 40),
@@ -527,7 +540,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Generating PDF...',
+                          'generating_pdf'.tr(),
                           style: GoogleFonts.outfit(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -550,6 +563,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
     required IconData icon,
     required String title,
     required String subtitle,
+    required Color color,
     Widget? trailing,
     String? loading,
     VoidCallback? onTap,
@@ -572,10 +586,10 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppTheme.secondary.withValues(alpha: isDark ? 0.15 : 0.08),
+                    color: color.withValues(alpha: isDark ? 0.15 : 0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, color: AppTheme.secondary, size: 22),
+                  child: Icon(icon, color: color, size: 22),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -596,7 +610,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
                           loading,
                           style: GoogleFonts.outfit(
                             fontSize: 12,
-                            color: AppTheme.secondary,
+                            color: color,
                           ),
                         )
                       else

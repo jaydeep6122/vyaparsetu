@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:printing/printing.dart';
 import 'package:vyaparsetu/types/invoice.dart';
 import 'package:vyaparsetu/types/party.dart';
@@ -67,8 +68,8 @@ class _InvoicePdfScreenState extends State<InvoicePdfScreen> {
 
     if (business == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Invoice PDF')),
-        body: const Center(child: Text('Business profile not loaded')),
+        appBar: AppBar(title: Text('invoice_pdf_title'.tr())),
+        body: Center(child: Text('business_not_loaded'.tr())),
       );
     }
 
@@ -81,7 +82,7 @@ class _InvoicePdfScreenState extends State<InvoicePdfScreen> {
         actions: [
           PopupMenuButton<BillDesign>(
             icon: const Icon(Icons.style_rounded),
-            tooltip: 'Change Design',
+            tooltip: 'change_design'.tr(),
             onSelected: _onDesignChanged,
             itemBuilder: (context) {
               final isDark = Theme.of(context).brightness == Brightness.dark;

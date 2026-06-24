@@ -77,7 +77,7 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
                 ),
               ),
               Text(
-                'New Payment',
+                'new_payment'.tr(),
                 style: GoogleFonts.outfit(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -97,7 +97,7 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
                   style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
                 ),
                 subtitle: Text(
-                  'Record money received from a customer',
+                  'payment_in_subtitle'.tr(),
                   style: GoogleFonts.outfit(
                     fontSize: 12,
                     color: AppTheme.slate500,
@@ -126,7 +126,7 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
                   style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
                 ),
                 subtitle: Text(
-                  'Record payment made to a supplier',
+                  'payment_out_subtitle'.tr(),
                   style: GoogleFonts.outfit(
                     fontSize: 12,
                     color: AppTheme.slate500,
@@ -277,8 +277,8 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
     String? businessId,
   ) {
     if (isLoading && payments.isEmpty) {
-      return const LoadingIndicator(
-        message: 'Loading payments...',
+      return LoadingIndicator(
+        message: 'loading_payments'.tr(),
         isShimmer: true,
       );
     }
@@ -311,10 +311,10 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
                     child: Center(
                       child: EmptyState(
                         icon: Icons.payment_outlined,
-                        title: 'No payments found',
+                        title: 'no_payments'.tr(),
                         description: _filterType != null || _fromDate != null || _toDate != null
-                            ? 'No match found for the selected filters.'
-                            : 'Record credit/debit payments collected from parties.',
+                            ? 'no_match_filters'.tr()
+                            : 'payments_empty_msg'.tr(),
                         buttonText: _filterType == null && _fromDate == null && _toDate == null ? 'add_payment'.tr() : null,
                         onButtonPressed: _filterType == null && _fromDate == null && _toDate == null
                             ? () => _showNewPaymentSheet(businessId)

@@ -318,7 +318,7 @@ class InvoicePdfService {
                     children: [
                       _cell('Invoice Date :', boldFont, fontSize: 9),
                       _cell(
-                        DateFormat('d/M/yyyy').format(invoiceDate),
+                        DateFormat('d/M/yyyy', 'en').format(invoiceDate),
                         font,
                         fontSize: 9,
                       ),
@@ -531,7 +531,7 @@ class InvoicePdfService {
                 ),
                 _cell(
                   invoice.deliveryDate != null
-                      ? DateFormat('d/M/yyyy').format(invoice.deliveryDate!)
+                      ? DateFormat('d/M/yyyy', 'en').format(invoice.deliveryDate!)
                       : '-',
                   font,
                   fontSize: 9,
@@ -1227,9 +1227,9 @@ class InvoicePdfService {
                       ),
                       pw.SizedBox(height: 4),
                       _rowInfo('Invoice No:', invoice.invoiceNumber, font, boldFont, textDark),
-                      _rowInfo('Date:', DateFormat('dd/MM/yyyy').format(invoice.invoiceDate), font, boldFont, textDark),
+                      _rowInfo('Date:', DateFormat('dd/MM/yyyy', 'en').format(invoice.invoiceDate), font, boldFont, textDark),
                       if (invoice.dueDate != null)
-                        _rowInfo('Due Date:', DateFormat('dd/MM/yyyy').format(invoice.dueDate!), font, boldFont, PdfColor.fromInt(0xFFD32F2F)),
+                        _rowInfo('Due Date:', DateFormat('dd/MM/yyyy', 'en').format(invoice.dueDate!), font, boldFont, PdfColor.fromInt(0xFFD32F2F)),
                       _rowInfo('Place of Supply:', business.state, font, boldFont, textDark),
                     ],
                   ),
@@ -1681,9 +1681,23 @@ class InvoicePdfService {
                         ),
                         pw.SizedBox(height: 4),
                         _rowInfo('Invoice No:', invoice.invoiceNumber, font, boldFont, textDark),
-                        _rowInfo('Date:', DateFormat('dd/MM/yyyy').format(invoice.invoiceDate), font, boldFont, textDark),
-                        if (invoice.dueDate != null)
-                          _rowInfo('Due Date:', DateFormat('dd/MM/yyyy').format(invoice.dueDate!), font, boldFont, PdfColor.fromInt(0xFFD32F2F)),
+                        pw.Row(
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          children: [
+                            pw.Text('Date:', style: const pw.TextStyle(fontSize: 8, color: textLight)),
+                            pw.Text(DateFormat('dd/MM/yyyy', 'en').format(invoice.invoiceDate), style: pw.TextStyle(font: boldFont, fontSize: 8, color: textDark)),
+                          ],
+                        ),
+                        if (invoice.dueDate != null) ...[
+                          pw.SizedBox(height: 2),
+                          pw.Row(
+                            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                            children: [
+                              pw.Text('Due Date:', style: const pw.TextStyle(fontSize: 8, color: textLight)),
+                              pw.Text(DateFormat('dd/MM/yyyy', 'en').format(invoice.dueDate!), style: pw.TextStyle(font: boldFont, fontSize: 8, color: PdfColor.fromInt(0xFFD32F2F))),
+                            ],
+                          ),
+                        ],
                         _rowInfo('Place of Supply:', business.state, font, boldFont, textDark),
                       ],
                     ),
@@ -2022,13 +2036,13 @@ class InvoicePdfService {
                       style: pw.TextStyle(font: boldFont, fontSize: 9.5, color: textDark),
                     ),
                     pw.Text(
-                      'Date: ${DateFormat('d MMM, yyyy').format(invoice.invoiceDate)}',
+                      'Date: ${DateFormat('d MMM, yyyy', 'en').format(invoice.invoiceDate)}',
                       style: const pw.TextStyle(fontSize: 8.5, color: textLight),
                     ),
                     if (invoice.dueDate != null) ...[
                       pw.SizedBox(height: 2),
                       pw.Text(
-                        'Due Date: ${DateFormat('d MMM, yyyy').format(invoice.dueDate!)}',
+                        'Due Date: ${DateFormat('d MMM, yyyy', 'en').format(invoice.dueDate!)}',
                         style: pw.TextStyle(font: boldFont, fontSize: 8.5, color: PdfColor.fromInt(0xFFD32F2F)),
                       ),
                     ],
@@ -2258,7 +2272,7 @@ class InvoicePdfService {
                         padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                         decoration: const pw.BoxDecoration(
                           color: primaryColor,
-                          borderRadius: pw.BorderRadius.only(bottomLeft: pw.Radius.circular(4), bottomRight: pw.Radius.circular(4)),
+                          borderRadius: const pw.BorderRadius.only(bottomLeft: pw.Radius.circular(4), bottomRight: pw.Radius.circular(4)),
                         ),
                         child: pw.Row(
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -2505,7 +2519,7 @@ class InvoicePdfService {
                         style: pw.TextStyle(font: boldFont, fontSize: 9.5, color: PdfColors.white),
                       ),
                       pw.Text(
-                        'Date: ${DateFormat('d MMM, yyyy').format(invoice.invoiceDate)}',
+                        'Date: ${DateFormat('d MMM, yyyy', 'en').format(invoice.invoiceDate)}',
                         style: const pw.TextStyle(fontSize: 8.5, color: PdfColor.fromInt(0xB3FFFFFF)),
                       ),
                     ],
@@ -2585,7 +2599,7 @@ class InvoicePdfService {
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                           children: [
                             pw.Text('Date:', style: const pw.TextStyle(fontSize: 8, color: textLight)),
-                            pw.Text(DateFormat('dd/MM/yyyy').format(invoice.invoiceDate), style: pw.TextStyle(font: boldFont, fontSize: 8, color: textDark)),
+                            pw.Text(DateFormat('dd/MM/yyyy', 'en').format(invoice.invoiceDate), style: pw.TextStyle(font: boldFont, fontSize: 8, color: textDark)),
                           ],
                         ),
                         if (invoice.dueDate != null) ...[
@@ -2594,7 +2608,7 @@ class InvoicePdfService {
                             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                             children: [
                               pw.Text('Due Date:', style: const pw.TextStyle(fontSize: 8, color: textLight)),
-                              pw.Text(DateFormat('dd/MM/yyyy').format(invoice.dueDate!), style: pw.TextStyle(font: boldFont, fontSize: 8, color: PdfColor.fromInt(0xFFD32F2F))),
+                              pw.Text(DateFormat('dd/MM/yyyy', 'en').format(invoice.dueDate!), style: pw.TextStyle(font: boldFont, fontSize: 8, color: PdfColor.fromInt(0xFFD32F2F))),
                             ],
                           ),
                         ],

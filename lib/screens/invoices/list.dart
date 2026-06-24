@@ -71,7 +71,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
             child: AppSearchBar(
-              hintText: 'Search by invoice number or party...',
+              hintText: 'search_invoice'.tr(),
               onChanged: (val) {
                 setState(() {
                   _searchQuery = val;
@@ -155,7 +155,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Choose the type of invoice you want to generate',
+                'choose_invoice_type'.tr(),
                 style: GoogleFonts.outfit(
                   fontSize: 14,
                   color: isDark ? AppTheme.gray400 : AppTheme.gray500,
@@ -165,7 +165,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
               _billTypeOption(
                 icon: Icons.receipt_long_rounded,
                 title: 'GST Invoice',
-                subtitle: 'With tax breakdown, GSTIN, HSN codes',
+                subtitle: 'gst_invoice_subtitle'.tr(),
                 isDark: isDark,
                 onTap: () {
                   final business = context
@@ -178,9 +178,9 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                     showDialog(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title: const Text('GST Number Required'),
-                        content: const Text(
-                          'To create GST invoices, please add your GST number in business settings first.',
+                        title: Text('gst_number_required'.tr()),
+                        content: Text(
+                          'gst_number_required_msg'.tr(),
                         ),
                         actions: [
                           TextButton(
@@ -195,7 +195,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                                 context,
                               ).push(getPageRoute(const BusinessFormScreen()));
                             },
-                            child: const Text('Go to Settings'),
+                            child: Text('go_to_settings'.tr()),
                           ),
                         ],
                       ),
@@ -217,8 +217,8 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
               const SizedBox(height: 12),
               _billTypeOption(
                 icon: Icons.receipt_rounded,
-                title: 'Normal Invoice',
-                subtitle: 'Simple invoice without tax/GST details',
+                title: 'normal_invoice'.tr(),
+                subtitle: 'normal_invoice_subtitle'.tr(),
                 isDark: isDark,
                 onTap: () {
                   Navigator.pop(context);
@@ -338,8 +338,8 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     String? businessId,
   ) {
     if (isLoading && invoices.isEmpty) {
-      return const LoadingIndicator(
-        message: 'Loading invoices...',
+      return LoadingIndicator(
+        message: 'loading_invoices'.tr(),
         isShimmer: true,
       );
     }
@@ -372,10 +372,10 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                     child: Center(
                       child: EmptyState(
                         icon: Icons.receipt_long_rounded,
-                        title: 'No invoices found',
+                        title: 'no_invoices_found'.tr(),
                         description: _searchQuery.isNotEmpty
-                            ? 'No match for "$_searchQuery" inside this category.'
-                            : 'Create invoices to track sales and purchases.',
+                            ? 'no_match_invoices'.tr(args: [_searchQuery])
+                            : 'invoices_empty_msg'.tr(),
                         buttonText: _searchQuery.isEmpty
                             ? 'create_invoice'.tr()
                             : null,

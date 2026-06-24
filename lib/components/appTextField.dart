@@ -90,7 +90,7 @@ class _AppTextFieldState extends State<AppTextField> {
         color: theme.textTheme.bodyLarge?.color,
       ),
       decoration: InputDecoration(
-        labelText: widget.labelText,
+        labelText: widget.labelText.isEmpty ? null : widget.labelText,
         hintText: widget.hintText,
         prefixIcon: widget.prefixIcon != null
             ? Padding(

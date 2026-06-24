@@ -5,6 +5,7 @@ import 'package:vyaparsetu/types/profitLoss.dart';
 import 'package:vyaparsetu/core/Core.dart';
 import 'package:vyaparsetu/storage/hive/cache.dart';
 import 'package:vyaparsetu/helpers/toastNotifications.dart';
+import 'package:vyaparsetu/global/constants.dart';
 
 class DashboardModule {
   final Core core;
@@ -143,6 +144,87 @@ class DashboardModule {
     _summaryError = null;
     _profitLossError = null;
     // _partyLedgerError = null;
+    core.notify();
+  }
+
+  void adjustDashboardPayment({
+    required PaymentType type,
+    required double amountChange,
+    required PaymentMode mode,
+  }) {
+    if (_summary == null) return;
+
+    double cashDelta = 0;
+    double bankDelta = 0;
+    double upiDelta = 0;
+
+    if (mode == PaymentMode.cash) {
+      cashDelta = amountChange;
+    } else if (mode == PaymentMode.bank) {
+      bankDelta = amountChange;
+    } else if (mode == PaymentMode.upi) {
+      upiDelta = amountChange;
+    }
+
+    final sign = (type == PaymentType.payment_in) ? 1.0 : -1.0;
+
+    final updatedCashBook = CashBook(
+      cash: _summary!.cashBook.cash + (cashDelta * sign),
+      bank: _summary!.cashBook.bank + (bankDelta * sign),
+      upi: _summary!.cashBook.upi + (upiDelta * sign),
+      totalMoney: _summary!.cashBook.totalMoney + (amountChange * sign),
+    );
+
+    MetricBreakdown totalReceivables = _summary!.totalReceivables;
+    MetricBreakdown received = _summary!.received;
+    MetricBreakdown totalPayables = _summary!.totalPayables;
+    MetricBreakdown totalPaid = _summary!.totalPaid;
+
+    if (type == PaymentType.payment_in) {
+      totalReceivables = MetricBreakdown(
+        base: totalReceivables.base,
+        tax: totalReceivables.tax,
+        total: totalReceivables.total - amountChange,
+      );
+      received = MetricBreakdown(
+        base: received.base,
+        tax: received.tax,
+        total: received.total + amountChange,
+      );
+    } else {
+      totalPayables = MetricBreakdown(
+        base: totalPayables.base,
+        tax: totalPayables.tax,
+        total: totalPayables.total - amountChange,
+      );
+      totalPaid = MetricBreakdown(
+        base: totalPaid.base,
+        tax: totalPaid.tax,
+        total: totalPaid.total + amountChange,
+      );
+    }
+
+    _summary = DashboardSummary(
+      totalSales: _summary!.totalSales,
+      totalPurchases: _summary!.totalPurchases,
+      totalReceivables: totalReceivables,
+      totalPayables: totalPayables,
+      received: received,
+      totalPaid: totalPaid,
+      lowStockItemsCount: _summary!.lowStockItemsCount,
+      lowStockItems: _summary!.lowStockItems,
+      cashBook: updatedCashBook,
+    );
+
+    final selectedId = CacheBox.getSelectedBusinessId();
+    if (selectedId != null) {
+      try {
+        final cached = CacheBox.getCachedBusinessSummaries();
+        cached[selectedId] = _summary!.toJson();
+        CacheBox.setCachedBusinessSummaries(cached);
+      } catch (_) {}
+    }
+
     core.notify();
   }
 }

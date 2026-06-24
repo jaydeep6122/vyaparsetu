@@ -116,8 +116,8 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: _selectedCategory,
-                          hint: Text(
-                            'All Categories',
+                            hint: Text(
+                              'all_categories'.tr(),
                             style: GoogleFonts.outfit(fontSize: 13),
                           ),
                           isDense: true,
@@ -147,7 +147,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                       GestureDetector(
                         onTap: _clearFilters,
                         child: Text(
-                          'Clear',
+                          'clear'.tr(),
                           style: GoogleFonts.outfit(
                             fontSize: 12,
                             color:
@@ -165,17 +165,19 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                   children: [
                     Expanded(
                       child: _buildDateButton(
-                        'From',
+                        'from'.tr(),
                         _fromDate,
                         () => _pickDate(true),
+                        isFrom: true,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: _buildDateButton(
-                        'To',
+                        'to'.tr(),
                         _toDate,
                         () => _pickDate(false),
+                        isFrom: false,
                       ),
                     ),
                   ],
@@ -233,7 +235,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     String? businessId,
   ) {
     if (isLoading && expenses.isEmpty) {
-      return const LoadingIndicator(message: 'Loading expenses...', isShimmer: true);
+      return LoadingIndicator(message: 'loading_expenses'.tr(), isShimmer: true);
     }
 
     if (error != null) {
@@ -264,9 +266,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                     child: Center(
                       child: EmptyState(
                         icon: Icons.money_off_rounded,
-                        title: 'No expenses found',
+                        title: 'no_expenses'.tr(),
                         description:
-                            'Record operating expenses like rent, salaries, utilities, etc.',
+                            'no_expenses_subtitle'.tr(),
                         buttonText: 'add_expense'.tr(),
                         onButtonPressed:
                             () => Navigator.of(
@@ -368,7 +370,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
     );
   }
 
-  Widget _buildDateButton(String label, DateTime? date, VoidCallback onTap) {
+  Widget _buildDateButton(String label, DateTime? date, VoidCallback onTap, {required bool isFrom}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: onTap,
@@ -412,7 +414,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
               GestureDetector(
                 onTap: () {
                   setState(() {
-                    if (label == 'From')
+                    if (isFrom)
                       _fromDate = null;
                     else
                       _toDate = null;

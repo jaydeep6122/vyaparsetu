@@ -120,7 +120,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
       if (arg.partyId == null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           showErrorToast(
-            'Cannot record payment for a cash/walk-in customer invoice',
+            'cannot_record_payment'.tr(),
           );
           Navigator.of(context).pop();
         });
@@ -189,7 +189,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
         }
       });
     } catch (e) {
-      if (mounted) showErrorToast('Failed to load party invoices');
+      if (mounted) showErrorToast('failed_load_party_invoices'.tr());
     } finally {
       if (mounted) setState(() => _isLoadingInvoices = false);
     }
@@ -212,12 +212,12 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedPartyId == null) {
-      showErrorToast('Please select a party contact');
+      showErrorToast('select_party_payment'.tr());
       return;
     }
 
     if (_selectedInvoiceId == null) {
-      showErrorToast('Please select an invoice to link this payment');
+      showErrorToast('select_invoice_payment'.tr());
       return;
     }
 
@@ -261,12 +261,12 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
         if (mounted)
           showSuccessToast(
             _isEdit
-                ? 'Payment updated successfully'
-                : 'Payment recorded successfully',
+                ? 'payment_updated'.tr()
+                : 'payment_recorded'.tr(),
           );
       });
     } else if (mounted) {
-      showErrorToast(provider.error ?? 'Failed to save payment');
+      showErrorToast(provider.error ?? 'failed_save_payment'.tr());
     }
   }
 
@@ -277,10 +277,10 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder:
-          (context) => const ConfirmationDialog(
-            title: 'Delete Payment',
-            content: 'Are you sure you want to delete this recorded payment?',
-            confirmText: 'Delete',
+          (context) => ConfirmationDialog(
+            title: 'delete_payment'.tr(),
+            content: 'delete_payment_confirm'.tr(),
+            confirmText: 'delete'.tr(),
             isDestructive: true,
             icon: Icons.delete_outline_rounded,
           ),
@@ -295,7 +295,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
         Navigator.of(context).pop();
         context.read<Core>().business.fetchBusinesses();
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) showSuccessToast('Payment deleted successfully');
+          if (mounted) showSuccessToast('payment_deleted'.tr());
         });
       }
     }
@@ -303,7 +303,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
 
   Future<void> _showInvoicePicker() async {
     if (_unpaidInvoices.isEmpty) {
-      showErrorToast('No unpaid invoices found for this party');
+      showErrorToast('no_unpaid_invoices'.tr());
       return;
     }
 
@@ -333,7 +333,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                 ),
               ),
               Text(
-                'Select Invoice',
+                'select_invoice'.tr(),
                 style: GoogleFonts.outfit(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -444,8 +444,8 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                     .where((i) => i.id == _selectedInvoiceId)
                     .firstOrNull
                     ?.invoiceNumber ??
-                'Invoice selected')
-            : 'Select Invoice *';
+                'invoice_selected'.tr())
+            : 'select_invoice_required'.tr();
 
     return Scaffold(
       appBar: AppBar(
@@ -454,10 +454,10 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
           children: [
             Text(
               _isEdit
-                  ? 'Edit Payment'
+                  ? 'edit_payment'.tr()
                   : widget.paymentType == PaymentType.payment_in
-                  ? 'Record Payment In'
-                  : 'Record Payment Out',
+                  ? 'record_payment_in'.tr()
+                  : 'record_payment_out'.tr(),
               style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
             ),
             if (showSubtitle)
@@ -621,7 +621,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                         borderRadius: BorderRadius.circular(12),
                         child: InputDecorator(
                           decoration: InputDecoration(
-                            labelText: 'Link to Invoice',
+                            labelText: 'link_to_invoice'.tr(),
                             prefixIcon: const Icon(Icons.description_outlined),
                             suffixIcon: const Icon(
                               Icons.arrow_forward_ios,
@@ -647,7 +647,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                 ],
 
                 Text(
-                  'Amount',
+                  'amount_label'.tr(),
                   style: GoogleFonts.outfit(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -763,7 +763,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                 AppTextField(
                   controller: _refNoController,
                   labelText: 'reference_number'.tr(),
-                  hintText: 'Txn ID, Cheque #, etc.',
+                  hintText: 'txn_id_hint'.tr(),
                   prefixIcon: Icons.tag,
                 ),
                 const SizedBox(height: 16),
@@ -771,14 +771,14 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
                 AppTextField(
                   controller: _descController,
                   labelText: 'description'.tr(),
-                  hintText: 'Add remarks...',
+                  hintText: 'remarks_hint'.tr(),
                   maxLines: 2,
                   prefixIcon: Icons.description_outlined,
                 ),
                 const SizedBox(height: 28),
 
                 AppButton(
-                  text: _isEdit ? 'Update Payment' : 'Record Payment',
+                  text: _isEdit ? 'update_payment'.tr() : 'record_payment_btn'.tr(),
                   isLoading: context.select<Core, bool>(
                     (c) => c.payment.isLoading,
                   ),

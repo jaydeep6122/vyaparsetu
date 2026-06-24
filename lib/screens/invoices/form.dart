@@ -246,9 +246,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                     const SizedBox(height: 16),
                     // Product Selection
                     DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(
-                        labelText: 'Select Product/Service',
-                        prefixIcon: Icon(Icons.shopping_bag_outlined),
+                      decoration: InputDecoration(
+                        labelText: 'select_product_service'.tr(),
+                        prefixIcon: const Icon(Icons.shopping_bag_outlined),
                       ),
                       value: tempItem?.id,
                       items:
@@ -293,7 +293,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                           _onAddItemDialog();
                         },
                         icon: Icon(Icons.add, size: 16),
-                        label: Text('Create New Product/Service', style: TextStyle(fontSize: 13)),
+                        label: Text('create_new_product'.tr(), style: TextStyle(fontSize: 13)),
                         style: TextButton.styleFrom(
                           foregroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppTheme.primary,
                         ),
@@ -360,7 +360,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                'Unit: ${tempItem?.measuringUnit ?? "pcs"}',
+                                'Unit: ${tempItem?.measuringUnit ?? "pcs".tr()}',
                                 style: GoogleFonts.outfit(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -380,7 +380,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                         Expanded(
                           child: AppTextField(
                             controller: qtyController,
-                            labelText: 'Quantity',
+                            labelText: 'quantity_label'.tr(),
                             keyboardType: TextInputType.number,
                             prefixIcon: Icons.unfold_more_rounded,
                           ),
@@ -389,9 +389,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                         Expanded(
                           child: AppTextField(
                             controller: rateController,
-                            labelText: 'Rate (₹)',
+                            labelText: 'rate_label'.tr(),
                             keyboardType: TextInputType.number,
-                            hintText: 'Rate',
+                            hintText: 'rate_hint'.tr(),
                             prefixIcon: Icons.currency_rupee_rounded,
                           ),
                         ),
@@ -404,7 +404,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                           Expanded(
                             child: AppTextField(
                               controller: discController,
-                              labelText: 'Discount (%)',
+                              labelText: 'discount_label'.tr(),
                               keyboardType: TextInputType.number,
                               prefixIcon: Icons.percent_rounded,
                             ),
@@ -413,7 +413,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                           Expanded(
                             child: AppTextField(
                               controller: taxController,
-                              labelText: 'Tax Rate (%)',
+                              labelText: 'tax_rate_label'.tr(),
                               keyboardType: TextInputType.number,
                               prefixIcon: Icons.gavel_rounded,
                             ),
@@ -566,7 +566,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       child: ElevatedButton(
                         onPressed: () {
                               if (tempItem == null) {
-                                showErrorToast('Please select an item');
+                                showErrorToast('select_item'.tr());
                                 return;
                               }
                               final qty =
@@ -686,7 +686,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_isSale && _deliveryDate == null) {
-      showErrorToast('Please select Delivery Date');
+      showErrorToast('select_delivery_date'.tr());
       return;
     }
 
@@ -694,7 +694,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     if (businessId == null) return;
 
     if (_lineItems.isEmpty) {
-      showErrorToast('Please add at least one item to the invoice');
+      showErrorToast('add_at_least_one_item'.tr());
       return;
     }
 
@@ -703,7 +703,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     final paid = hasPaidAmount ? (double.tryParse(paidText) ?? 0.0) : 0.0;
 
     if (hasPaidAmount && paid > _totalAmount) {
-      showErrorToast('Paid amount cannot exceed total invoice amount');
+      showErrorToast('paid_exceeds_total'.tr());
       return;
     }
 
@@ -778,14 +778,13 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) showSuccessToast(
           _isEdit
-              ? 'Invoice updated successfully'
-              : 'Invoice generated successfully',
+              ? 'invoice_updated'.tr()
+              : 'invoice_generated'.tr(),
         );
       });
     } else if (mounted) {
       showErrorToast(
-        invoiceProvider.error ??
-            'Failed to ${_isEdit ? 'update' : 'generate'} invoice',
+        invoiceProvider.error ?? 'invoice_failed'.tr(),
       );
     }
   }
@@ -797,7 +796,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         title: Text(
           _isEdit
               ? 'Edit ${widget.existingInvoice!.invoiceNumber}'
-              : 'New ${_isSale ? (_billType == BillType.gst ? "GST" : "Normal") : "Purchase"} Invoice',
+              : _isSale
+                  ? (_billType == BillType.gst ? 'gst_invoice'.tr() : 'normal_invoice'.tr())
+                  : 'purchase'.tr(),
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
       ),
@@ -916,7 +917,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             _fieldLabel('Customer'),
             DropdownButtonFormField<String>(
               decoration: InputDecoration(
-                hintText: 'Select Customer',
+                hintText: 'select_customer'.tr(),
                 prefixIcon: const Icon(Icons.person_outline_rounded),
               ),
               value:
@@ -948,16 +949,21 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               alignment: Alignment.centerRight,
               child: TextButton.icon(
                 onPressed: () async {
-                  final businessId = context.read<Core>().business.selectedBusiness?.id;
-                  await Navigator.of(context).push(
+                  final createdParty = await Navigator.of(context).push<Party>(
                     getPageRoute(PartyFormScreen(initialPartyType: PartyType.customer)),
                   );
-                  if (businessId != null && mounted) {
-                    context.read<Core>().party.fetchParties(businessId);
+                  if (createdParty != null && mounted) {
+                    setState(() {
+                      _selectedPartyId = createdParty.id;
+                      final billAddrs = createdParty.billingAddresses;
+                      final shipAddrs = createdParty.shippingAddresses;
+                      _billingAddress = billAddrs.isNotEmpty ? billAddrs.first : '';
+                      _shippingAddress = shipAddrs.isNotEmpty ? shipAddrs.first : (_billingAddress ?? '');
+                    });
                   }
                 },
                 icon: Icon(Icons.add, size: 16),
-                label: Text('Add Customer', style: TextStyle(fontSize: 13)),
+                label: Text('add_customer'.tr(), style: TextStyle(fontSize: 13)),
                 style: TextButton.styleFrom(
                   foregroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppTheme.primary,
                 ),
@@ -976,7 +982,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       AppTextField(
                         controller: _invoiceNumberController,
                         labelText: '',
-                        hintText: 'INV-1001',
+                        hintText: 'inv_hint'.tr(),
                         validator: (val) =>
                             Validators.validateRequired(val, 'Invoice number'),
                       ),
@@ -1041,7 +1047,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             AppTextField(
               controller: _chalanNoController,
               labelText: '',
-              hintText: 'e.g. CH-2041',
+              hintText: 'chalan_hint'.tr(),
               validator: _billType == BillType.gst
                   ? (val) => Validators.validateRequired(val, 'Chalan number')
                   : null,
@@ -1108,7 +1114,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             _fieldLabel('Supplier'),
             DropdownButtonFormField<String>(
               decoration: InputDecoration(
-                hintText: 'Select Supplier',
+                hintText: 'select_supplier'.tr(),
                 prefixIcon: const Icon(Icons.person_outline_rounded),
               ),
               value:
@@ -1142,16 +1148,21 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               alignment: Alignment.centerRight,
               child: TextButton.icon(
                 onPressed: () async {
-                  final businessId = context.read<Core>().business.selectedBusiness?.id;
-                  await Navigator.of(context).push(
+                  final createdParty = await Navigator.of(context).push<Party>(
                     getPageRoute(PartyFormScreen(initialPartyType: PartyType.supplier)),
                   );
-                  if (businessId != null && mounted) {
-                    context.read<Core>().party.fetchParties(businessId);
+                  if (createdParty != null && mounted) {
+                    setState(() {
+                      _selectedPartyId = createdParty.id;
+                      final billAddrs = createdParty.billingAddresses;
+                      final shipAddrs = createdParty.shippingAddresses;
+                      _billingAddress = billAddrs.isNotEmpty ? billAddrs.first : '';
+                      _shippingAddress = shipAddrs.isNotEmpty ? shipAddrs.first : (_billingAddress ?? '');
+                    });
                   }
                 },
                 icon: Icon(Icons.add, size: 16),
-                label: Text('Add Supplier', style: TextStyle(fontSize: 13)),
+                label: Text('add_supplier'.tr(), style: TextStyle(fontSize: 13)),
                 style: TextButton.styleFrom(
                   foregroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppTheme.primary,
                 ),
@@ -1170,7 +1181,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       AppTextField(
                         controller: _invoiceNumberController,
                         labelText: '',
-                        hintText: 'INV-1001',
+                        hintText: 'inv_hint'.tr(),
                       ),
                     ],
                   ),
@@ -1184,7 +1195,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       AppTextField(
                         controller: _chalanNoController,
                         labelText: '',
-                        hintText: 'e.g. CH-2041',
+                        hintText: 'chalan_hint'.tr(),
                       ),
                     ],
                   ),
@@ -1239,7 +1250,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       AppTextField(
                         controller: _transportQtyController,
                         labelText: '',
-                        hintText: 'e.g. 1',
+                        hintText: 'qty_hint'.tr(),
                         keyboardType: TextInputType.number,
                         onChanged: (val) => _calculateTotals(),
                       ),
@@ -1255,7 +1266,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       AppTextField(
                         controller: _transportRateController,
                         labelText: '',
-                        hintText: '₹ 500',
+                        hintText: 'rate_hint_label'.tr(),
                         keyboardType: TextInputType.number,
                         onChanged: (val) => _calculateTotals(),
                       ),
@@ -1404,7 +1415,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           ),
         ),
         child: Text(
-          (address != null && address.isNotEmpty) ? address : 'Tap to set',
+          (address != null && address.isNotEmpty) ? address : 'tap_to_set'.tr(),
           style: GoogleFonts.outfit(
             fontSize: 13,
             color:
@@ -1494,12 +1505,12 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
 
                     if (type == 'shipping') ...[
                       _addressOption(
-                        label: 'Same as Billing Address',
+                        label: 'same_as_billing'.tr(),
                         subtitle:
                             _billingAddress != null &&
                                     _billingAddress!.isNotEmpty
                                 ? _billingAddress!
-                                : 'No billing address set',
+                                : 'no_billing_address'.tr(),
                         isDark: isDark,
                         onTap: () {
                           setState(() {
@@ -1537,7 +1548,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       subtitle:
                           customAddress.isNotEmpty
                               ? customAddress
-                              : 'Type a custom address',
+                              : 'type_custom_address'.tr(),
                       isDark: isDark,
                       trailing:
                           customAddress.isEmpty
@@ -1557,7 +1568,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                         controller: isCustomController,
                         maxLines: 3,
                         decoration: InputDecoration(
-                          hintText: 'Enter full address...',
+                          hintText: 'enter_full_address'.tr(),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -1589,8 +1600,8 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       const SizedBox(height: 12),
                       Text(
                         party != null
-                            ? 'No saved ${type} addresses for this party.'
-                            : 'Select a party first, or enter a custom address.',
+                            ? 'no_saved_addresses'.tr(args: [type])
+                            : 'select_party_or_custom'.tr(),
                         style: GoogleFonts.outfit(
                           fontSize: 13,
                             color: isDark ? AppTheme.gray400 : AppTheme.gray600,
@@ -1681,7 +1692,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         ),
         child: Center(
           child: Text(
-            'No items added yet. Click Add Item above.',
+            'no_items_added_yet'.tr(),
             style: GoogleFonts.outfit(color: isDark ? AppTheme.gray400 : AppTheme.gray500, fontSize: 13),
           ),
         ),
@@ -1894,14 +1905,14 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             AppTextField(
               controller: _paidAmountController,
               labelText: 'paid_amount'.tr(),
-              hintText: 'Enter cash collected/paid',
+              hintText: 'cash_collected'.tr(),
               keyboardType: TextInputType.number,
               readOnly: _paymentMode == PaymentMode.credit,
               validator: (val) {
                 if (val == null || val.trim().isEmpty) return null;
                 final numValue = double.tryParse(val);
-                if (numValue == null) return 'Please enter a valid number';
-                if (numValue < 0) return 'Amount cannot be negative';
+                if (numValue == null) return 'enter_valid_number'.tr();
+                if (numValue < 0) return 'amount_no_negative'.tr();
                 return null;
               },
             ),
@@ -1911,7 +1922,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             AppTextField(
               controller: _notesController,
               labelText: 'notes'.tr(),
-              hintText: 'Write terms, greetings, or details...',
+              hintText: 'write_terms'.tr(),
               maxLines: 2,
             ),
           ],

@@ -81,12 +81,29 @@ class PaymentModule {
       final response = await Api.instance.payment.create(businessId, data);
       final newPayment = Payment.fromJson(response);
       _payments.insert(0, newPayment);
+      _payments = List.from(_payments);
 
       // Adjust party balance locally
-      final change = newPayment.paymentType == PaymentType.payment_in
-          ? -newPayment.amount
-          : newPayment.amount;
-      core.party.adjustPartyBalance(newPayment.partyId, change);
+      final partyId = newPayment.partyId.isNotEmpty ? newPayment.partyId : data['party_id'] as String?;
+      if (partyId != null) {
+        final change = newPayment.paymentType == PaymentType.payment_in
+            ? -newPayment.amount
+            : newPayment.amount;
+        core.party.adjustPartyBalance(partyId, change);
+      }
+
+      // Adjust invoice locally
+      final invoiceId = newPayment.invoiceId ?? data['invoice_id'] as String?;
+      if (invoiceId != null) {
+        core.invoice.adjustInvoicePayment(invoiceId, newPayment.amount);
+      }
+
+      // Adjust dashboard summary locally
+      core.dashboard.adjustDashboardPayment(
+        type: newPayment.paymentType,
+        amountChange: newPayment.amount,
+        mode: newPayment.paymentMode,
+      );
 
       _isLoading = false;
       core.notify();
@@ -121,12 +138,41 @@ class PaymentModule {
         });
         final updatedPayment = Payment.fromJson(existingMap);
         _payments[idx] = updatedPayment;
+        _payments = List.from(_payments);
 
         final newChange = updatedPayment.paymentType == PaymentType.payment_in
             ? -updatedPayment.amount
             : updatedPayment.amount;
         final change = newChange - oldChange;
         core.party.adjustPartyBalance(updatedPayment.partyId, change);
+
+        // Adjust invoice locally
+        if (updatedPayment.invoiceId != null) {
+          core.invoice.adjustInvoicePayment(
+            updatedPayment.invoiceId!,
+            updatedPayment.amount - oldPayment.amount,
+          );
+        }
+
+        // Adjust dashboard summary locally
+        if (oldPayment.paymentMode == updatedPayment.paymentMode) {
+          core.dashboard.adjustDashboardPayment(
+            type: updatedPayment.paymentType,
+            amountChange: updatedPayment.amount - oldPayment.amount,
+            mode: updatedPayment.paymentMode,
+          );
+        } else {
+          core.dashboard.adjustDashboardPayment(
+            type: oldPayment.paymentType,
+            amountChange: -oldPayment.amount,
+            mode: oldPayment.paymentMode,
+          );
+          core.dashboard.adjustDashboardPayment(
+            type: updatedPayment.paymentType,
+            amountChange: updatedPayment.amount,
+            mode: updatedPayment.paymentMode,
+          );
+        }
       }
 
       _isLoading = false;
@@ -154,10 +200,26 @@ class PaymentModule {
             ? oldPayment.amount
             : -oldPayment.amount;
         core.party.adjustPartyBalance(oldPayment.partyId, change);
+
+        // Adjust invoice locally
+        if (oldPayment.invoiceId != null) {
+          core.invoice.adjustInvoicePayment(
+            oldPayment.invoiceId!,
+            -oldPayment.amount,
+          );
+        }
+
+        // Adjust dashboard summary locally
+        core.dashboard.adjustDashboardPayment(
+          type: oldPayment.paymentType,
+          amountChange: -oldPayment.amount,
+          mode: oldPayment.paymentMode,
+        );
       }
 
       await Api.instance.payment.delete(businessId, paymentId);
       _payments.removeWhere((p) => p.id == paymentId);
+      _payments = List.from(_payments);
 
       _isLoading = false;
       core.notify();

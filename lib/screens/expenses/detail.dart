@@ -25,10 +25,10 @@ class ExpenseDetailScreen extends StatelessWidget {
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => const ConfirmationDialog(
-        title: 'Delete Expense',
-        content: 'Are you sure you want to delete this recorded expense?',
-        confirmText: 'Delete',
+      builder: (context) => ConfirmationDialog(
+        title: 'delete_expense'.tr(),
+        content: 'delete_expense_confirm'.tr(),
+        confirmText: 'delete'.tr(),
         isDestructive: true,
         icon: Icons.delete_outline_rounded,
       ),
@@ -39,7 +39,7 @@ class ExpenseDetailScreen extends StatelessWidget {
       if (success && context.mounted) {
         Navigator.of(context).pop();
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) showSuccessToast('Expense deleted successfully');
+          if (context.mounted) showSuccessToast('expense_deleted'.tr());
         });
       }
     }
@@ -119,7 +119,7 @@ class ExpenseDetailScreen extends StatelessWidget {
             // Details section
             _buildDetailsCard(
               context,
-              title: 'Expense Details',
+              title: 'expense_details'.tr(),
               items: {
                 'Expense Category': expense.expenseCategory,
                 'Expense Code': expense.expenseNumber,

@@ -102,7 +102,7 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 28),
-            _buildSectionHeader('Business', context),
+            _buildSectionHeader('business'.tr(), context),
             const SizedBox(height: 8),
             _buildSettingTile(
               context,
@@ -111,7 +111,7 @@ class SettingsScreen extends StatelessWidget {
               subtitle:
                   selectedBusiness != null
                       ? '${selectedBusiness.city}, ${selectedBusiness.state}'
-                      : 'Manage business details',
+                      : 'manage_business_details'.tr(),
               onTap: () {
                 if (selectedBusiness != null) {
                   Navigator.of(context).push(
@@ -129,7 +129,7 @@ class SettingsScreen extends StatelessWidget {
               context,
               icon: Icons.money_off_csred_rounded,
               title: 'expenses'.tr(),
-              subtitle: 'View and manage business expenses',
+              subtitle: 'view_expenses_subtitle'.tr(),
               onTap:
                   () => Navigator.of(
                     context,
@@ -140,7 +140,7 @@ class SettingsScreen extends StatelessWidget {
               context,
               icon: Icons.payments_rounded,
               title: 'payments'.tr(),
-              subtitle: 'View and manage business payments',
+              subtitle: 'view_payments_subtitle'.tr(),
               onTap:
                   () => Navigator.of(
                     context,
@@ -151,7 +151,7 @@ class SettingsScreen extends StatelessWidget {
               context,
               icon: hasMultipleBusinesses ? Icons.switch_account_rounded : Icons.add_business_rounded,
               title: hasMultipleBusinesses ? 'switch_business'.tr() : 'add_business'.tr(),
-              subtitle: hasMultipleBusinesses ? 'Switch to another business account' : 'Add a new business',
+              subtitle: hasMultipleBusinesses ? 'switch_business_subtitle'.tr() : 'add_business_subtitle'.tr(),
               onTap: () {
                 Navigator.of(
                   context,
@@ -164,8 +164,8 @@ class SettingsScreen extends StatelessWidget {
             _buildSettingTile(
               context,
               icon: Icons.assessment_rounded,
-              title: 'Report Center',
-              subtitle: 'Business health, sales & purchase reports',
+              title: 'report_center'.tr(),
+              subtitle: 'business_health_reports'.tr(),
               onTap:
                   () => Navigator.of(context).push(
                     getPageRoute(const ReportCenterScreen()),
@@ -202,21 +202,21 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 28),
-            _buildSectionHeader('Support', context),
+            _buildSectionHeader('support_section'.tr(), context),
             const SizedBox(height: 8),
             _buildSettingTile(
               context,
               icon: Icons.mail_outline_rounded,
-              title: 'Contact Us',
+              title: 'contact_us'.tr(),
               subtitle: 'jdsarvaiya281@gmail.com',
               trailing: const Icon(Icons.copy_rounded, size: 18),
               onTap: () {
                 Clipboard.setData(const ClipboardData(text: 'jdsarvaiya281@gmail.com'));
-                showSuccessToast('Email copied to clipboard');
+                showSuccessToast('email_copied'.tr());
               },
             ),
             const SizedBox(height: 28),
-            _buildSectionHeader('System', context),
+            _buildSectionHeader('system_section'.tr(), context),
             const SizedBox(height: 8),
             _buildSettingTile(
               context,
@@ -238,7 +238,7 @@ class SettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 32),
             Text(
-              'VyaparSetu v1.0.0',
+              'app_version_label'.tr(),
               style: GoogleFonts.outfit(
                 fontSize: 12,
                 color: theme.textTheme.bodyMedium?.color,
@@ -382,12 +382,12 @@ class SettingsScreen extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'select_language',
+                      'select_language'.tr(),
                       style: GoogleFonts.outfit(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
-                    ).tr(),
+                    ),
                   ],
                 ),
               ),
@@ -452,8 +452,8 @@ class SettingsScreen extends StatelessWidget {
           title: 'logout'.tr(),
           content:
               allDevices
-                  ? 'Are you sure you want to log out from all devices?'
-                  : 'Are you sure you want to log out?',
+                      ? 'logout_all_devices_confirm'.tr()
+                  : 'logout_confirm'.tr(),
           confirmText: 'logout'.tr(),
           isDestructive: true,
           icon: Icons.logout_rounded,

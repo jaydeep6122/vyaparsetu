@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:vyaparsetu/types/party.dart';
 import 'package:vyaparsetu/types/partyLedger.dart';
 import 'package:vyaparsetu/types/invoice.dart';
@@ -48,12 +49,10 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder:
-          (context) => const ConfirmationDialog(
-            title: 'Delete Contact',
-            content:
-                'Are you sure you want to delete this party contact? '
-                'All transactions associated with this party will lose their reference.',
-            confirmText: 'Delete',
+          (context) => ConfirmationDialog(
+            title: 'delete_party'.tr(),
+            content: 'delete_party_confirm'.tr(),
+            confirmText: 'delete'.tr(),
             isDestructive: true,
             icon: Icons.delete_outline_rounded,
           ),
@@ -67,7 +66,7 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
       if (success && context.mounted) {
         Navigator.of(context).pop();
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) showSuccessToast('Party deleted successfully');
+          if (context.mounted) showSuccessToast('party_deleted'.tr());
         });
       }
     }
@@ -235,7 +234,7 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
                   _buildContactCard(matchedParty),
                   const SizedBox(height: 20),
 
-                  _buildSectionHeader('Lifetime Summary'),
+                  _buildSectionHeader('lifetime_summary'.tr()),
                   const SizedBox(height: 12),
 
                   _buildPremiumSummary(
@@ -246,7 +245,7 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  _buildSectionHeader('Item Quantities'),
+                  _buildSectionHeader('item_quantities'.tr()),
                   const SizedBox(height: 12),
 
                   if (isLoadingPartyQuantity)
@@ -315,7 +314,7 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
         children: [
           _buildInfoRow(
             Icons.phone_in_talk_rounded,
-            party.phone ?? 'Not provided',
+            party.phone ?? 'not_provided'.tr(),
           ),
           if (party.gstin != null && party.gstin!.isNotEmpty) ...[
             Padding(
@@ -387,19 +386,19 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
         child: Row(
           children: [
             _buildSummaryColumn(
-              isCustomer ? 'Total Sales' : 'Lifetime Trade',
+              isCustomer ? 'total_sales_label'.tr() : 'lifetime_trade'.tr(),
               total,
               isDark ? Colors.white : AppTheme.primary,
             ),
             VerticalDivider(width: 1, thickness: 1, color: borderColor),
             _buildSummaryColumn(
-              isCustomer ? 'Payments Received' : 'Total Settled',
+              isCustomer ? 'payments_received'.tr() : 'total_settled'.tr(),
               paid,
               AppTheme.success,
             ),
             VerticalDivider(width: 1, thickness: 1, color: borderColor),
             _buildSummaryColumn(
-              isCustomer ? 'Outstanding' : 'Current Dues',
+              isCustomer ? 'outstanding'.tr() : 'current_dues'.tr(),
               pending,
               AppTheme.error,
             ),
@@ -452,52 +451,68 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
 
   Widget _buildActionTier(bool isCustomer, Party party, double pending) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isEnabled = pending > 0;
+
+    // Theme color definitions
+    final activePrimaryColor = isDark ? AppTheme.primaryDark : AppTheme.primary;
+    final activeSecondaryColor = isDark ? Colors.white70 : AppTheme.primary;
+
     return Row(
       children: [
+        // Main Action Button: RECORD PAYMENT / REGISTER SETTLEMENT
         Expanded(
           flex: 2,
-          child: Container(
-            height: 52,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            height: 50,
             decoration: BoxDecoration(
-              gradient: AppTheme.accentGradient,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.secondary.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              gradient: isEnabled ? AppTheme.primaryGradient : null,
+              color: isEnabled ? null : (isDark ? AppTheme.gray800 : AppTheme.gray100),
+              borderRadius: BorderRadius.circular(14),
+              border: isEnabled
+                  ? Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1)
+                  : Border.all(color: isDark ? AppTheme.gray700 : AppTheme.gray300, width: 1.2),
+              boxShadow: isEnabled
+                  ? [
+                      BoxShadow(
+                        color: activePrimaryColor.withValues(alpha: 0.25),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : [],
             ),
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap:
-                    pending > 0
-                        ? () {
-                          Navigator.of(context).push(
-                            getPageRoute(
-                              isCustomer
-                                  ? PaymentFormScreen.paymentIn(
+                onTap: isEnabled
+                    ? () {
+                        Navigator.of(context).push(
+                          getPageRoute(
+                            isCustomer
+                                ? PaymentFormScreen.paymentIn(
                                     partyId: party.id,
                                     initialAmount: pending,
                                   )
-                                  : PaymentFormScreen.paymentOut(
+                                : PaymentFormScreen.paymentOut(
                                     partyId: party.id,
                                     initialAmount: pending,
                                   ),
-                            ),
-                          );
-                        }
-                        : null,
-                borderRadius: BorderRadius.circular(16),
+                          ),
+                        );
+                      }
+                    : null,
+                borderRadius: BorderRadius.circular(14),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.add_card_rounded,
                       size: 18,
-                      color: Colors.white,
+                      color: isEnabled
+                          ? Colors.white
+                          : (isDark ? AppTheme.gray600 : AppTheme.gray400),
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -506,7 +521,9 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                         letterSpacing: 0.5,
-                        color: Colors.white,
+                        color: isEnabled
+                            ? Colors.white
+                            : (isDark ? AppTheme.gray600 : AppTheme.gray400),
                       ),
                     ),
                   ],
@@ -516,14 +533,20 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
           ),
         ),
         const SizedBox(width: 12),
+        // Secondary Action Button: LEDGER
         Expanded(
           child: Container(
-            height: 52,
+            height: 50,
             decoration: BoxDecoration(
-              color: isDark ? AppTheme.cardDark : Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              color: isDark
+                  ? AppTheme.primaryDark.withValues(alpha: 0.15)
+                  : AppTheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: isDark ? AppTheme.gray700 : AppTheme.gray200,
+                color: isDark
+                    ? AppTheme.primaryDark.withValues(alpha: 0.3)
+                    : AppTheme.primary.withValues(alpha: 0.15),
+                width: 1.2,
               ),
             ),
             child: Material(
@@ -534,10 +557,34 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
                     getPageRoute(TransactionScreen(partyId: party.id)),
                   );
                 },
-                borderRadius: BorderRadius.circular(16),
-                child: Icon(
-                  Icons.receipt_long_rounded,
-                  color: isDark ? Colors.white : AppTheme.primary,
+                borderRadius: BorderRadius.circular(14),
+                highlightColor: activePrimaryColor.withValues(alpha: 0.05),
+                splashColor: activePrimaryColor.withValues(alpha: 0.15),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.receipt_long_rounded,
+                      color: activeSecondaryColor,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'ledger'.tr().toUpperCase(),
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            letterSpacing: 0.5,
+                            color: activeSecondaryColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -553,7 +600,7 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
-          'Invoices',
+          'invoices_section'.tr(),
           style: GoogleFonts.outfit(
             fontSize: 15,
             fontWeight: FontWeight.bold,
@@ -777,7 +824,7 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
       ),
       child: Center(
         child: Text(
-          'No item transactions recorded',
+          'no_item_transactions'.tr(),
           style: GoogleFonts.outfit(
             fontSize: 13,
             color: isDark ? AppTheme.gray500 : AppTheme.gray400,
@@ -807,7 +854,7 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No invoices yet',
+              'no_invoices_yet'.tr(),
               style: GoogleFonts.outfit(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,

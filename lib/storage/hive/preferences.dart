@@ -90,4 +90,17 @@ class PreferencesBox {
     if (billType == BillType.gst) return BillDesign.gstClassic;
     return BillDesign.normalSimple;
   }
+
+  static const String lastVersionCheckKey = 'lastVersionCheck';
+
+  static Future<void> setLastVersionCheck(DateTime time) async {
+    final box = Hive.box(boxName);
+    await box.put(lastVersionCheckKey, time.toIso8601String());
+  }
+
+  static DateTime? getLastVersionCheck() {
+    final box = Hive.box(boxName);
+    final str = box.get(lastVersionCheckKey) as String?;
+    return str != null ? DateTime.tryParse(str) : null;
+  }
 }
