@@ -8,6 +8,7 @@ import 'package:vyaparsetu/api/modules/payment.dart';
 import 'package:vyaparsetu/api/modules/expense.dart';
 import 'package:vyaparsetu/api/modules/factoryApi.dart';
 import 'package:vyaparsetu/api/modules/dashboard.dart';
+import 'package:vyaparsetu/api/modules/appConfig.dart';
 
 class Api {
   static late final Api _instance;
@@ -22,6 +23,7 @@ class Api {
   late final ExpenseApi expense;
   late final DashboardApi dashboard;
   late final FactoryApi factory;
+  late final AppConfigApi appConfig;
 
   Api._internal(Dio dio) {
     auth = AuthApi(dio);
@@ -33,6 +35,7 @@ class Api {
     expense = ExpenseApi(dio);
     dashboard = DashboardApi(dio);
     factory = FactoryApi(dio);
+    appConfig = AppConfigApi(dio);
   }
 
   static void initialize(Dio dio) {

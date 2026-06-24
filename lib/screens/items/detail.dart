@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:vyaparsetu/types/item.dart';
 import 'package:vyaparsetu/types/itemQuantitySummary.dart';
 import 'package:vyaparsetu/components/confirmationDialog.dart';
@@ -41,10 +42,10 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => const ConfirmationDialog(
-        title: 'Delete Item',
-        content: 'Are you sure you want to delete this item? It will remove this item catalog listing. Historic invoices referencing this item will remain unaffected.',
-        confirmText: 'Delete',
+      builder: (context) => ConfirmationDialog(
+        title: 'delete_item'.tr(),
+        content: 'delete_item_confirm'.tr(),
+        confirmText: 'delete'.tr(),
         isDestructive: true,
         icon: Icons.delete_outline_rounded,
       ),
@@ -55,7 +56,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       if (success && context.mounted) {
         Navigator.of(context).pop();
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) showSuccessToast('Item deleted successfully');
+          if (context.mounted) showSuccessToast('item_deleted'.tr());
         });
       }
     }
@@ -99,18 +100,18 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           children: [
             _buildDetailsSection(
               context,
-              title: 'Catalog Specifications',
+              title: 'catalog_specifications'.tr(),
               items: {
-                'Item Name': widget.item.name,
-                'HSN Code': widget.item.hsnCode ?? 'Not provided',
-                'Measuring Unit': widget.item.measuringUnit,
-                'Created At': Formatters.formatDate(widget.item.createdAt),
-                'Last Updated': Formatters.formatDate(widget.item.updatedAt),
+                'item_name_label'.tr(): widget.item.name,
+                'hsn_code_label'.tr(): widget.item.hsnCode ?? 'not_provided'.tr(),
+                'measuring_unit_label'.tr(): widget.item.measuringUnit,
+                'created_at_label'.tr(): Formatters.formatDate(widget.item.createdAt),
+                'last_updated_label'.tr(): Formatters.formatDate(widget.item.updatedAt),
               },
             ),
             const SizedBox(height: 20),
 
-            _buildSectionHeader(context, 'Quantity Summary'),
+            _buildSectionHeader(context, 'quantity_summary'.tr()),
             const SizedBox(height: 12),
 
             if (isLoadingSummary)
@@ -166,7 +167,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           TextButton.icon(
             onPressed: _loadData,
             icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('Retry'),
+            label: Text('retry'.tr()),
           ),
         ],
       ),
@@ -189,13 +190,13 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           child: IntrinsicHeight(
             child: Row(
               children: [
-                _buildMetricColumn(context, 'Sold', summary.overall.sold, AppTheme.warning),
+                _buildMetricColumn(context, 'sold_label'.tr(), summary.overall.sold, AppTheme.warning),
                 VerticalDivider(width: 1, thickness: 1, color: borderColor),
-                _buildMetricColumn(context, 'Purchased', summary.overall.purchased, AppTheme.success),
+                _buildMetricColumn(context, 'purchased_label'.tr(), summary.overall.purchased, AppTheme.success),
                 VerticalDivider(width: 1, thickness: 1, color: borderColor),
-                _buildMetricColumn(context, 'Sale Return', summary.overall.saleReturned, AppTheme.error),
+                _buildMetricColumn(context, 'sale_return_label'.tr(), summary.overall.saleReturned, AppTheme.error),
                 VerticalDivider(width: 1, thickness: 1, color: borderColor),
-                _buildMetricColumn(context, 'Purchase Return', summary.overall.purchaseReturned, AppTheme.secondary),
+                _buildMetricColumn(context, 'purchase_return_label'.tr(), summary.overall.purchaseReturned, AppTheme.secondary),
               ],
             ),
           ),
@@ -214,7 +215,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
               Icon(Icons.inventory_2_rounded, size: 20, color: AppTheme.primary),
               const SizedBox(width: 12),
               Text(
-                'Net Stock',
+                'net_stock'.tr(),
                 style: GoogleFonts.outfit(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,

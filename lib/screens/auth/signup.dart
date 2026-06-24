@@ -58,7 +58,7 @@ class _SignupScreenState extends State<SignupScreen> {
         (route) => false,
       );
     } else if (!success && mounted) {
-      showErrorToast(authProvider.error ?? 'Signup failed. Please try again.');
+      showErrorToast(authProvider.error ?? 'signup_failed'.tr());
     }
   }
 
@@ -88,7 +88,6 @@ class _SignupScreenState extends State<SignupScreen> {
                     children: [
                       const SizedBox(height: 10),
                       const _AnimatedLogo(),
-                      const SizedBox(height: 16),
                       Text(
                         'create_account'.tr(),
                         style: GoogleFonts.outfit(
@@ -100,7 +99,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Start managing your business smartly',
+                        'start_managing'.tr(),
                         style: GoogleFonts.outfit(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -115,7 +114,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Fill in your details',
+                                'fill_details'.tr(),
                                 style: GoogleFonts.outfit(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -126,7 +125,7 @@ class _SignupScreenState extends State<SignupScreen> {
                               AppTextField(
                                 controller: _nameController,
                                 labelText: 'name'.tr(),
-                                hintText: 'Enter your full name',
+                                hintText: 'enter_name_hint'.tr(),
                                 prefixIcon: Icons.person_outline,
                                 validator: (val) => Validators.validateRequired(val, 'Name'),
                               ),
@@ -134,7 +133,7 @@ class _SignupScreenState extends State<SignupScreen> {
                               AppTextField(
                                 controller: _emailController,
                                 labelText: 'email'.tr(),
-                                hintText: 'Enter your email address',
+                                hintText: 'enter_email_hint'.tr(),
                                 keyboardType: TextInputType.emailAddress,
                                 prefixIcon: Icons.email_outlined,
                                 validator: Validators.validateEmail,
@@ -143,7 +142,7 @@ class _SignupScreenState extends State<SignupScreen> {
                               AppTextField(
                                 controller: _passwordController,
                                 labelText: 'password'.tr(),
-                                hintText: 'Enter password (min 6 characters)',
+                                hintText: 'enter_password_hint_min'.tr(),
                                 isPassword: true,
                                 prefixIcon: Icons.lock_outline_rounded,
                                 validator: Validators.validatePassword,
@@ -152,7 +151,7 @@ class _SignupScreenState extends State<SignupScreen> {
                               AppTextField(
                                 controller: _confirmPasswordController,
                                 labelText: 'confirm_password'.tr(),
-                                hintText: 'Re-enter your password',
+                                hintText: 'reenter_password_hint'.tr(),
                                 isPassword: true,
                                 prefixIcon: Icons.lock_clock_outlined,
                                 validator: (val) => Validators.validateConfirmPassword(val, _passwordController.text),
@@ -183,7 +182,7 @@ class _SignupScreenState extends State<SignupScreen> {
                               Navigator.of(context).pop();
                             },
                             child: Text(
-                              'Sign In',
+                              'login'.tr(),
                               style: GoogleFonts.outfit(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
@@ -320,24 +319,12 @@ class _AnimatedLogoState extends State<_AnimatedLogo> with SingleTickerProviderS
       scale: _scaleAnimation,
       child: FadeTransition(
         opacity: _fadeAnimation,
-        child: Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            gradient: AppTheme.primaryGradient,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.primary.withValues(alpha: 0.35),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.person_add_rounded,
-            color: Colors.white,
-            size: 30,
+        child: SizedBox(
+          width: 80,
+          height: 80,
+          child: Image.asset(
+            'assets/images/app_logo_foreground.png',
+            fit: BoxFit.contain,
           ),
         ),
       ),

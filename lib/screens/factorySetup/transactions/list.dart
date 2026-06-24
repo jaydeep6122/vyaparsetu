@@ -35,10 +35,11 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
   }
 
-  void _loadData() {
+  void _loadData({bool force = false}) {
     context.read<Core>().factory.fetchTransactions(
       widget.factoryId,
       workerId: widget.workerId,
+      forceRefresh: force,
     );
   }
 
@@ -159,7 +160,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
           Expanded(
             child: RefreshIndicator(
               color: isDark ? Colors.white : AppTheme.primary,
-              onRefresh: () async => _loadData(),
+              onRefresh: () async => _loadData(force: true),
               child: _buildBody(isDark, isLoading, transactions, error),
             ),
           ),
@@ -206,19 +207,27 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
     }).toList();
 
     if (filtered.isEmpty) {
-      return SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: EmptyState(
-            icon: Icons.receipt_long_outlined,
-            title: widget.workerId != null
-                ? (_activeTab == 'wages'
-                    ? 'factory.no_wages_found'.tr()
-                    : 'factory.no_payments_found'.tr())
-                : 'factory.no_transactions'.tr(),
-          ),
-        ),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
+              ),
+              child: Center(
+                child: EmptyState(
+                  icon: Icons.receipt_long_outlined,
+                  title: widget.workerId != null
+                      ? (_activeTab == 'wages'
+                          ? 'factory.no_wages_found'.tr()
+                          : 'factory.no_payments_found'.tr())
+                      : 'factory.no_transactions'.tr(),
+                ),
+              ),
+            ),
+          );
+        },
       );
     }
 

@@ -226,14 +226,18 @@ class Invoice {
 
   String? get visibleNotes {
     if (notes == null) return null;
-    final index = notes!.indexOf('\n[Addresses:');
+    String cleaned = notes!;
+    // Strip bill_type marker
+    cleaned = cleaned.replaceAll(RegExp(r'\[bill_type:\w+\]\s*'), '').trim();
+    // Strip Addresses suffix
+    final index = cleaned.indexOf('\n[Addresses:');
     if (index != -1) {
-      return notes!.substring(0, index).trim();
+      return cleaned.substring(0, index).trim();
     }
-    final index2 = notes!.indexOf('[Addresses:');
+    final index2 = cleaned.indexOf('[Addresses:');
     if (index2 != -1) {
-      return notes!.substring(0, index2).trim();
+      return cleaned.substring(0, index2).trim();
     }
-    return notes;
+    return cleaned;
   }
 }

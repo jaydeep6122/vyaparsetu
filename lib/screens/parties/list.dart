@@ -71,7 +71,7 @@ context.read<Core>().party.fetchParties(businessId);
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
             child: AppSearchBar(
-              hintText: 'Search parties by name or phone...',
+              hintText: 'search_parties'.tr(),
               onChanged: (val) {
                 setState(() {
                   _searchQuery = val;
@@ -89,14 +89,12 @@ context.read<Core>().party.fetchParties(businessId);
               ],
             ),
           ),
-          if (isLoading && parties.isNotEmpty)
-            const LinearProgressIndicator(),
           Expanded(
             child: RefreshIndicator(
               color: isDark ? Colors.white : AppTheme.primary,
               onRefresh: () async {
                 if (businessId != null) {
-                  await context.read<Core>().party.fetchParties(businessId);
+                  await context.read<Core>().party.fetchParties(businessId, forceRefresh: true);
                 }
               },
               child: _buildPartyList(isDark, theme, isLoading, parties, error, businessId),
@@ -107,8 +105,10 @@ context.read<Core>().party.fetchParties(businessId);
       floatingActionButton: FloatingActionButton(
         heroTag: 'parties_fab',
         onPressed: () {
+          final initialType =
+              _filterType == 'customer' ? PartyType.customer : PartyType.supplier;
           Navigator.of(context).push(
-            getPageRoute(const PartyFormScreen()),
+            getPageRoute(PartyFormScreen(initialPartyType: initialType)),
           ).then((_) {
             if (mounted) _loadData();
           });
@@ -124,7 +124,7 @@ context.read<Core>().party.fetchParties(businessId);
         physics: const AlwaysScrollableScrollPhysics(),
         child: SizedBox(
           height: MediaQuery.of(context).size.height * 0.6,
-          child: const LoadingIndicator(message: 'Loading parties...', isShimmer: true),
+          child: LoadingIndicator(message: 'loading_parties'.tr(), isShimmer: true),
         ),
       );
     }
@@ -142,26 +142,31 @@ context.read<Core>().party.fetchParties(businessId);
     final filtered = _filterParties(parties);
 
     if (filtered.isEmpty) {
-      return SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: EmptyState(
-        icon: Icons.people_outline_rounded,
-        title: 'No parties found',
-        description: _searchQuery.isNotEmpty
-            ? 'No match for "$_searchQuery" inside this category.'
-            : 'Add customer or supplier contacts to start recording transactions.',
-        buttonText: _searchQuery.isEmpty ? 'add_party'.tr() : null,
-        onButtonPressed: _searchQuery.isEmpty
-            ? () => Navigator.of(context).push(
-                getPageRoute(const PartyFormScreen()),
-              ).then((_) {
-                if (mounted) _loadData();
-              })
-            : null,
-          ),
-        ),
+      final isCustomer = _filterType == 'customer';
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
+              ),
+              child: Center(
+                child: EmptyState(
+                  icon: isCustomer ? Icons.person_outline_rounded : Icons.business_outlined,
+                  title: isCustomer ? 'no_customers'.tr() : 'no_suppliers'.tr(),
+                  description: _searchQuery.isNotEmpty
+                      ? 'no_match_category'.tr()
+                      : isCustomer
+                          ? 'no_customer_contacts'.tr()
+                          : 'no_supplier_contacts'.tr(),
+                  buttonText: null,
+                  onButtonPressed: null,
+                ),
+              ),
+            ),
+          );
+        },
       );
     }
 
@@ -173,10 +178,10 @@ context.read<Core>().party.fetchParties(businessId);
           final isPositive = party.currentBalance > 0;
           final isNegative = party.currentBalance < 0;
           final balanceLabel = isPositive
-              ? 'To Receive'
+              ? 'to_receive'.tr()
               : isNegative
-                  ? 'To Pay'
-                  : 'Settled';
+                  ? 'to_pay'.tr()
+                  : 'settled'.tr();
 
           return Container(
             margin: const EdgeInsets.only(bottom: 10),
@@ -233,7 +238,7 @@ context.read<Core>().party.fetchParties(businessId);
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            party.phone ?? 'No phone',
+                            party.phone ?? 'no_phone'.tr(),
                             style: GoogleFonts.outfit(
                               fontSize: 13,
                               color: isDark ? AppTheme.gray400 : AppTheme.gray600,

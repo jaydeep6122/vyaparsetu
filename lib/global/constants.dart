@@ -17,11 +17,11 @@ enum BusinessType {
   String get displayName {
     switch (this) {
       case BusinessType.retailer:
-        return 'Retailer';
+        return 'retailer'.tr();
       case BusinessType.wholesaler:
-        return 'Wholesaler';
+        return 'wholesaler'.tr();
       case BusinessType.service:
-        return 'Service Business';
+        return 'service_business'.tr();
     }
   }
 }
@@ -43,11 +43,11 @@ enum PartyType {
   String get displayName {
     switch (this) {
       case PartyType.customer:
-        return 'Customer';
+        return 'customer'.tr();
       case PartyType.supplier:
-        return 'Supplier';
+        return 'supplier'.tr();
       case PartyType.both:
-        return 'Both (Customer & Supplier)';
+        return 'both'.tr();
     }
   }
 }
@@ -82,9 +82,9 @@ enum ItemType {
   String get displayName {
     switch (this) {
       case ItemType.product:
-        return 'Product';
+        return 'product'.tr();
       case ItemType.service:
-        return 'Service';
+        return 'service'.tr();
     }
   }
 }
@@ -106,9 +106,9 @@ enum InvoiceType {
   String get displayName {
     switch (this) {
       case InvoiceType.sale:
-        return 'Sale';
+        return 'sale'.tr();
       case InvoiceType.purchase:
-        return 'Purchase';
+        return 'purchase'.tr();
     }
   }
 }
@@ -131,11 +131,11 @@ enum PaymentStatus {
   String get displayName {
     switch (this) {
       case PaymentStatus.paid:
-        return 'Paid';
+        return 'paid'.tr();
       case PaymentStatus.unpaid:
-        return 'Unpaid';
+        return 'unpaid'.tr();
       case PaymentStatus.partially_paid:
-        return 'Partially Paid';
+        return 'partially_paid'.tr();
     }
   }
 }
@@ -159,15 +159,15 @@ enum PaymentMode {
   String get displayName {
     switch (this) {
       case PaymentMode.cash:
-        return 'Cash';
+        return 'cash'.tr();
       case PaymentMode.bank:
-        return 'Bank';
+        return 'bank'.tr();
       case PaymentMode.upi:
-        return 'UPI';
+        return 'upi'.tr();
       case PaymentMode.credit:
-        return 'Credit';
+        return 'credit'.tr();
       case PaymentMode.multiple:
-        return 'Multiple Modes';
+        return 'multiple_modes'.tr();
     }
   }
 }
@@ -189,9 +189,9 @@ enum PaymentType {
   String get displayName {
     switch (this) {
       case PaymentType.payment_in:
-        return 'Payment In';
+        return 'payment_in'.tr();
       case PaymentType.payment_out:
-        return 'Payment Out';
+        return 'payment_out'.tr();
     }
   }
 }
@@ -265,6 +265,63 @@ enum SupportedLocale {
   gu;
 
   String get code => name;
+}
+
+enum BillType {
+  gst,
+  normal;
+
+  String get value => name;
+
+  static BillType fromString(String val) {
+    return BillType.values.firstWhere(
+      (e) => e.name.toLowerCase() == val.toLowerCase(),
+      orElse: () => BillType.gst,
+    );
+  }
+
+  String get displayName {
+    switch (this) {
+      case BillType.gst:
+        return 'gst_invoice'.tr();
+      case BillType.normal:
+        return 'normal_invoice'.tr();
+    }
+  }
+}
+
+enum BillDesign {
+  gstClassic,
+  gstModern1,
+  gstModern2,
+  normalSimple,
+  normalDetailed;
+
+  String get value => name;
+
+  static BillDesign fromString(String val) {
+    return BillDesign.values.firstWhere(
+      (e) => e.name.toLowerCase() == val.toLowerCase(),
+      orElse: () => BillDesign.gstClassic,
+    );
+  }
+
+  String get displayName {
+    switch (this) {
+      case BillDesign.gstClassic:
+        return 'classic'.tr();
+      case BillDesign.gstModern1:
+        return 'modern_minimal'.tr();
+      case BillDesign.gstModern2:
+        return 'professional_slate'.tr();
+      case BillDesign.normalSimple:
+        return 'simple_receipt'.tr();
+      case BillDesign.normalDetailed:
+        return 'detailed_retail'.tr();
+    }
+  }
+
+  bool get isGst => this == BillDesign.gstClassic || this == BillDesign.gstModern1 || this == BillDesign.gstModern2;
 }
 
 class AppConstants {

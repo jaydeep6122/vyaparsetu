@@ -36,13 +36,19 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
   void _loadData() {
     final businessId = context.read<Core>().business.selectedBusiness?.id;
     if (businessId != null) {
-      context.read<Core>().payment.fetchPayments(
-        businessId,
-        paymentType: _filterType,
-        fromDate: _fromDate?.toIso8601String(),
-        toDate: _toDate?.toIso8601String(),
-      );
+      context.read<Core>().payment.fetchPayments(businessId);
     }
+  }
+
+  List<Payment> _filterPayments(List<Payment> list) {
+    return list.where((p) {
+      final matchesType = _filterType == null || p.paymentType.value == _filterType;
+      final matchesFrom = _fromDate == null || 
+          p.paymentDate.isAfter(_fromDate!.subtract(const Duration(seconds: 1)));
+      final matchesTo = _toDate == null || 
+          p.paymentDate.isBefore(_toDate!.add(const Duration(days: 1)));
+      return matchesType && matchesFrom && matchesTo;
+    }).toList();
   }
 
   void _showNewPaymentSheet(String? businessId) {
@@ -71,7 +77,7 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
                 ),
               ),
               Text(
-                'New Payment',
+                'new_payment'.tr(),
                 style: GoogleFonts.outfit(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -91,7 +97,7 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
                   style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
                 ),
                 subtitle: Text(
-                  'Record money received from a customer',
+                  'payment_in_subtitle'.tr(),
                   style: GoogleFonts.outfit(
                     fontSize: 12,
                     color: AppTheme.slate500,
@@ -120,7 +126,7 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
                   style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
                 ),
                 subtitle: Text(
-                  'Record payment made to a supplier',
+                  'payment_out_subtitle'.tr(),
                   style: GoogleFonts.outfit(
                     fontSize: 12,
                     color: AppTheme.slate500,
@@ -157,7 +163,6 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
           _toDate = picked;
         }
       });
-      _loadData();
     }
   }
 
@@ -167,7 +172,6 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
       _fromDate = null;
       _toDate = null;
     });
-    _loadData();
   }
 
   @override
@@ -273,8 +277,8 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
     String? businessId,
   ) {
     if (isLoading && payments.isEmpty) {
-      return const LoadingIndicator(
-        message: 'Loading payments...',
+      return LoadingIndicator(
+        message: 'loading_payments'.tr(),
         isShimmer: true,
       );
     }
@@ -283,33 +287,49 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
       return AppErrorWidget(errorMessage: error, onRetry: _loadData);
     }
 
-    if (payments.isEmpty) {
-      return EmptyState(
-        icon: Icons.payment_outlined,
-        title: 'No payments found',
-        description: 'Record credit/debit payments collected from parties.',
-        buttonText: 'add_payment'.tr(),
-        onButtonPressed: () => _showNewPaymentSheet(businessId),
-      );
-    }
+    final filtered = _filterPayments(payments);
 
     return RefreshIndicator(
       color: isDark ? Colors.white : AppTheme.primary,
       onRefresh: () async {
         if (businessId != null) {
-          context.read<Core>().payment.fetchPayments(
+          await context.read<Core>().payment.fetchPayments(
             businessId,
-            paymentType: _filterType,
-            fromDate: _fromDate?.toIso8601String(),
-            toDate: _toDate?.toIso8601String(),
+            forceRefresh: true,
           );
         }
       },
-      child: ListView.builder(
+      child: filtered.isEmpty
+          ? LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Center(
+                      child: EmptyState(
+                        icon: Icons.payment_outlined,
+                        title: 'no_payments'.tr(),
+                        description: _filterType != null || _fromDate != null || _toDate != null
+                            ? 'no_match_filters'.tr()
+                            : 'payments_empty_msg'.tr(),
+                        buttonText: _filterType == null && _fromDate == null && _toDate == null ? 'add_payment'.tr() : null,
+                        onButtonPressed: _filterType == null && _fromDate == null && _toDate == null
+                            ? () => _showNewPaymentSheet(businessId)
+                            : null,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            )
+          : ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: payments.length,
+        itemCount: filtered.length,
         itemBuilder: (context, index) {
-          final p = payments[index];
+          final p = filtered[index];
           final isIn = p.paymentType == PaymentType.payment_in;
           final amountColor = isIn ? AppTheme.success : AppTheme.error;
 
@@ -326,13 +346,8 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
                       getPageRoute(PaymentFormScreen.edit(existingPayment: p)),
                     )
                     .then((_) {
-                      if (businessId != null && mounted) {
-                        context.read<Core>().payment.fetchPayments(
-                          businessId,
-                          paymentType: _filterType,
-                          fromDate: _fromDate?.toIso8601String(),
-                          toDate: _toDate?.toIso8601String(),
-                        );
+                      if (mounted) {
+                        _loadData();
                       }
                     });
               },
@@ -426,7 +441,6 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
         setState(() {
           _filterType = value;
         });
-        _loadData();
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -506,7 +520,6 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
                     else
                       _toDate = null;
                   });
-                  _loadData();
                 },
                 child: Icon(Icons.close, size: 14, color: AppTheme.error),
               ),

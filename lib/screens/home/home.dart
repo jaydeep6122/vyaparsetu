@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:vyaparsetu/screens/dashboard/dashboard.dart';
 import 'package:vyaparsetu/screens/invoices/list.dart';
 import 'package:vyaparsetu/screens/parties/list.dart';
@@ -84,15 +85,16 @@ class HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const PopScope(
+      builder: (context) => PopScope(
         canPop: false,
         child: Dialog(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          child: LoadingIndicator(message: 'Entering Factory Mode...'),
+          child: LoadingIndicator(message: 'entering_factory_mode'.tr()),
         ),
       ),
     );
+
 
     try {
       await factory.fetchDashboardData();
@@ -197,7 +199,7 @@ class HomeScreenState extends State<HomeScreen> {
               onDestinationSelected: (index) {
                 final label = destinations[index].label;
                 if (isBusinessMode) {
-                  if (label == 'Factory') {
+                  if (label == 'factory'.tr()) {
                     _enterFactoryMode();
                   } else {
                     setState(() {
@@ -206,7 +208,7 @@ class HomeScreenState extends State<HomeScreen> {
                     });
                   }
                 } else {
-                  if (label == 'Business') {
+                  if (label == 'business'.tr()) {
                     _switchToBusinessMode();
                   } else {
                     setState(() {
@@ -399,7 +401,7 @@ class HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                selectedFactoryName ?? 'Select Factory',
+                selectedFactoryName ?? 'select_factory'.tr(),
                 style: GoogleFonts.outfit(
                   fontWeight: FontWeight.bold,
                   fontSize: 20,
@@ -421,26 +423,26 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  List<PremiumNavDestination> get _businessDestinations => const [
+  List<PremiumNavDestination> get _businessDestinations => [
     PremiumNavDestination(
       icon: Icons.dashboard_outlined,
       activeIcon: Icons.dashboard_rounded,
-      label: 'Dashboard',
+      label: 'dashboard'.tr(),
     ),
     PremiumNavDestination(
       icon: Icons.receipt_long_outlined,
       activeIcon: Icons.receipt_long_rounded,
-      label: 'Invoices',
+      label: 'invoices'.tr(),
     ),
     PremiumNavDestination(
       icon: Icons.people_outline_rounded,
       activeIcon: Icons.people_alt_rounded,
-      label: 'Parties',
+      label: 'parties'.tr(),
     ),
     PremiumNavDestination(
       icon: Icons.more_horiz_rounded,
       activeIcon: Icons.more_horiz_rounded,
-      label: 'More',
+      label: 'more'.tr(),
     ),
     // PremiumNavDestination(
     //   icon: Icons.factory_outlined,
@@ -449,7 +451,7 @@ class HomeScreenState extends State<HomeScreen> {
     // ),
   ];
 
-  List<PremiumNavDestination> get _factoryDestinations => const [
+  List<PremiumNavDestination> get _factoryDestinations => [
     // PremiumNavDestination(
     //   icon: Icons.dashboard_outlined,
     //   activeIcon: Icons.dashboard_rounded,
@@ -463,7 +465,7 @@ class HomeScreenState extends State<HomeScreen> {
     PremiumNavDestination(
       icon: Icons.business_center_outlined,
       activeIcon: Icons.business_center_rounded,
-      label: 'Business',
+      label: 'business'.tr(),
     ),
   ];
 
@@ -521,7 +523,7 @@ void showFactorySelectionBottomSheet(BuildContext context) {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Select Factory',
+                'select_factory'.tr(),
                 style: GoogleFonts.outfit(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -536,7 +538,7 @@ void showFactorySelectionBottomSheet(BuildContext context) {
                 child: Column(
                   children: [
                     Text(
-                      'No factories found',
+                      'no_factories_found'.tr(),
                       style: GoogleFonts.outfit(color: AppTheme.gray500),
                     ),
                     const SizedBox(height: 16),
@@ -547,7 +549,7 @@ void showFactorySelectionBottomSheet(BuildContext context) {
                           context,
                         ).push(getPageRoute(const FactoryFormScreen()));
                       },
-                      child: const Text('Create First Factory'),
+                      child: Text('create_first_factory'.tr()),
                     ),
                   ],
                 ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:vyaparsetu/types/partyLedger.dart';
 import 'package:vyaparsetu/helpers/formatters.dart';
 import 'package:vyaparsetu/global/themes.dart';
@@ -37,9 +38,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
   }
 
   String _typeLabel(String type) {
-    if (type.contains('sale')) return 'Sale';
-    if (type.contains('purchase')) return 'Purchase';
-    if (type.contains('payment')) return 'Payment';
+    if (type.contains('sale')) return 'sale_label'.tr();
+    if (type.contains('purchase')) return 'purchase_label'.tr();
+    if (type.contains('payment')) return 'payment_label'.tr();
     return type;
   }
 
@@ -60,7 +61,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Transaction History',
+          'transaction_history'.tr(),
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
@@ -97,7 +98,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                 ),
                                 const SizedBox(height: 20),
                                 Text(
-                                  'No transactions yet',
+                                  'no_transactions_yet'.tr(),
                                   style: GoogleFonts.outfit(
                                     fontSize: 17,
                                     fontWeight: FontWeight.bold,
@@ -108,7 +109,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Transactions will appear here once\ninvoices or payments are created',
+                                  'transactions_appear_hint'.tr(),
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.outfit(
                                     fontSize: 13,
@@ -200,7 +201,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '$count Transactions',
+                    'transactions_count'.tr(namedArgs: {'count': '$count'}),
                     style: GoogleFonts.outfit(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -209,7 +210,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Total volume',
+                    'total_volume'.tr(),
                     style: GoogleFonts.outfit(
                       fontSize: 12,
                       color: isDark ? AppTheme.gray400 : AppTheme.slate500,

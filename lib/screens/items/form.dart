@@ -83,7 +83,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                 }),
                 const Divider(height: 1),
                 const SizedBox(height: 8),
-                Text('Add Custom Unit',
+                Text('add_custom_unit'.tr(),
                   style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w500,
                     color: isDark ? Colors.white70 : AppTheme.slate500)),
                 const SizedBox(height: 8),
@@ -93,7 +93,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                       child: TextField(
                         controller: customController,
                         decoration: InputDecoration(
-                          hintText: 'e.g. dozen, roll, ft',
+                          hintText: 'unit_hint'.tr(),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
@@ -124,7 +124,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                         });
                         Navigator.of(ctx).pop();
                       },
-                      child: Text('Add', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+                      child: Text('add'.tr(), style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -133,7 +133,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                   width: double.infinity,
                   child: OutlinedButton(
                     onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text('Cancel'),
+                    child: Text('cancel'.tr()),
                   ),
                 ),
               ],
@@ -196,20 +196,20 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
       if (success && mounted) {
         Navigator.of(context).pop();
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) showSuccessToast('Item updated successfully');
+          if (mounted) showSuccessToast('item_updated'.tr());
         });
       } else if (mounted) {
-        showErrorToast(itemModule.error ?? 'Failed to save item');
+        showErrorToast(itemModule.error ?? 'failed_save_item'.tr());
       }
     } else {
       final createdItem = await itemModule.createItem(businessId, data);
       if (createdItem != null && mounted) {
         Navigator.of(context).pop(createdItem);
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) showSuccessToast('Item created successfully');
+          if (mounted) showSuccessToast('item_created'.tr());
         });
       } else if (mounted) {
-        showErrorToast(itemModule.error ?? 'Failed to save item');
+        showErrorToast(itemModule.error ?? 'failed_save_item'.tr());
       }
     }
   }
@@ -238,7 +238,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                 AppTextField(
                   controller: _nameController,
                   labelText: 'item_name'.tr(),
-                  hintText: 'Enter item name',
+                  hintText: 'enter_item_name'.tr(),
                   prefixIcon: Icons.shopping_bag_outlined,
                   validator: (val) => Validators.validateRequired(val, 'Item name'),
                 ),

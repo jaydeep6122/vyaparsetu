@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:vyaparsetu/global/themes.dart';
 
 class ConfirmationDialog extends StatelessWidget {
@@ -11,16 +12,16 @@ class ConfirmationDialog extends StatelessWidget {
   final IconData? icon;
   final Widget? additionalContent;
 
-  const ConfirmationDialog({
+  ConfirmationDialog({
     super.key,
     required this.title,
     required this.content,
-    this.confirmText = 'Confirm',
+    String? confirmText,
     this.cancelText,
     this.isDestructive = false,
     this.icon,
     this.additionalContent,
-  });
+  }) : confirmText = confirmText ?? 'confirm'.tr();
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +43,9 @@ class ConfirmationDialog extends StatelessWidget {
                 child: Icon(
                   icon,
                   size: 28,
-                  color: isDestructive ? AppTheme.error : (isDark ? Colors.white : AppTheme.primary),
+                  color: isDestructive
+                      ? AppTheme.error
+                      : (isDark ? Colors.white : AppTheme.primary),
                 ),
               ),
             )
@@ -90,14 +93,19 @@ class ConfirmationDialog extends StatelessWidget {
                   onPressed: () => Navigator.of(context).pop(false),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: theme.textTheme.bodyMedium?.color,
-                    side: BorderSide(color: isDark ? AppTheme.gray600 : AppTheme.gray300),
+                    side: BorderSide(
+                      color: isDark ? AppTheme.gray600 : AppTheme.gray300,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
                   ),
                   child: Text(
-                    cancelText ?? 'Cancel',
+                    cancelText ?? 'cancel'.tr(),
                     style: GoogleFonts.outfit(
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
@@ -110,12 +118,17 @@ class ConfirmationDialog extends StatelessWidget {
                 child: FilledButton(
                   onPressed: () => Navigator.of(context).pop(true),
                   style: FilledButton.styleFrom(
-                    backgroundColor: isDestructive ? AppTheme.error : AppTheme.primary,
+                    backgroundColor: isDestructive
+                        ? AppTheme.error
+                        : AppTheme.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
                   ),
                   child: Text(
                     confirmText,

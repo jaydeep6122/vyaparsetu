@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:vyaparsetu/global/themes.dart';
 import 'package:vyaparsetu/helpers/navigation.dart';
 import 'package:vyaparsetu/screens/auth/login.dart';
@@ -8,6 +8,9 @@ import 'package:vyaparsetu/screens/business/form.dart';
 import 'package:vyaparsetu/screens/business/list.dart';
 import 'package:vyaparsetu/screens/home/home.dart';
 import 'package:vyaparsetu/core/Core.dart';
+import 'package:vyaparsetu/api/api.dart';
+import 'package:vyaparsetu/storage/hive/preferences.dart';
+import 'package:vyaparsetu/screens/splash/forceUpdate.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -26,6 +29,9 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _initializeApp() async {
+    final shouldProceed = await _checkAppVersion();
+    if (!shouldProceed || !mounted) return;
+
     final authProvider = context.read<Core>().auth;
     final businessProvider = context.read<Core>().business;
 
@@ -71,73 +77,80 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: isDark
-              ? const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppTheme.gray950, AppTheme.gray900],
-                )
-              : const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppTheme.gray100, Colors.white],
-                ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primary.withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.account_balance_wallet_rounded,
-                  color: Colors.white,
-                  size: 48,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'VyaparSetu',
-                style: GoogleFonts.outfit(
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                  color: isDark ? Colors.white : AppTheme.gray800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Bridge to Smart Business Invoicing',
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  color: (isDark ? Colors.white : AppTheme.gray800).withValues(alpha: 0.6),
-                ),
-              ),
-            ],
+      backgroundColor: isDark ? AppTheme.backgroundDark : const Color(0xFFFAFBF6),
+      body: Center(
+        child: SizedBox(
+          width: 140,
+          height: 140,
+          child: Image.asset(
+            isDark
+                ? 'assets/images/app_logo_foreground.png'
+                : 'assets/images/app_logo.png',
+            fit: BoxFit.contain,
           ),
         ),
       ),
     );
+  }
+
+  Future<bool> _checkAppVersion() async {
+    final lastCheck = PreferencesBox.getLastVersionCheck();
+    if (lastCheck != null) {
+      final diff = DateTime.now().difference(lastCheck);
+      if (diff < const Duration(days: 1)) {
+        return true;
+      }
+    }
+
+    try {
+      final latestVersion = await Api.instance.appConfig.getLatestVersion();
+      if (latestVersion != null) {
+        final packageInfo = await PackageInfo.fromPlatform();
+        final currentVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
+
+        if (_isUpdateRequired(currentVersion, latestVersion)) {
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              getPageRoute(const ForceUpdateScreen()),
+            );
+          }
+          return false;
+        }
+      }
+      await PreferencesBox.setLastVersionCheck(DateTime.now());
+    } catch (_) {}
+    return true;
+  }
+
+  bool _isUpdateRequired(String current, String latest) {
+    try {
+      final currentParts = current.split('+');
+      final latestParts = latest.split('+');
+
+      final currentVer = currentParts[0].split('.').map(int.parse).toList();
+      final latestVer = latestParts[0].split('.').map(int.parse).toList();
+
+      while (currentVer.length < 3) {
+        currentVer.add(0);
+      }
+      while (latestVer.length < 3) {
+        latestVer.add(0);
+      }
+
+      for (int i = 0; i < 3; i++) {
+        if (latestVer[i] > currentVer[i]) return true;
+        if (currentVer[i] > latestVer[i]) return false;
+      }
+
+      if (latestParts.length > 1 && currentParts.length > 1) {
+        final currentBuild = int.tryParse(currentParts[1]) ?? 0;
+        final latestBuild = int.tryParse(latestParts[1]) ?? 0;
+        if (latestBuild > currentBuild) return true;
+      }
+    } catch (_) {}
+    return false;
   }
 }

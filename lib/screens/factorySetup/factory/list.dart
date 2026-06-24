@@ -129,24 +129,32 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
     }
 
     if (factories.isEmpty) {
-      return SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: EmptyState(
-            icon: Icons.factory_outlined,
-            title: 'factory.no_factories'.tr(),
-            description: 'factory.add_factory_started'.tr(),
-            buttonText: 'factory.add_factory'.tr(),
-            onButtonPressed: () {
-              Navigator.of(context).push(
-                getPageRoute(const FactoryFormScreen()),
-              ).then((_) {
-                if (mounted) _loadData();
-              });
-            },
-          ),
-        ),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
+              ),
+              child: Center(
+                child: EmptyState(
+                  icon: Icons.factory_outlined,
+                  title: 'factory.no_factories'.tr(),
+                  description: 'factory.add_factory_started'.tr(),
+                  buttonText: 'factory.add_factory'.tr(),
+                  onButtonPressed: () {
+                    Navigator.of(context).push(
+                      getPageRoute(const FactoryFormScreen()),
+                    ).then((_) {
+                      if (mounted) _loadData();
+                    });
+                  },
+                ),
+              ),
+            ),
+          );
+        },
       );
     }
 

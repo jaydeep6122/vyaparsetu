@@ -108,7 +108,7 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
                     label: Text(
                       _fromDate != null && _toDate != null
                           ? '${Formatters.formatDate(_fromDate!)} - ${Formatters.formatDate(_toDate!)}'
-                          : 'Select Date Range',
+                          : 'select_date_range'.tr(),
                       style: GoogleFonts.outfit(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -158,7 +158,7 @@ color: isDark ? Colors.white : AppTheme.primary,
     String? profitLossError,
   ) {
     if (isLoadingProfitLoss && profitLoss == null) {
-      return const LoadingIndicator(message: 'Generating P&L Statement...');
+      return LoadingIndicator(message: 'generating_pl'.tr());
     }
 
     if (profitLossError != null) {
@@ -172,7 +172,7 @@ color: isDark ? Colors.white : AppTheme.primary,
     if (pl == null) {
       return Center(
         child: Text(
-          'No report generated',
+          'no_report_generated'.tr(),
           style: GoogleFonts.outfit(
             color: isDark ? AppTheme.gray400 : AppTheme.gray500,
           ),
@@ -191,32 +191,32 @@ color: isDark ? Colors.white : AppTheme.primary,
           const SizedBox(height: 24),
 
           // Section: Revenue / Sales
-          _buildSectionHeader(isDark, 'Revenue / Sales'),
+          _buildSectionHeader(isDark, 'revenue_sales'.tr()),
           const SizedBox(height: 12),
           _buildPlCard(isDark, [
-            _plRow('Gross Sales', pl.grossSales, isDark, prefix: '+'),
-            _plRow('Sales Returns', pl.salesReturns, isDark, prefix: '-'),
+            _plRow('gross_sales'.tr(), pl.grossSales, isDark, prefix: '+'),
+            _plRow('sales_returns'.tr(), pl.salesReturns, isDark, prefix: '-'),
             const _PlDivider(),
-            _plRow('Net Sales Revenue', pl.netRevenue, isDark, isSubtotal: true),
+            _plRow('net_sales_revenue'.tr(), pl.netRevenue, isDark, isSubtotal: true),
           ]),
           const SizedBox(height: 16),
 
           // Section: Cost of Goods
-          _buildSectionHeader(isDark, 'Cost of Goods'),
+          _buildSectionHeader(isDark, 'cost_of_goods'.tr()),
           const SizedBox(height: 12),
           _buildPlCard(isDark, [
-            _plRow('Gross Purchases', pl.grossPurchases, isDark, prefix: '+'),
-            _plRow('Purchase Returns', pl.purchaseReturns, isDark, prefix: '-'),
+            _plRow('gross_purchases'.tr(), pl.grossPurchases, isDark, prefix: '+'),
+            _plRow('purchase_returns'.tr(), pl.purchaseReturns, isDark, prefix: '-'),
             const _PlDivider(),
-            _plRow('Net Purchase Cost', pl.netPurchases, isDark, isSubtotal: true),
+            _plRow('net_purchase_cost'.tr(), pl.netPurchases, isDark, isSubtotal: true),
           ]),
           const SizedBox(height: 16),
 
           // Section: Operating Expenses
-          _buildSectionHeader(isDark, 'Operating Expenses'),
+          _buildSectionHeader(isDark, 'operating_expenses'.tr()),
           const SizedBox(height: 12),
           _buildPlCard(isDark, [
-            _plRow('Total Expenses', pl.operatingExpenses, isDark, prefix: '-', isSubtotal: true),
+            _plRow('total_expenses'.tr(), pl.operatingExpenses, isDark, prefix: '-', isSubtotal: true),
           ]),
         ],
       ),
@@ -263,7 +263,7 @@ color: isDark ? Colors.white : AppTheme.primary,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isProfit ? 'Net Profit' : 'Net Loss',
+                    isProfit ? 'net_profit'.tr() : 'net_loss'.tr(),
                     style: GoogleFonts.outfit(
                       fontSize: 13,
                       color: Colors.white.withValues(alpha: 0.75),
@@ -292,7 +292,7 @@ color: isDark ? Colors.white : AppTheme.primary,
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        'For the selected period',
+                        'for_selected_period'.tr(),
                         style: GoogleFonts.outfit(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,

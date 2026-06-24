@@ -138,26 +138,27 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
     };
 
     bool success;
+    Party? createdParty;
     if (_isEdit) {
       success = await partyProvider.updateParty(businessId, _existingParty!.id, data);
     } else {
-      success = await partyProvider.createParty(businessId, data);
+      createdParty = await partyProvider.createParty(businessId, data);
+      success = createdParty != null;
     }
 
     if (success && mounted) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(createdParty);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) showSuccessToast(_isEdit ? 'Party updated successfully' : 'Party added successfully');
+        if (mounted) showSuccessToast(_isEdit ? 'party_updated'.tr() : 'party_added'.tr());
       });
     } else if (mounted) {
-      showErrorToast(partyProvider.error ?? 'Failed to save party');
+      showErrorToast(partyProvider.error ?? 'failed_save_party'.tr());
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -178,7 +179,7 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                 AppTextField(
                   controller: _nameController,
                   labelText: 'party_name'.tr(),
-                  hintText: 'Enter contact/party name',
+                  hintText: 'enter_party_name'.tr(),
                   prefixIcon: Icons.person_outline_rounded,
                   validator: (val) => Validators.validateRequired(val, 'Party name'),
                 ),
@@ -190,7 +191,7 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                       child: AppTextField(
                         controller: _phoneController,
                         labelText: 'phone'.tr(),
-                        hintText: '10 digits mobile',
+                        hintText: 'mobile_hint'.tr(),
                         keyboardType: TextInputType.phone,
                         prefixIcon: Icons.phone_outlined,
                         maxLength: 10,
@@ -205,7 +206,7 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                       child: AppTextField(
                         controller: _emailController,
                         labelText: 'email'.tr(),
-                        hintText: 'e.g. contact@party.com',
+                        hintText: 'email_hint'.tr(),
                         keyboardType: TextInputType.emailAddress,
                         prefixIcon: Icons.email_outlined,
                         validator: (val) {
@@ -218,42 +219,13 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Party Type
-                Text(
-                  'party_type'.tr(),
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.7),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<PartyType>(
-                  value: _partyType,
-                  decoration: const InputDecoration(
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  ),
-                  items: PartyType.values.map((type) {
-                    return DropdownMenuItem<PartyType>(
-                      value: type,
-                      child: Text(type.displayName, style: GoogleFonts.outfit()),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _partyType = val;
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
+
 
                 // GSTIN
                 AppTextField(
                   controller: _gstinController,
                   labelText: 'gstin'.tr(),
-                  hintText: '15-digit GSTIN number',
+                  hintText: 'gstin_hint'.tr(),
                   validator: Validators.validateGSTIN,
                 ),
                 const SizedBox(height: 16),
@@ -296,14 +268,14 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                               decoration: const InputDecoration(
                                 contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                               ),
-                              items: const [
+                              items: [
                                 DropdownMenuItem(
                                   value: OpeningBalanceType.receive,
-                                  child: Text('Receive'),
+                                  child: Text('receive'.tr()),
                                 ),
                                 DropdownMenuItem(
                                   value: OpeningBalanceType.pay,
-                                  child: Text('Pay'),
+                                  child: Text('pay'.tr()),
                                 ),
                               ],
                               onChanged: (val) {
@@ -327,7 +299,7 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Billing Addresses',
+                      'billing_addresses'.tr(),
                       style: GoogleFonts.outfit(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -348,9 +320,10 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                               Expanded(
                                 child: AppTextField(
                                   controller: _billingAddressControllers[index],
-                                  labelText: 'Billing Address ${index + 1}',
-                                  hintText: 'Street, city, pincode',
-                                  maxLines: 2,
+                                  labelText: 'billing_address'.tr() + ' ${index + 1}',
+                                  hintText: 'billing_address_hint'.tr(),
+                                  maxLines: null,
+                                  keyboardType: TextInputType.multiline,
                                   prefixIcon: Icons.receipt_outlined,
                                 ),
                               ),
@@ -378,7 +351,7 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                         });
                       },
                       icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-                      label: Text('Add Billing Address', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+                      label: Text('add_billing_address'.tr(), style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -388,7 +361,7 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Shipping Addresses',
+                      'shipping_addresses'.tr(),
                       style: GoogleFonts.outfit(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -409,9 +382,10 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                               Expanded(
                                 child: AppTextField(
                                   controller: _shippingAddressControllers[index],
-                                  labelText: 'Shipping Address ${index + 1}',
-                                  hintText: 'Delivery address (Leave blank if same as billing)',
-                                  maxLines: 2,
+                                  labelText: 'shipping_address'.tr() + ' ${index + 1}',
+                                  hintText: 'shipping_address_hint'.tr(),
+                                  maxLines: null,
+                                  keyboardType: TextInputType.multiline,
                                   prefixIcon: Icons.local_shipping_outlined,
                                 ),
                               ),
@@ -439,7 +413,7 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                         });
                       },
                       icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-                      label: Text('Add Shipping Address', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+                      label: Text('add_shipping_address'.tr(), style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),

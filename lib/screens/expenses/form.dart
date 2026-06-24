@@ -115,7 +115,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
         : _category;
 
     if (finalCategory.isEmpty) {
-      showErrorToast('Please specify an expense category');
+      showErrorToast('specify_category_error'.tr());
       return;
     }
 
@@ -123,7 +123,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
     final paid = double.tryParse(_paidController.text.trim()) ?? 0.0;
     
     if (paid > total) {
-      showErrorToast('Paid amount cannot exceed total expense amount');
+      showErrorToast('paid_exceeds_expense'.tr());
       return;
     }
 
@@ -148,10 +148,10 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
       Navigator.of(context).pop();
       context.read<Core>().business.fetchBusinesses();
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) showSuccessToast(_isEdit ? 'Expense updated successfully' : 'Expense recorded successfully');
+        if (mounted) showSuccessToast(_isEdit ? 'expense_updated'.tr() : 'expense_recorded'.tr());
       });
     } else if (mounted) {
-      showErrorToast(expenseProvider.error ?? 'Failed to save expense');
+      showErrorToast(expenseProvider.error ?? 'failed_save_expense'.tr());
     }
   }
 
@@ -191,7 +191,10 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
                     contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   ),
                   items: _categories.map((cat) {
-                    return DropdownMenuItem(value: cat, child: Text(cat));
+                    return DropdownMenuItem(
+                      value: cat,
+                      child: Text(cat == 'Custom...' ? 'custom_category'.tr() : cat),
+                    );
                   }).toList(),
                   onChanged: (val) {
                     if (val != null) {
@@ -207,7 +210,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
                 if (_category == 'Custom...') ...[
                   AppTextField(
                     controller: _customCategoryController,
-                    labelText: 'Specify Category',
+                    labelText: 'specify_category'.tr(),
                     hintText: 'e.g. Office Rent, Taxes, Refreshments',
                     validator: (val) => Validators.validateRequired(val, 'Category'),
                   ),
@@ -229,8 +232,8 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
                     Expanded(
                       child: AppTextField(
                         controller: _totalController,
-                        labelText: 'Total Amount (₹)',
-                        hintText: 'Total expense cost',
+                        labelText: 'total_amount_label'.tr(),
+                        hintText: 'total_cost_hint'.tr(),
                         keyboardType: TextInputType.number,
                         validator: (val) => Validators.validatePositiveAmount(val, 'Total Amount'),
                       ),
@@ -240,7 +243,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
                       child: AppTextField(
                         controller: _paidController,
                         labelText: 'paid_amount'.tr(),
-                        hintText: 'Enter amount paid',
+                        hintText: 'enter_paid_amount'.tr(),
                         keyboardType: TextInputType.number,
                         readOnly: _paymentMode == PaymentMode.credit,
                         validator: (val) => Validators.validateAmount(val, 'Paid Amount'),
@@ -305,7 +308,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
                 AppTextField(
                   controller: _descController,
                   labelText: 'description'.tr(),
-                  hintText: 'Add remarks...',
+                  hintText: 'enter_expense_remarks'.tr(),
                   maxLines: 3,
                   prefixIcon: Icons.description_outlined,
                 ),

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:vyaparsetu/global/themes.dart';
@@ -50,8 +51,9 @@ class LoadingIndicator extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color:
-                isDark ? AppTheme.shimmerBaseDark : AppTheme.shimmerBaseLight,
+            color: isDark
+                ? AppTheme.shimmerBaseDark
+                : AppTheme.shimmerBaseLight,
             borderRadius: BorderRadius.circular(AppTheme.radiusMd),
             border: Border.all(
               color: isDark ? AppTheme.gray800 : AppTheme.gray100,
@@ -131,11 +133,10 @@ class _SpinnerPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint =
-        Paint()
-          ..strokeWidth = 3.5
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round;
+    final paint = Paint()
+      ..strokeWidth = 3.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
 
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
 
@@ -192,10 +193,12 @@ class _ShimmerContainerState extends State<ShimmerContainer>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseColor =
-        isDark ? AppTheme.shimmerBaseDark : AppTheme.shimmerBaseLight;
-    final highlightColor =
-        isDark ? AppTheme.shimmerHighlightDark : AppTheme.shimmerHighlightLight;
+    final baseColor = isDark
+        ? AppTheme.shimmerBaseDark
+        : AppTheme.shimmerBaseLight;
+    final highlightColor = isDark
+        ? AppTheme.shimmerHighlightDark
+        : AppTheme.shimmerHighlightLight;
 
     return AnimatedBuilder(
       animation: _controller,
@@ -227,7 +230,7 @@ class _SlidingGradientTransform extends GradientTransform {
   const _SlidingGradientTransform({required this.slidePercent});
 
   @override
-  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
+  Matrix4? transform(Rect bounds, {ui.TextDirection? textDirection}) {
     return Matrix4.translationValues(
       bounds.width * (slidePercent - 0.5) * 2,
       0.0,

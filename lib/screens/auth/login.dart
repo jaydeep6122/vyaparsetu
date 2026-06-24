@@ -73,7 +73,7 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     } else if (!success && mounted) {
-      showErrorToast(authProvider.error ?? 'Login failed. Please try again.');
+      showErrorToast(authProvider.error ?? 'login_failed'.tr());
     }
   }
 
@@ -103,7 +103,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       const SizedBox(height: 24),
                       const _AnimatedLogo(),
-                      const SizedBox(height: 16),
                       Text(
                         'VyaparSetu',
                         style: GoogleFonts.outfit(
@@ -115,7 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Smart Business Invoicing',
+                        'smart_business_invoicing'.tr(),
                         style: GoogleFonts.outfit(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -130,19 +129,20 @@ class _LoginScreenState extends State<LoginScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Sign in to your account',
+                                'sign_in_to_account'.tr(),
                                 style: GoogleFonts.outfit(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color:
-                                      isDark ? Colors.white : AppTheme.gray800,
+                                  color: isDark
+                                      ? Colors.white
+                                      : AppTheme.gray800,
                                 ),
                               ),
                               const SizedBox(height: 20),
                               AppTextField(
                                 controller: _emailController,
                                 labelText: 'email'.tr(),
-                                hintText: 'Enter your email address',
+                                hintText: 'enter_email_hint'.tr(),
                                 keyboardType: TextInputType.emailAddress,
                                 prefixIcon: Icons.email_outlined,
                                 validator: Validators.validateEmail,
@@ -151,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               AppTextField(
                                 controller: _passwordController,
                                 labelText: 'password'.tr(),
-                                hintText: 'Enter your password',
+                                hintText: 'enter_password_hint'.tr(),
                                 isPassword: true,
                                 prefixIcon: Icons.lock_outline_rounded,
                                 validator: Validators.validatePassword,
@@ -174,8 +174,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             "${'dont_have_account'.tr()} ",
                             style: GoogleFonts.outfit(
                               fontSize: 14,
-                              color:
-                                  isDark ? AppTheme.gray400 : AppTheme.gray500,
+                              color: isDark
+                                  ? AppTheme.gray400
+                                  : AppTheme.gray500,
                             ),
                           ),
                           GestureDetector(
@@ -185,7 +186,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ).push(getPageRoute(const SignupScreen()));
                             },
                             child: Text(
-                              'Sign Up',
+                              'sign_up_btn'.tr(),
                               style: GoogleFonts.outfit(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
@@ -210,19 +211,17 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildLanguagePicker(BuildContext context) {
     final currentLocale =
         EasyLocalization.of(context)?.currentLocale ?? const Locale('en');
-    final localeName =
-        currentLocale.languageCode == 'hi'
-            ? 'हिंदी'
-            : currentLocale.languageCode == 'gu'
-            ? 'ગુજરાતી'
-            : 'English';
+    final localeName = currentLocale.languageCode == 'hi'
+        ? 'हिंदी'
+        : currentLocale.languageCode == 'gu'
+        ? 'ગુજરાતી'
+        : 'English';
 
-    final flag =
-        currentLocale.languageCode == 'hi'
-            ? '🇮🇳'
-            : currentLocale.languageCode == 'gu'
-            ? '🇮🇳'
-            : '🇺🇸';
+    final flag = currentLocale.languageCode == 'hi'
+        ? '🇮🇳'
+        : currentLocale.languageCode == 'gu'
+        ? '🇮🇳'
+        : '🇺🇸';
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -296,7 +295,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               Text(
-                'Select Language',
+                'select_language'.tr(),
                 style: GoogleFonts.outfit(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -351,20 +350,18 @@ class _LoginScreenState extends State<LoginScreen> {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color:
-              isSelected
-                  ? (isDark
-                      ? Colors.white.withValues(alpha: 0.12)
-                      : AppTheme.primary.withValues(alpha: 0.08))
-                  : Colors.transparent,
+          color: isSelected
+              ? (isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : AppTheme.primary.withValues(alpha: 0.08))
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(AppTheme.radiusSm),
           border: Border.all(
-            color:
-                isSelected
-                    ? (isDark
-                        ? Colors.white.withValues(alpha: 0.3)
-                        : AppTheme.primary)
-                    : Colors.transparent,
+            color: isSelected
+                ? (isDark
+                      ? Colors.white.withValues(alpha: 0.3)
+                      : AppTheme.primary)
+                : Colors.transparent,
             width: 1.5,
           ),
         ),
@@ -511,24 +508,12 @@ class _AnimatedLogoState extends State<_AnimatedLogo>
       scale: _scaleAnimation,
       child: FadeTransition(
         opacity: _fadeAnimation,
-        child: Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            gradient: AppTheme.primaryGradient,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.primary.withValues(alpha: 0.35),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.account_balance_wallet_rounded,
-            color: Colors.white,
-            size: 30,
+        child: SizedBox(
+          width: 80,
+          height: 80,
+          child: Image.asset(
+            'assets/images/app_logo_foreground.png',
+            fit: BoxFit.contain,
           ),
         ),
       ),
@@ -547,10 +532,9 @@ class _GlassmorphicCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color:
-            isDark
-                ? AppTheme.surfaceDark.withValues(alpha: 0.45)
-                : Colors.white.withValues(alpha: 0.65),
+        color: isDark
+            ? AppTheme.surfaceDark.withValues(alpha: 0.45)
+            : Colors.white.withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         border: Border.all(
           color: isDark ? AppTheme.glassBorderDark : AppTheme.glassBorderLight,

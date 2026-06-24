@@ -2,6 +2,7 @@ import 'package:vyaparsetu/api/api.dart';
 import 'package:vyaparsetu/types/payment.dart';
 import 'package:vyaparsetu/core/Core.dart';
 import 'package:vyaparsetu/helpers/errorHandler.dart';
+import 'package:vyaparsetu/global/constants.dart';
 
 class PaymentModule {
   final Core core;
@@ -10,37 +11,65 @@ class PaymentModule {
   List<Payment> _payments = [];
   bool _isLoading = false;
   String? _error;
+  bool _hasFetched = false;
 
   List<Payment> get payments => _payments;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  Future<void> fetchPayments(
+  Future<List<Payment>> fetchPayments(
     String businessId, {
     String? paymentType,
     String? partyId,
     String? fromDate,
     String? toDate,
+    bool forceRefresh = false,
   }) async {
-    _isLoading = true;
-    _error = null;
-    core.notify();
+    final isFiltered = paymentType != null || partyId != null || fromDate != null || toDate != null;
 
-    try {
-      final list = await Api.instance.payment.list(
-        businessId,
-        paymentType: paymentType,
-        partyId: partyId,
-        fromDate: fromDate,
-        toDate: toDate,
-      );
-      _payments = list.map((e) => Payment.fromJson(e)).toList();
-    } catch (e) {
-      _error = extractErrorMessage(e);
+    if (!isFiltered) {
+      if (_hasFetched && !forceRefresh) {
+        return _payments;
+      }
+
+      _isLoading = true;
+      _error = null;
+      core.notify();
+
+      try {
+        final list = await Api.instance.payment.list(businessId);
+        _payments = list.map((e) => Payment.fromJson(e)).toList();
+        _hasFetched = true;
+      } catch (e) {
+        _error = extractErrorMessage(e);
+      }
+
+      _isLoading = false;
+      core.notify();
+      return _payments;
+    } else {
+      _isLoading = true;
+      _error = null;
+      core.notify();
+
+      List<Payment> results = [];
+      try {
+        final list = await Api.instance.payment.list(
+          businessId,
+          paymentType: paymentType,
+          partyId: partyId,
+          fromDate: fromDate,
+          toDate: toDate,
+        );
+        results = list.map((e) => Payment.fromJson(e)).toList();
+      } catch (e) {
+        _error = extractErrorMessage(e);
+      }
+
+      _isLoading = false;
+      core.notify();
+      return results;
     }
-
-    _isLoading = false;
-    core.notify();
   }
 
   Future<bool> createPayment(String businessId, Map<String, dynamic> data) async {
@@ -49,8 +78,33 @@ class PaymentModule {
     core.notify();
 
     try {
-      await Api.instance.payment.create(businessId, data);
-      await fetchPayments(businessId);
+      final response = await Api.instance.payment.create(businessId, data);
+      final newPayment = Payment.fromJson(response);
+      _payments.insert(0, newPayment);
+      _payments = List.from(_payments);
+
+      // Adjust party balance locally
+      final partyId = newPayment.partyId.isNotEmpty ? newPayment.partyId : data['party_id'] as String?;
+      if (partyId != null) {
+        final change = newPayment.paymentType == PaymentType.payment_in
+            ? -newPayment.amount
+            : newPayment.amount;
+        core.party.adjustPartyBalance(partyId, change);
+      }
+
+      // Adjust invoice locally
+      final invoiceId = newPayment.invoiceId ?? data['invoice_id'] as String?;
+      if (invoiceId != null) {
+        core.invoice.adjustInvoicePayment(invoiceId, newPayment.amount);
+      }
+
+      // Adjust dashboard summary locally
+      core.dashboard.adjustDashboardPayment(
+        type: newPayment.paymentType,
+        amountChange: newPayment.amount,
+        mode: newPayment.paymentMode,
+      );
+
       _isLoading = false;
       core.notify();
       return true;
@@ -70,7 +124,57 @@ class PaymentModule {
 
     try {
       await Api.instance.payment.update(businessId, paymentId, data);
-      await fetchPayments(businessId);
+      
+      final idx = _payments.indexWhere((p) => p.id == paymentId);
+      if (idx != -1) {
+        final oldPayment = _payments[idx];
+        final oldChange = oldPayment.paymentType == PaymentType.payment_in
+            ? -oldPayment.amount
+            : oldPayment.amount;
+
+        final existingMap = oldPayment.toJson();
+        data.forEach((key, value) {
+          existingMap[key] = value;
+        });
+        final updatedPayment = Payment.fromJson(existingMap);
+        _payments[idx] = updatedPayment;
+        _payments = List.from(_payments);
+
+        final newChange = updatedPayment.paymentType == PaymentType.payment_in
+            ? -updatedPayment.amount
+            : updatedPayment.amount;
+        final change = newChange - oldChange;
+        core.party.adjustPartyBalance(updatedPayment.partyId, change);
+
+        // Adjust invoice locally
+        if (updatedPayment.invoiceId != null) {
+          core.invoice.adjustInvoicePayment(
+            updatedPayment.invoiceId!,
+            updatedPayment.amount - oldPayment.amount,
+          );
+        }
+
+        // Adjust dashboard summary locally
+        if (oldPayment.paymentMode == updatedPayment.paymentMode) {
+          core.dashboard.adjustDashboardPayment(
+            type: updatedPayment.paymentType,
+            amountChange: updatedPayment.amount - oldPayment.amount,
+            mode: updatedPayment.paymentMode,
+          );
+        } else {
+          core.dashboard.adjustDashboardPayment(
+            type: oldPayment.paymentType,
+            amountChange: -oldPayment.amount,
+            mode: oldPayment.paymentMode,
+          );
+          core.dashboard.adjustDashboardPayment(
+            type: updatedPayment.paymentType,
+            amountChange: updatedPayment.amount,
+            mode: updatedPayment.paymentMode,
+          );
+        }
+      }
+
       _isLoading = false;
       core.notify();
       return true;
@@ -89,8 +193,34 @@ class PaymentModule {
     core.notify();
 
     try {
+      final idx = _payments.indexWhere((p) => p.id == paymentId);
+      if (idx != -1) {
+        final oldPayment = _payments[idx];
+        final change = oldPayment.paymentType == PaymentType.payment_in
+            ? oldPayment.amount
+            : -oldPayment.amount;
+        core.party.adjustPartyBalance(oldPayment.partyId, change);
+
+        // Adjust invoice locally
+        if (oldPayment.invoiceId != null) {
+          core.invoice.adjustInvoicePayment(
+            oldPayment.invoiceId!,
+            -oldPayment.amount,
+          );
+        }
+
+        // Adjust dashboard summary locally
+        core.dashboard.adjustDashboardPayment(
+          type: oldPayment.paymentType,
+          amountChange: -oldPayment.amount,
+          mode: oldPayment.paymentMode,
+        );
+      }
+
       await Api.instance.payment.delete(businessId, paymentId);
-      await fetchPayments(businessId);
+      _payments.removeWhere((p) => p.id == paymentId);
+      _payments = List.from(_payments);
+
       _isLoading = false;
       core.notify();
       return true;
@@ -107,6 +237,7 @@ class PaymentModule {
     _payments = [];
     _isLoading = false;
     _error = null;
+    _hasFetched = false;
     core.notify();
   }
 }

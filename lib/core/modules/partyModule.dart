@@ -12,6 +12,10 @@ class PartyModule {
   List<Party> _parties = [];
   bool _isLoading = false;
   String? _error;
+  bool _hasFetched = false;
+
+  final Map<String, PartyLedger> _partyLedgers = {};
+  final Map<String, PartyQuantitySummary> _partyQuantitySummaries = {};
 
   PartyLedger? _partyLedger;
   bool _isLoadingPartyLedger = false;
@@ -33,11 +37,31 @@ class PartyModule {
   bool get isLoadingPartyQuantitySummary => _isLoadingPartyQuantitySummary;
   String? get partyQuantitySummaryError => _partyQuantitySummaryError;
 
+  PartyLedger? getPartyLedgerFor(String partyId) => _partyLedgers[partyId];
+  PartyQuantitySummary? getPartyQuantitySummaryFor(String partyId) =>
+      _partyQuantitySummaries[partyId];
+
+  void adjustPartyBalance(String partyId, double amountChange) {
+    final idx = _parties.indexWhere((p) => p.id == partyId);
+    if (idx != -1) {
+      final p = _parties[idx];
+      _parties[idx] = p.copyWith(
+        currentBalance: p.currentBalance + amountChange,
+      );
+      core.notify();
+    }
+  }
+
   Future<void> fetchParties(
     String businessId, {
     String? partyType,
     String? search,
+    bool forceRefresh = false,
   }) async {
+    if (_hasFetched && !forceRefresh) {
+      return;
+    }
+
     _isLoading = true;
     _error = null;
     core.notify();
@@ -49,6 +73,7 @@ class PartyModule {
         search: search,
       );
       _parties = list.map((e) => Party.fromJson(e)).toList();
+      _hasFetched = true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
@@ -57,34 +82,49 @@ class PartyModule {
     core.notify();
   }
 
-  Future<bool> createParty(String businessId, Map<String, dynamic> data) async {
+  Future<Party?> createParty(String businessId, Map<String, dynamic> data) async {
     _isLoading = true;
     _error = null;
     core.notify();
 
     try {
-      await Api.instance.party.create(businessId, data);
-      await fetchParties(businessId);
+      final response = await Api.instance.party.create(businessId, data);
+      final newParty = Party.fromJson(response);
+      _parties.insert(0, newParty);
+      _parties = List.from(_parties);
       _isLoading = false;
       core.notify();
-      return true;
+      return newParty;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
 
     _isLoading = false;
     core.notify();
-    return false;
+    return null;
   }
 
-  Future<bool> updateParty(String businessId, String partyId, Map<String, dynamic> data) async {
+  Future<bool> updateParty(
+    String businessId,
+    String partyId,
+    Map<String, dynamic> data,
+  ) async {
     _isLoading = true;
     _error = null;
     core.notify();
 
     try {
       await Api.instance.party.update(businessId, partyId, data);
-      await fetchParties(businessId);
+      final idx = _parties.indexWhere((p) => p.id == partyId);
+      if (idx != -1) {
+        final existing = _parties[idx];
+        final existingMap = existing.toJson();
+        data.forEach((key, value) {
+          existingMap[key] = value;
+        });
+        _parties[idx] = Party.fromJson(existingMap);
+        _parties = List.from(_parties);
+      }
       _isLoading = false;
       core.notify();
       return true;
@@ -104,7 +144,8 @@ class PartyModule {
 
     try {
       await Api.instance.party.delete(businessId, partyId);
-      await fetchParties(businessId);
+      _parties.removeWhere((p) => p.id == partyId);
+      _parties = List.from(_parties);
       _isLoading = false;
       core.notify();
       return true;
@@ -117,15 +158,25 @@ class PartyModule {
     return false;
   }
 
-  Future<void> fetchPartyLedger(String businessId, String partyId) async {
-    _partyLedger = null;
-    _isLoadingPartyLedger = true;
+  Future<void> fetchPartyLedger(
+    String businessId,
+    String partyId, {
+    bool forceRefresh = false,
+  }) async {
+    _partyLedger = _partyLedgers[partyId];
     _partyLedgerError = null;
-    core.notify();
+
+    final hasCache = _partyLedger != null;
+    if (!hasCache || forceRefresh) {
+      _isLoadingPartyLedger = true;
+      core.notify();
+    }
 
     try {
       final data = await Api.instance.party.getPartyLedger(businessId, partyId);
-      _partyLedger = PartyLedger.fromJson(data);
+      final ledger = PartyLedger.fromJson(data);
+      _partyLedgers[partyId] = ledger;
+      _partyLedger = ledger;
     } catch (e) {
       _partyLedgerError = extractErrorMessage(e);
     }
@@ -135,20 +186,31 @@ class PartyModule {
   }
 
   void clearPartyLedger() {
-    _partyLedger = null;
-    _partyLedgerError = null;
-    core.notify();
+    // No-op to preserve cache
   }
 
-  Future<void> fetchPartyQuantitySummary(String businessId, String partyId) async {
-    _partyQuantitySummary = null;
-    _isLoadingPartyQuantitySummary = true;
+  Future<void> fetchPartyQuantitySummary(
+    String businessId,
+    String partyId, {
+    bool forceRefresh = false,
+  }) async {
+    _partyQuantitySummary = _partyQuantitySummaries[partyId];
     _partyQuantitySummaryError = null;
-    core.notify();
+
+    final hasCache = _partyQuantitySummary != null;
+    if (!hasCache || forceRefresh) {
+      _isLoadingPartyQuantitySummary = true;
+      core.notify();
+    }
 
     try {
-      final data = await Api.instance.party.getPartyQuantitySummary(businessId, partyId);
-      _partyQuantitySummary = PartyQuantitySummary.fromJson(data);
+      final data = await Api.instance.party.getPartyQuantitySummary(
+        businessId,
+        partyId,
+      );
+      final summary = PartyQuantitySummary.fromJson(data);
+      _partyQuantitySummaries[partyId] = summary;
+      _partyQuantitySummary = summary;
     } catch (e) {
       _partyQuantitySummaryError = extractErrorMessage(e);
     }
@@ -158,11 +220,8 @@ class PartyModule {
   }
 
   void clearPartyQuantitySummary() {
-    _partyQuantitySummary = null;
-    _partyQuantitySummaryError = null;
-    core.notify();
+    // No-op to preserve cache
   }
-
   void clearAll() {
     _parties = [];
     _partyLedger = null;
@@ -173,6 +232,9 @@ class PartyModule {
     _partyQuantitySummary = null;
     _isLoadingPartyQuantitySummary = false;
     _partyQuantitySummaryError = null;
+    _partyLedgers.clear();
+    _partyQuantitySummaries.clear();
+    _hasFetched = false;
     core.notify();
   }
 }

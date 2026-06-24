@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:vyaparsetu/global/themes.dart';
 
 class AppErrorWidget extends StatelessWidget {
@@ -51,7 +52,7 @@ class AppErrorWidget extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: Text('Retry'),
+                  label: Text('retry'.tr()),
                 ),
               ),
             ],

@@ -13,7 +13,7 @@ class ReportService {
         ..maximumFractionDigits = 2;
 
   static String _f(double amount) => _format.format(amount);
-  static String _d(DateTime dt) => DateFormat('d MMM yyyy').format(dt);
+  static String _d(DateTime dt) => DateFormat('d MMM yyyy', 'en').format(dt);
 
   // ── Business Health Report ──────────────────────────────────────────
 
@@ -169,7 +169,7 @@ class ReportService {
                             _f(i.taxAmount),
                             _f(i.totalAmount),
                             _f(i.paidAmount),
-                            i.paymentStatus.displayName.toUpperCase(),
+                            i.paymentStatus.name.replaceAll('_', ' ').toUpperCase(),
                           ],
                         )
                         .toList(),
@@ -262,7 +262,7 @@ class ReportService {
                             _f(i.taxAmount),
                             _f(i.totalAmount),
                             _f(i.paidAmount),
-                            i.paymentStatus.displayName.toUpperCase(),
+                            i.paymentStatus.name.replaceAll('_', ' ').toUpperCase(),
                           ],
                         )
                         .toList(),
@@ -365,7 +365,7 @@ class ReportService {
                             _f(i.taxAmount),
                             _f(i.totalAmount),
                             _f(i.paidAmount),
-                            i.paymentStatus.displayName.toUpperCase(),
+                            i.paymentStatus.name.replaceAll('_', ' ').toUpperCase(),
                           ],
                         )
                         .toList(),
@@ -462,7 +462,7 @@ class ReportService {
                             _f(i.taxAmount),
                             _f(i.totalAmount),
                             _f(i.paidAmount),
-                            i.paymentStatus.displayName.toUpperCase(),
+                            i.paymentStatus.name.replaceAll('_', ' ').toUpperCase(),
                           ],
                         )
                         .toList(),

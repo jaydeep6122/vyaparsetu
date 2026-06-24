@@ -21,7 +21,7 @@ class MolderPdfService {
 
   static String _f(double amount) => _currencyFormat.format(amount.roundToDouble());
   static String _fRate(double rate) => _rateFormat.format(rate);
-  static String _d(DateTime dt) => DateFormat('dd-MM-yyyy').format(dt);
+  static String _d(DateTime dt) => DateFormat('dd-MM-yyyy', 'en').format(dt);
 
   static Future<pw.Document> generateMolderReportPdf({
     required Worker worker,
@@ -84,7 +84,7 @@ class MolderPdfService {
                 ),
                 pw.SizedBox(height: 4),
                 pw.Text(
-                  'WORKER ACCOUNT SHEET (खाता पर्ची)',
+                  'WORKER ACCOUNT SHEET',
                   style: pw.TextStyle(font: bold, fontSize: 13, color: PdfColors.grey700),
                 ),
                 pw.SizedBox(height: 12),
@@ -109,7 +109,7 @@ class MolderPdfService {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'Worker / Molder (मजदूर का नाम)',
+                      'Worker / Molder',
                       style: pw.TextStyle(font: font, fontSize: 10, color: PdfColors.grey700),
                     ),
                     pw.SizedBox(height: 4),
@@ -123,7 +123,7 @@ class MolderPdfService {
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
                     pw.Text(
-                      'Rate / 1000 Bricks (रेट)',
+                      'Rate / 1000 Bricks',
                       style: pw.TextStyle(font: font, fontSize: 10, color: PdfColors.grey700),
                     ),
                     pw.SizedBox(height: 4),
@@ -140,7 +140,7 @@ class MolderPdfService {
 
           // --- SECTION: HOW WAGES ARE CALCULATED ---
           pw.Text(
-            'STEP 1: TOTAL EARNED WAGES (कुल मजदूरी कमाई)',
+            'STEP 1: TOTAL EARNED WAGES',
             style: pw.TextStyle(font: bold, fontSize: 12, color: PdfColors.indigo900),
           ),
           pw.SizedBox(height: 8),
@@ -153,7 +153,7 @@ class MolderPdfService {
             child: pw.Column(
               children: [
                 _buildSimpleRow(
-                  label: 'Bricks Income (ईंटों की कमाई):\n${worker.totalBricks} bricks  x  ${_fRate(rate)} / 1000',
+                  label: 'Bricks Income:\n${worker.totalBricks} bricks  x  ${_fRate(rate)} / 1000',
                   value: _f(brickWages),
                   font: font,
                   bold: bold,
@@ -161,7 +161,7 @@ class MolderPdfService {
                 ),
                 pw.Divider(height: 1, color: PdfColors.grey300),
                 _buildSimpleRow(
-                  label: 'Extra Work Income (अन्य काम/डायरेक्ट कमाई):',
+                  label: 'Extra Work Income:',
                   value: _f(calculatedDirectWages),
                   font: font,
                   bold: bold,
@@ -173,7 +173,7 @@ class MolderPdfService {
                     children: [
                       pw.Divider(height: 1, color: PdfColors.green300, thickness: 1.5),
                       _buildSimpleRow(
-                        label: 'Total Earned (कुल कमाई):',
+                        label: 'Total Earned:',
                         value: _f(totalWages),
                         font: font,
                         bold: bold,
@@ -190,7 +190,7 @@ class MolderPdfService {
 
           // --- SECTION: MONEY GIVEN ---
           pw.Text(
-            'STEP 2: TOTAL ADVANCES/PAYMENTS TAKEN (उठाया हुआ एडवांस / भुगतान)',
+            'STEP 2: TOTAL ADVANCES/PAYMENTS TAKEN',
             style: pw.TextStyle(font: bold, fontSize: 12, color: PdfColors.indigo900),
           ),
           pw.SizedBox(height: 8),
@@ -201,7 +201,7 @@ class MolderPdfService {
               borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
             ),
             child: _buildSimpleRow(
-              label: 'Total Money Given to Worker (कुल दिया गया पैसा):',
+              label: 'Total Money Given to Worker:',
               value: _f(totalPayments),
               font: font,
               bold: bold,
@@ -214,7 +214,7 @@ class MolderPdfService {
 
           // --- SECTION: PENDING BALANCE ---
           pw.Text(
-            'STEP 3: REMAINING BALANCE (बचा हुआ बैलेंस)',
+            'STEP 3: REMAINING BALANCE',
             style: pw.TextStyle(font: bold, fontSize: 12, color: PdfColors.indigo900),
           ),
           pw.SizedBox(height: 8),
@@ -241,15 +241,15 @@ class MolderPdfService {
                   children: [
                     pw.Text(
                       balanceDue > 0
-                          ? 'FACTORY NEEDS TO PAY WORKER (बाकी देना है)'
+                          ? 'FACTORY NEEDS TO PAY WORKER'
                           : (balanceDue < 0
-                              ? 'PAID IN ADVANCE / EXTRA (ज्यादा दिया गया है)'
-                              : 'NO PENDING BALANCE (कोई बकाया नहीं है)'),
+                              ? 'PAID IN ADVANCE / EXTRA'
+                              : 'NO PENDING BALANCE'),
                       style: pw.TextStyle(font: bold, fontSize: 11, color: PdfColors.grey800),
                     ),
                     pw.SizedBox(height: 4),
                     pw.Text(
-                      'Total Earned (कुल कमाई)  -  Money Given (दिया गया पैसा)',
+                      'Total Earned  -  Money Given',
                       style: pw.TextStyle(font: font, fontSize: 9, color: PdfColors.grey600),
                     ),
                   ],
@@ -279,7 +279,7 @@ class MolderPdfService {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(
-                'WORK WAGES HISTORY (कमाई का इतिहास)',
+                'WORK WAGES HISTORY',
                 style: pw.TextStyle(font: bold, fontSize: 14, color: PdfColors.indigo900),
               ),
               pw.SizedBox(height: 4),
@@ -298,13 +298,13 @@ class MolderPdfService {
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Text(
-                    'No earnings found (कोई कमाई नहीं मिली).',
+                    'No earnings found.',
                     style: pw.TextStyle(font: font, fontSize: 10, color: PdfColors.grey500),
                   ),
                 )
               else
                 _buildEasyTable(
-                  headers: ['Date (तारीख)', 'Work Type (काम का प्रकार)', 'Bricks Qty (ईंटें)', 'Notes (विवरण)', 'Wages Amount (कमाई)'],
+                  headers: ['Date', 'Work Type', 'Bricks Qty', 'Notes', 'Wages Amount'],
                   widths: [75, 110, 80, 140, 80],
                   rows: wageTransactions.map((t) {
                     var qtyStr = '-';
@@ -325,7 +325,13 @@ class MolderPdfService {
                     final notesStr = t.notes ?? '-';
                     return [
                       _d(t.date),
-                      t.transactionType.displayName,
+                      t.transactionType == TransactionType.handoff
+                          ? 'Handoff'
+                          : t.transactionType == TransactionType.direct
+                              ? 'Direct Work'
+                              : t.transactionType == TransactionType.truck_dist
+                                  ? 'Truck Distribution'
+                                  : 'Money Given',
                       qtyStr,
                       notesStr,
                       _f(amountVal),
@@ -348,7 +354,7 @@ class MolderPdfService {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(
-                'PAYMENTS RECEIVED HISTORY (दिए गए पैसों का इतिहास)',
+                'PAYMENTS RECEIVED HISTORY',
                 style: pw.TextStyle(font: bold, fontSize: 14, color: PdfColors.indigo900),
               ),
               pw.SizedBox(height: 4),
@@ -367,13 +373,13 @@ class MolderPdfService {
                     borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
                   ),
                   child: pw.Text(
-                    'No payments found (कोई अग्रिम/भुगतान नहीं मिला).',
+                    'No payments found.',
                     style: pw.TextStyle(font: font, fontSize: 10, color: PdfColors.grey500),
                   ),
                 )
               else
                 _buildEasyTable(
-                  headers: ['Date (तारीख)', 'Payment Method / Notes (विवरण)', 'Amount Paid (दिया गया पैसा)'],
+                  headers: ['Date', 'Payment Method / Notes', 'Amount Paid'],
                   widths: [100, 285, 100],
                   rows: paymentTransactions.map((t) {
                     final notesStr = t.notes ?? 'Cash payout / Advance';
@@ -509,7 +515,7 @@ class MolderPdfService {
               style: pw.TextStyle(font: font, fontSize: 8, color: PdfColors.grey500),
             ),
             pw.Text(
-              'Date: ${DateFormat('dd-MM-yyyy, hh:mm a').format(DateTime.now())}',
+              'Date: ${DateFormat('dd-MM-yyyy, hh:mm a', 'en').format(DateTime.now())}',
               style: pw.TextStyle(font: font, fontSize: 8, color: PdfColors.grey500),
             ),
           ],

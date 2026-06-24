@@ -7,10 +7,12 @@ import 'package:vyaparsetu/helpers/errorHandler.dart';
 class ItemModule {
   final Core core;
   ItemModule(this.core);
-
   List<Item> _items = [];
   bool _isLoading = false;
   String? _error;
+  bool _hasFetched = false;
+
+  final Map<String, ItemQuantitySummary> _quantitySummaries = {};
 
   ItemQuantitySummary? _quantitySummary;
   bool _isLoadingQuantitySummary = false;
@@ -24,7 +26,17 @@ class ItemModule {
   bool get isLoadingQuantitySummary => _isLoadingQuantitySummary;
   String? get quantitySummaryError => _quantitySummaryError;
 
-  Future<void> fetchItems(String businessId) async {
+  ItemQuantitySummary? getQuantitySummaryFor(String itemId) =>
+      _quantitySummaries[itemId];
+
+  Future<void> fetchItems(
+    String businessId, {
+    bool forceRefresh = false,
+  }) async {
+    if (_hasFetched && !forceRefresh) {
+      return;
+    }
+
     _isLoading = true;
     _error = null;
     core.notify();
@@ -32,6 +44,7 @@ class ItemModule {
     try {
       final list = await Api.instance.item.list(businessId);
       _items = list.map((e) => Item.fromJson(e)).toList();
+      _hasFetched = true;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
@@ -47,13 +60,12 @@ class ItemModule {
 
     try {
       final response = await Api.instance.item.create(businessId, data);
-      await fetchItems(businessId);
+      final newItem = Item.fromJson(response);
+      _items.insert(0, newItem);
+      _items = List.from(_items);
       _isLoading = false;
       core.notify();
-      final createdId = response['id'] as String?;
-      return createdId != null
-          ? _items.where((i) => i.id == createdId).firstOrNull
-          : null;
+      return newItem;
     } catch (e) {
       _error = extractErrorMessage(e);
     }
@@ -63,14 +75,27 @@ class ItemModule {
     return null;
   }
 
-  Future<bool> updateItem(String businessId, String itemId, Map<String, dynamic> data) async {
+  Future<bool> updateItem(
+    String businessId,
+    String itemId,
+    Map<String, dynamic> data,
+  ) async {
     _isLoading = true;
     _error = null;
     core.notify();
 
     try {
       await Api.instance.item.update(businessId, itemId, data);
-      await fetchItems(businessId);
+      final idx = _items.indexWhere((i) => i.id == itemId);
+      if (idx != -1) {
+        final existing = _items[idx];
+        final existingMap = existing.toJson();
+        data.forEach((key, value) {
+          existingMap[key] = value;
+        });
+        _items[idx] = Item.fromJson(existingMap);
+        _items = List.from(_items);
+      }
       _isLoading = false;
       core.notify();
       return true;
@@ -90,7 +115,8 @@ class ItemModule {
 
     try {
       await Api.instance.item.delete(businessId, itemId);
-      await fetchItems(businessId);
+      _items.removeWhere((i) => i.id == itemId);
+      _items = List.from(_items);
       _isLoading = false;
       core.notify();
       return true;
@@ -103,15 +129,28 @@ class ItemModule {
     return false;
   }
 
-  Future<void> fetchQuantitySummary(String businessId, String itemId) async {
-    _quantitySummary = null;
-    _isLoadingQuantitySummary = true;
+  Future<void> fetchQuantitySummary(
+    String businessId,
+    String itemId, {
+    bool forceRefresh = false,
+  }) async {
+    _quantitySummary = _quantitySummaries[itemId];
     _quantitySummaryError = null;
-    core.notify();
+
+    final hasCache = _quantitySummary != null;
+    if (!hasCache || forceRefresh) {
+      _isLoadingQuantitySummary = true;
+      core.notify();
+    }
 
     try {
-      final data = await Api.instance.item.getQuantitySummary(businessId, itemId);
-      _quantitySummary = ItemQuantitySummary.fromJson(data);
+      final data = await Api.instance.item.getQuantitySummary(
+        businessId,
+        itemId,
+      );
+      final summary = ItemQuantitySummary.fromJson(data);
+      _quantitySummaries[itemId] = summary;
+      _quantitySummary = summary;
     } catch (e) {
       _quantitySummaryError = extractErrorMessage(e);
     }
@@ -121,11 +160,8 @@ class ItemModule {
   }
 
   void clearQuantitySummary() {
-    _quantitySummary = null;
-    _quantitySummaryError = null;
-    core.notify();
+    // No-op to preserve cache
   }
-
   void clearAll() {
     _items = [];
     _isLoading = false;
@@ -133,6 +169,8 @@ class ItemModule {
     _quantitySummary = null;
     _isLoadingQuantitySummary = false;
     _quantitySummaryError = null;
+    _quantitySummaries.clear();
+    _hasFetched = false;
     core.notify();
   }
 }

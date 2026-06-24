@@ -12,7 +12,7 @@ class AppTextField extends StatefulWidget {
   final bool isPassword;
   final IconData? prefixIcon;
   final Widget? suffixIcon;
-  final int maxLines;
+  final int? maxLines;
   final void Function(String)? onChanged;
   final void Function(String?)? onSaved;
   final String? initialValue;
@@ -90,7 +90,7 @@ class _AppTextFieldState extends State<AppTextField> {
         color: theme.textTheme.bodyLarge?.color,
       ),
       decoration: InputDecoration(
-        labelText: widget.labelText,
+        labelText: widget.labelText.isEmpty ? null : widget.labelText,
         hintText: widget.hintText,
         prefixIcon: widget.prefixIcon != null
             ? Padding(

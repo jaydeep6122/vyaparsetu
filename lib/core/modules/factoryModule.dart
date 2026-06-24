@@ -70,6 +70,12 @@ class FactoryModule {
   // Dashboard summaries map for all factories
   Map<String, FactorySummary> _summaries = {};
 
+  // Persistence Maps for Multi-Factory Caching
+  final Map<String, List<Worker>> _factoryWorkers = {};
+  final Map<String, List<TransactionLog>> _factoryTransactions = {};
+  final Map<String, WorkerSummary> _workerSummaries = {};
+  final Map<String, FactorySummary> _factorySummaries = {};
+
   // Getters
   List<Factory> get factories => _factories;
   bool get isLoadingFactories => _isLoadingFactories;
@@ -100,7 +106,11 @@ class FactoryModule {
   Map<String, FactorySummary> get summaries => _summaries;
 
   // --- Factories ---
-  Future<void> fetchFactories({String? status, String? search}) async {
+  Future<void> fetchFactories({String? status, String? search, bool forceRefresh = false}) async {
+    if (_factories.isNotEmpty && !forceRefresh) {
+      return;
+    }
+
     _isLoadingFactories = true;
     _factoriesError = null;
     core.notify();
@@ -179,6 +189,10 @@ class FactoryModule {
     _factorySummary = null;
     _isLoadingFactorySummary = false;
     _factorySummaryError = null;
+    _factoryWorkers.clear();
+    _factoryTransactions.clear();
+    _workerSummaries.clear();
+    _factorySummaries.clear();
   }
 
   Future<void> fetchFactory(String factoryId) async {
@@ -203,8 +217,9 @@ class FactoryModule {
     core.notify();
 
     try {
-      await Api.instance.factory.createFactory(data);
-      await fetchFactories();
+      final response = await Api.instance.factory.createFactory(data);
+      final newFac = Factory.fromJson(response);
+      _factories.add(newFac);
       _isLoadingFactories = false;
       core.notify();
       return true;
@@ -227,7 +242,15 @@ class FactoryModule {
 
     try {
       await Api.instance.factory.updateFactory(factoryId, data);
-      await fetchFactories();
+      final idx = _factories.indexWhere((f) => f.id == factoryId);
+      if (idx != -1) {
+        final existing = _factories[idx];
+        final existingMap = existing.toJson();
+        data.forEach((key, value) {
+          existingMap[key] = value;
+        });
+        _factories[idx] = Factory.fromJson(existingMap);
+      }
       _isLoadingFactories = false;
       core.notify();
       return true;
@@ -245,7 +268,13 @@ class FactoryModule {
     String factoryId, {
     String? workerType,
     String? search,
+    bool forceRefresh = false,
   }) async {
+    _workers = _factoryWorkers[factoryId] ?? [];
+    if (_workers.isNotEmpty && !forceRefresh) {
+      return;
+    }
+
     _isLoadingWorkers = true;
     _workersError = null;
     core.notify();
@@ -256,7 +285,9 @@ class FactoryModule {
         type: workerType,
         search: search,
       );
-      _workers = list.map((e) => Worker.fromJson(e)).toList();
+      final parsed = list.map((e) => Worker.fromJson(e)).toList();
+      _factoryWorkers[factoryId] = parsed;
+      _workers = parsed;
     } catch (e) {
       _workersError = extractErrorMessage(e);
     }
@@ -305,8 +336,14 @@ class FactoryModule {
     core.notify();
 
     try {
-      await Api.instance.factory.createWorker(factoryId, data);
-      await fetchWorkers(factoryId);
+      final response = await Api.instance.factory.createWorker(factoryId, data);
+      final newWorker = Worker.fromJson(response);
+      
+      final list = _factoryWorkers[factoryId] ?? [];
+      list.insert(0, newWorker);
+      _factoryWorkers[factoryId] = List.from(list);
+      _workers = _factoryWorkers[factoryId]!;
+
       _isLoadingWorkers = false;
       core.notify();
       return true;
@@ -330,7 +367,20 @@ class FactoryModule {
 
     try {
       await Api.instance.factory.updateWorker(factoryId, workerId, data);
-      await fetchWorkers(factoryId);
+      
+      final list = _factoryWorkers[factoryId] ?? [];
+      final idx = list.indexWhere((w) => w.id == workerId);
+      if (idx != -1) {
+        final existing = list[idx];
+        final existingMap = existing.toJson();
+        data.forEach((key, value) {
+          existingMap[key] = value;
+        });
+        list[idx] = Worker.fromJson(existingMap);
+        _factoryWorkers[factoryId] = List.from(list);
+        _workers = _factoryWorkers[factoryId]!;
+      }
+
       _isLoadingWorkers = false;
       core.notify();
       return true;
@@ -350,7 +400,12 @@ class FactoryModule {
 
     try {
       await Api.instance.factory.deleteWorker(factoryId, workerId);
-      await fetchWorkers(factoryId);
+      
+      final list = _factoryWorkers[factoryId] ?? [];
+      list.removeWhere((w) => w.id == workerId);
+      _factoryWorkers[factoryId] = List.from(list);
+      _workers = _factoryWorkers[factoryId]!;
+
       _isLoadingWorkers = false;
       core.notify();
       return true;
@@ -370,7 +425,13 @@ class FactoryModule {
     String? workerId,
     String? fromDate,
     String? toDate,
+    bool forceRefresh = false,
   }) async {
+    _transactions = _factoryTransactions[factoryId] ?? [];
+    if (_transactions.isNotEmpty && !forceRefresh) {
+      return;
+    }
+
     _isLoadingTransactions = true;
     _transactionsError = null;
     core.notify();
@@ -383,7 +444,9 @@ class FactoryModule {
         dateFrom: fromDate,
         dateTo: toDate,
       );
-      _transactions = list.map((e) => TransactionLog.fromJson(e)).toList();
+      final parsed = list.map((e) => TransactionLog.fromJson(e)).toList();
+      _factoryTransactions[factoryId] = parsed;
+      _transactions = parsed;
     } catch (e) {
       _transactionsError = extractErrorMessage(e);
     }
@@ -407,8 +470,13 @@ class FactoryModule {
       );
       final transaction =
           response['transaction'] as Map<String, dynamic>? ?? response;
-      _transactions.add(TransactionLog.fromJson(transaction));
-      await fetchTransactions(factoryId);
+      final newTx = TransactionLog.fromJson(transaction);
+      
+      final list = _factoryTransactions[factoryId] ?? [];
+      list.insert(0, newTx);
+      _factoryTransactions[factoryId] = List.from(list);
+      _transactions = _factoryTransactions[factoryId]!;
+
       _isLoadingTransactions = false;
       core.notify();
       return true;
@@ -430,8 +498,13 @@ class FactoryModule {
       final response = await Api.instance.factory.createDirect(factoryId, data);
       final transaction =
           response['transaction'] as Map<String, dynamic>? ?? response;
-      _transactions.add(TransactionLog.fromJson(transaction));
-      await fetchTransactions(factoryId);
+      final newTx = TransactionLog.fromJson(transaction);
+      
+      final list = _factoryTransactions[factoryId] ?? [];
+      list.insert(0, newTx);
+      _factoryTransactions[factoryId] = List.from(list);
+      _transactions = _factoryTransactions[factoryId]!;
+
       _isLoadingTransactions = false;
       core.notify();
       return true;
@@ -459,8 +532,13 @@ class FactoryModule {
       );
       final transaction =
           response['transaction'] as Map<String, dynamic>? ?? response;
-      _transactions.add(TransactionLog.fromJson(transaction));
-      await fetchTransactions(factoryId);
+      final newTx = TransactionLog.fromJson(transaction);
+      
+      final list = _factoryTransactions[factoryId] ?? [];
+      list.insert(0, newTx);
+      _factoryTransactions[factoryId] = List.from(list);
+      _transactions = _factoryTransactions[factoryId]!;
+
       _isLoadingTransactions = false;
       core.notify();
       return true;
@@ -488,8 +566,13 @@ class FactoryModule {
       );
       final transaction =
           response['transaction'] as Map<String, dynamic>? ?? response;
-      _transactions.add(TransactionLog.fromJson(transaction));
-      await fetchTransactions(factoryId);
+      final newTx = TransactionLog.fromJson(transaction);
+      
+      final list = _factoryTransactions[factoryId] ?? [];
+      list.insert(0, newTx);
+      _factoryTransactions[factoryId] = List.from(list);
+      _transactions = _factoryTransactions[factoryId]!;
+
       _isLoadingTransactions = false;
       core.notify();
       return true;
@@ -503,17 +586,24 @@ class FactoryModule {
   }
 
   // --- Worker Summary ---
-  Future<void> fetchWorkerSummary(String factoryId, String workerId) async {
-    _isLoadingWorkerSummary = true;
+  Future<void> fetchWorkerSummary(String factoryId, String workerId, {bool forceRefresh = false}) async {
+    _workerSummary = _workerSummaries[workerId];
     _workerSummaryError = null;
-    core.notify();
+
+    final hasCache = _workerSummary != null;
+    if (!hasCache || forceRefresh) {
+      _isLoadingWorkerSummary = true;
+      core.notify();
+    }
 
     try {
       final data = await Api.instance.factory.getWorkerSummary(
         factoryId,
         workerId,
       );
-      _workerSummary = WorkerSummary.fromJson(data);
+      final parsed = WorkerSummary.fromJson(data);
+      _workerSummaries[workerId] = parsed;
+      _workerSummary = parsed;
     } catch (e) {
       _workerSummaryError = extractErrorMessage(e);
     }
@@ -523,14 +613,21 @@ class FactoryModule {
   }
 
   // --- Factory Summary ---
-  Future<void> fetchFactorySummary(String factoryId) async {
-    _isLoadingFactorySummary = true;
+  Future<void> fetchFactorySummary(String factoryId, {bool forceRefresh = false}) async {
+    _factorySummary = _factorySummaries[factoryId];
     _factorySummaryError = null;
-    core.notify();
+
+    final hasCache = _factorySummary != null;
+    if (!hasCache || forceRefresh) {
+      _isLoadingFactorySummary = true;
+      core.notify();
+    }
 
     try {
       final data = await Api.instance.factory.getFactorySummary(factoryId);
-      _factorySummary = FactorySummary.fromJson(data);
+      final parsed = FactorySummary.fromJson(data);
+      _factorySummaries[factoryId] = parsed;
+      _factorySummary = parsed;
     } catch (e) {
       _factorySummaryError = extractErrorMessage(e);
     }

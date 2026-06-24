@@ -47,8 +47,8 @@ class _ItemListScreenState extends State<ItemListScreen> {
     String? businessId,
   ) {
     if (isLoading && items.isEmpty) {
-      return const LoadingIndicator(
-        message: 'Loading items...',
+      return LoadingIndicator(
+        message: 'loading_items'.tr(),
         isShimmer: true,
       );
     }
@@ -59,34 +59,46 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
     final filtered = _filterItems(items);
 
-    if (filtered.isEmpty) {
-      return EmptyState(
-        icon: Icons.inventory_2_outlined,
-        title: 'No items found',
-        description:
-            _searchQuery.isNotEmpty
-                ? 'No match for "$_searchQuery" inside this catalog.'
-                : 'Add items here to reference in invoices.',
-        buttonText: _searchQuery.isEmpty ? 'add_item'.tr() : null,
-        onButtonPressed:
-            _searchQuery.isEmpty
-                ? () => Navigator.of(
-                  context,
-                ).push(getPageRoute(const ItemFormScreen())).then((_) {
-                  if (mounted) _loadData();
-                })
-                : null,
-      );
-    }
-
     return RefreshIndicator(
       color: isDark ? Colors.white : AppTheme.primary,
       onRefresh: () async {
         if (businessId != null) {
-          await context.read<Core>().item.fetchItems(businessId);
+          await context.read<Core>().item.fetchItems(businessId, forceRefresh: true);
         }
       },
-      child: ListView.builder(
+      child: filtered.isEmpty
+          ? LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Center(
+                      child: EmptyState(
+                        icon: Icons.inventory_2_outlined,
+                        title: 'no_items'.tr(),
+                        description:
+                            _searchQuery.isNotEmpty
+                                ? 'no_match_items'.tr(args: [_searchQuery])
+                                : 'Add items here to reference in invoices.',
+                        buttonText: _searchQuery.isEmpty ? 'add_item'.tr() : null,
+                        onButtonPressed:
+                            _searchQuery.isEmpty
+                                ? () => Navigator.of(
+                                  context,
+                                ).push(getPageRoute(const ItemFormScreen())).then((_) {
+                                  if (mounted) _loadData();
+                                })
+                                : null,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            )
+          : ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: filtered.length,
         itemBuilder: (context, index) {
@@ -186,7 +198,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: Text(
-          'Items',
+          'items_appbar'.tr(),
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
       ),
@@ -195,7 +207,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: AppSearchBar(
-              hintText: 'Search items by name or HSN...',
+              hintText: 'search_items'.tr(),
               onChanged: (val) {
                 setState(() {
                   _searchQuery = val;

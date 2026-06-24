@@ -50,7 +50,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
   final _ifscController = TextEditingController();
   final _upiIdController = TextEditingController();
 
-  BusinessType _businessType = BusinessType.retailer;
+  BusinessType _businessType = BusinessType.service;
   String _financialYear = '2026-2027';
 
   File? _logoFile;
@@ -90,7 +90,6 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
     _ifscController.text = b.ifscCode ?? '';
     _upiIdController.text = b.upiId ?? '';
 
-    _businessType = b.businessType;
     _financialYear = b.financialYear;
     _logoUrlBase64 = b.logoUrl;
     _signatureUrlBase64 = b.signatureUrl;
@@ -173,7 +172,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                       ),
                     ),
                     Text(
-                      'Terms & Conditions',
+                      'terms_conditions'.tr(),
                       style: GoogleFonts.outfit(
                         fontWeight: FontWeight.bold,
                         fontSize: 20,
@@ -205,7 +204,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Privacy Policy',
+                      'privacy_policy'.tr(),
                       style: GoogleFonts.outfit(
                         fontWeight: FontWeight.bold,
                         fontSize: 20,
@@ -334,7 +333,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                                   } else if (context.mounted) {
                                     showErrorToast(
                                       businessProvider.error ??
-                                          'Failed to save business',
+                                          'failed_save_business'.tr(),
                                     );
                                   }
                                 }
@@ -490,8 +489,8 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
       if (mounted)
         showSuccessToast(
           _isEdit
-              ? 'Business updated successfully'
-              : 'Business created successfully',
+              ? 'business_updated'.tr()
+              : 'business_created'.tr(),
         );
     });
   }
@@ -517,12 +516,12 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // SECTION 1: BASIC INFO
-                _buildSectionTitle('Basic Information'),
+                _buildSectionTitle('basic_information'.tr()),
                 const SizedBox(height: 12),
                 AppTextField(
                   controller: _nameController,
                   labelText: 'name'.tr(),
-                  hintText: 'Enter business/store name',
+                  hintText: 'enter_business_name'.tr(),
                   prefixIcon: Icons.store_outlined,
                   validator:
                       (val) =>
@@ -555,7 +554,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                         ],
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
-                            return 'Mobile number is required';
+                            return 'mobile_required'.tr();
                           }
                           return Validators.validatePhone(val);
                         },
@@ -563,54 +562,15 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'business_type'.tr(),
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: theme.textTheme.bodyLarge?.color?.withValues(
-                      alpha: 0.7,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<BusinessType>(
-                  value: _businessType,
-                  decoration: const InputDecoration(
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
-                    ),
-                  ),
-                  items:
-                      BusinessType.values.map((type) {
-                        return DropdownMenuItem<BusinessType>(
-                          value: type,
-                          child: Text(
-                            type.displayName,
-                            style: GoogleFonts.outfit(),
-                          ),
-                        );
-                      }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _businessType = val;
-                      });
-                    }
-                  },
-                ),
-
                 const SizedBox(height: 28),
 
                 // SECTION 2: ADDRESS
-                _buildSectionTitle('Address'),
+                _buildSectionTitle('address_section'.tr()),
                 const SizedBox(height: 12),
                 AppTextField(
                   controller: _addressController,
                   labelText: 'address'.tr(),
-                  hintText: 'Building, Street name, Area',
+                  hintText: 'building_street'.tr(),
                   prefixIcon: Icons.location_on_outlined,
                   validator:
                       (val) => Validators.validateRequired(val, 'Address'),
@@ -622,7 +582,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                       child: AppTextField(
                         controller: _cityController,
                         labelText: 'city'.tr(),
-                        hintText: 'City',
+                        hintText: 'city_hint'.tr(),
                         validator:
                             (val) => Validators.validateRequired(val, 'City'),
                       ),
@@ -632,7 +592,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                       child: AppTextField(
                         controller: _stateController,
                         labelText: 'state'.tr(),
-                        hintText: 'State',
+                        hintText: 'state_hint'.tr(),
                         validator:
                             (val) => Validators.validateRequired(val, 'State'),
                       ),
@@ -642,7 +602,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                       child: AppTextField(
                         controller: _pincodeController,
                         labelText: 'pincode'.tr(),
-                        hintText: '6 digits',
+                        hintText: 'six_digits'.tr(),
                         keyboardType: TextInputType.number,
                         validator:
                             (val) =>
@@ -655,7 +615,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                 const SizedBox(height: 28),
 
                 // SECTION 3: TAX & INVOICE SETTINGS
-                _buildSectionTitle('Tax & Invoice Settings'),
+                _buildSectionTitle('tax_invoice_settings'.tr()),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -663,7 +623,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                       child: AppTextField(
                         controller: _gstinController,
                         labelText: 'gstin'.tr(),
-                        hintText: '15-digit GSTIN',
+                        hintText: 'gstin_15_digit'.tr(),
                         validator: Validators.validateGSTIN,
                       ),
                     ),
@@ -672,7 +632,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                       child: AppTextField(
                         controller: _panController,
                         labelText: 'pan'.tr(),
-                        hintText: '10-digit PAN',
+                        hintText: 'pan_10_digit'.tr(),
                         validator: Validators.validatePAN,
                       ),
                     ),
@@ -685,11 +645,11 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                       child: AppTextField(
                         controller: _prefixController,
                         labelText: 'invoice_prefix'.tr(),
-                        hintText: 'e.g. INV',
+                        hintText: 'prefix_hint'.tr(),
                         validator:
                             (val) => Validators.validateRequired(
                               val,
-                              'Invoice Prefix',
+                              'prefix_label'.tr(),
                             ),
                       ),
                     ),
@@ -747,12 +707,12 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                 const SizedBox(height: 28),
 
                 // SECTION 4: BANK DETAILS
-                _buildSectionTitle('Bank / UPI Details'),
+                _buildSectionTitle('bank_upi_details'.tr()),
                 const SizedBox(height: 12),
                 AppTextField(
                   controller: _bankNameController,
                   labelText: 'bank_name'.tr(),
-                  hintText: 'Bank Name',
+                  hintText: 'bank_name_hint'.tr(),
                   prefixIcon: Icons.account_balance_outlined,
                 ),
                 const SizedBox(height: 16),
@@ -762,7 +722,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                       child: AppTextField(
                         controller: _accNoController,
                         labelText: 'account_number'.tr(),
-                        hintText: 'Account Number',
+                        hintText: 'account_number_hint'.tr(),
                         keyboardType: TextInputType.number,
                       ),
                     ),
@@ -771,7 +731,7 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                       child: AppTextField(
                         controller: _ifscController,
                         labelText: 'ifsc_code'.tr(),
-                        hintText: '11-digit IFSC',
+                        hintText: 'ifsc_hint'.tr(),
                       ),
                     ),
                   ],
@@ -780,14 +740,14 @@ class _BusinessFormScreenState extends State<BusinessFormScreen> {
                 AppTextField(
                   controller: _upiIdController,
                   labelText: 'upi_id'.tr(),
-                  hintText: 'e.g. name@upi',
+                  hintText: 'upi_hint'.tr(),
                   prefixIcon: Icons.qr_code_2_rounded,
                 ),
 
                 const SizedBox(height: 28),
 
                 // SECTION 5: BRANDING
-                _buildSectionTitle('Branding & Signature'),
+                _buildSectionTitle('branding_signature'.tr()),
                 const SizedBox(height: 16),
                 ImagePickerWidget(
                   label: 'upload_logo'.tr(),
