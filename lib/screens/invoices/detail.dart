@@ -105,8 +105,14 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
 
   Future<void> _viewPdf() async {
     if (_invoice == null) return;
+    final core = context.read<Core>();
+    final businessId = core.business.selectedBusiness?.id;
+    if (businessId != null) {
+      await core.item.fetchItems(businessId);
+    }
+    if (!mounted) return;
     final party = _resolveParty(_invoice!.partyId);
-    final items = context.read<Core>().item.items;
+    final items = core.item.items;
     Navigator.of(context).push(
       getPageRoute(
         InvoicePdfScreen(
@@ -131,13 +137,15 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
 
   Future<void> _shareInvoice() async {
     if (_invoice == null) return;
-    final business = context.read<Core>().business.selectedBusiness;
+    final core = context.read<Core>();
+    final business = core.business.selectedBusiness;
     if (business == null) return;
 
     try {
       showInfoToast('generating_pdf_share'.tr());
+      await core.item.fetchItems(business.id);
       final party = _resolveParty(_invoice!.partyId);
-      final items = context.read<Core>().item.items;
+      final items = core.item.items;
       final pdf = await InvoicePdfService.generatePdfByDesign(
         invoice: _invoice!,
         business: business,
@@ -156,13 +164,15 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
 
   Future<void> _printInvoice() async {
     if (_invoice == null) return;
-    final business = context.read<Core>().business.selectedBusiness;
+    final core = context.read<Core>();
+    final business = core.business.selectedBusiness;
     if (business == null) return;
 
     try {
       showInfoToast('opening_print'.tr());
+      await core.item.fetchItems(business.id);
       final party = _resolveParty(_invoice!.partyId);
-      final items = context.read<Core>().item.items;
+      final items = core.item.items;
       final pdf = await InvoicePdfService.generatePdfByDesign(
         invoice: _invoice!,
         business: business,
@@ -182,9 +192,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     if (_isLoading) {
-      return Scaffold(
-        body: LoadingIndicator(message: 'loading_invoice'.tr()),
-      );
+      return Scaffold(body: LoadingIndicator(message: 'loading_invoice'.tr()));
     }
 
     if (_error != null || _invoice == null) {
@@ -281,7 +289,8 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
           ],
         ),
       ),
-      floatingActionButton: (inv.paymentStatus != PaymentStatus.paid &&
+      floatingActionButton:
+          (inv.paymentStatus != PaymentStatus.paid &&
               inv.partyId != null &&
               (inv.invoiceType == InvoiceType.sale ||
                   inv.invoiceType == InvoiceType.purchase))
@@ -293,8 +302,8 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                       getPageRoute(PaymentFormScreen.fromInvoice(invoice: inv)),
                     )
                     .then((_) {
-                  _loadInvoiceDetail(inv.id);
-                });
+                      _loadInvoiceDetail(inv.id);
+                    });
               },
               label: Text(
                 'record_payment'.tr(),
@@ -317,7 +326,8 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
 
   Widget _buildHeroSection(Invoice inv, bool isDark) {
     final balanceDue = inv.totalAmount - inv.paidAmount;
-    final isOverdue = inv.dueDate != null &&
+    final isOverdue =
+        inv.dueDate != null &&
         inv.dueDate!.isBefore(DateTime.now()) &&
         inv.paymentStatus != PaymentStatus.paid;
 
@@ -326,7 +336,10 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isDark
-              ? [AppTheme.primaryDark, AppTheme.primaryDark.withValues(alpha: 0.75)]
+              ? [
+                  AppTheme.primaryDark,
+                  AppTheme.primaryDark.withValues(alpha: 0.75),
+                ]
               : [AppTheme.primary, AppTheme.primary.withValues(alpha: 0.85)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -483,10 +496,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: text.withValues(alpha: 0.3),
-          width: 1.5,
-        ),
+        border: Border.all(color: text.withValues(alpha: 0.3), width: 1.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -494,10 +504,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
           Container(
             width: 6,
             height: 6,
-            decoration: BoxDecoration(
-              color: text,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: text, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
           Text(
@@ -581,7 +588,9 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
           _buildMetadataRow(
             icon: Icons.event_busy_rounded,
             label: 'due_date_label'.tr(),
-            value: inv.dueDate != null ? Formatters.formatDate(inv.dueDate!) : 'N/A',
+            value: inv.dueDate != null
+                ? Formatters.formatDate(inv.dueDate!)
+                : 'N/A',
             isDark: isDark,
           ),
           const Divider(height: 24),
@@ -665,8 +674,10 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   }
 
   Widget _buildAddressesCard(Invoice inv, bool isDark) {
-    final hasBilling = inv.billingAddress != null && inv.billingAddress!.isNotEmpty;
-    final hasShipping = inv.shippingAddress != null && inv.shippingAddress!.isNotEmpty;
+    final hasBilling =
+        inv.billingAddress != null && inv.billingAddress!.isNotEmpty;
+    final hasShipping =
+        inv.shippingAddress != null && inv.shippingAddress!.isNotEmpty;
 
     if (!hasBilling && !hasShipping) return const SizedBox.shrink();
 
@@ -722,9 +733,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
               ),
             ),
           ],
-          if (hasBilling && hasShipping) ...[
-            const Divider(height: 24),
-          ],
+          if (hasBilling && hasShipping) ...[const Divider(height: 24)],
           if (hasShipping) ...[
             Text(
               'ship_to'.tr().toUpperCase(),
@@ -806,12 +815,18 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
-                              color: isDark ? AppTheme.gray800 : AppTheme.gray50,
+                              color: isDark
+                                  ? AppTheme.gray800
+                                  : AppTheme.gray50,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: isDark ? AppTheme.gray700 : AppTheme.gray200,
+                                color: isDark
+                                    ? AppTheme.gray700
+                                    : AppTheme.gray200,
                               ),
                             ),
                             child: Text(
@@ -819,11 +834,44 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                               style: GoogleFonts.outfit(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white70 : AppTheme.gray600,
+                                color: isDark
+                                    ? Colors.white70
+                                    : AppTheme.gray600,
                               ),
                             ),
                           ),
                           const SizedBox(width: 8),
+                          if (item.hsnCode != null &&
+                              item.hsnCode!.isNotEmpty) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppTheme.gray800
+                                    : AppTheme.gray50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isDark
+                                      ? AppTheme.gray700
+                                      : AppTheme.gray200,
+                                ),
+                              ),
+                              child: Text(
+                                'HSN: ${item.hsnCode}',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : AppTheme.gray600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
                           Text(
                             Formatters.formatCurrency(item.unitPrice),
                             style: GoogleFonts.outfit(

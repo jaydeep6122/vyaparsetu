@@ -30,8 +30,8 @@ class InvoiceFormScreen extends StatefulWidget {
   }) : isSale = true;
 
   const InvoiceFormScreen.purchase({super.key, this.existingInvoice})
-      : isSale = false,
-        billType = BillType.gst;
+    : isSale = false,
+      billType = BillType.gst;
 
   @override
   State<InvoiceFormScreen> createState() => _InvoiceFormScreenState();
@@ -91,7 +91,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       _isSale = widget.isSale;
       _invoiceType = _isSale ? InvoiceType.sale : InvoiceType.purchase;
       _billType = widget.billType;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _loadPartiesAndItems());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _loadPartiesAndItems(),
+      );
 
       if (_isEdit) {
         final inv = widget.existingInvoice!;
@@ -106,8 +108,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         if (_isSale) {
           _deliveryDate = inv.deliveryDate;
         } else {
-          _transportQtyController.text =
-              inv.transportCost > 0 ? inv.transportCost.toString() : '';
+          _transportQtyController.text = inv.transportCost > 0
+              ? inv.transportCost.toString()
+              : '';
         }
         _lineItems.addAll(inv.items ?? []);
         _paymentMode = inv.paymentMode;
@@ -145,7 +148,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     final transport = _isSale
         ? 0.0
         : (double.tryParse(_transportQtyController.text.trim()) ?? 0.0) *
-            (double.tryParse(_transportRateController.text.trim()) ?? 0.0);
+              (double.tryParse(_transportRateController.text.trim()) ?? 0.0);
 
     for (var item in _lineItems) {
       final lineSub = item.unitPrice * item.quantity;
@@ -251,22 +254,20 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                         prefixIcon: const Icon(Icons.shopping_bag_outlined),
                       ),
                       value: tempItem?.id,
-                      items:
-                          context.read<Core>().item.items.map((item) {
-                            return DropdownMenuItem<String>(
-                              value: item.id,
-                              child: Text(
-                                item.name,
-                                style: GoogleFonts.outfit(),
-                              ),
-                            );
-                          }).toList(),
+                      items: context.read<Core>().item.items.map((item) {
+                        return DropdownMenuItem<String>(
+                          value: item.id,
+                          child: Text(item.name, style: GoogleFonts.outfit()),
+                        );
+                      }).toList(),
                       onChanged: (val) {
                         if (val != null) {
                           setStateDialog(() {
-                            final matchedItem = context.read<Core>().item.items.firstWhere(
-                              (item) => item.id == val,
-                            );
+                            final matchedItem = context
+                                .read<Core>()
+                                .item
+                                .items
+                                .firstWhere((item) => item.id == val);
                             tempItem = matchedItem;
                             rateController.text = '';
                             taxController.text = '';
@@ -281,9 +282,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                           final core = context.read<Core>();
                           final businessId = core.business.selectedBusiness?.id;
                           Navigator.of(context).pop();
-                          final result = await Navigator.of(context).push<Item>(
-                            getPageRoute(const ItemFormScreen()),
-                          );
+                          final result = await Navigator.of(
+                            context,
+                          ).push<Item>(getPageRoute(const ItemFormScreen()));
                           if (result != null) {
                             _pendingItem = result;
                           }
@@ -293,9 +294,15 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                           _onAddItemDialog();
                         },
                         icon: Icon(Icons.add, size: 16),
-                        label: Text('create_new_product'.tr(), style: TextStyle(fontSize: 13)),
+                        label: Text(
+                          'create_new_product'.tr(),
+                          style: TextStyle(fontSize: 13),
+                        ),
                         style: TextButton.styleFrom(
-                          foregroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppTheme.primary,
+                          foregroundColor:
+                              Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : AppTheme.primary,
                         ),
                       ),
                     ),
@@ -308,16 +315,14 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color:
-                              isDark
-                                  ? Colors.white.withValues(alpha: 0.08)
-                                  : AppTheme.primary.withValues(alpha: 0.04),
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : AppTheme.primary.withValues(alpha: 0.04),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color:
-                                isDark
-                                    ? Colors.white.withValues(alpha: 0.15)
-                                    : AppTheme.primary.withValues(alpha: 0.08),
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.15)
+                                : AppTheme.primary.withValues(alpha: 0.08),
                           ),
                         ),
                         child: Row(
@@ -328,8 +333,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                                 Icon(
                                   Icons.tag_rounded,
                                   size: 14,
-                                  color:
-                                      isDark ? Colors.white : AppTheme.primary,
+                                  color: isDark
+                                      ? Colors.white
+                                      : AppTheme.primary,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
@@ -337,10 +343,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                                   style: GoogleFonts.outfit(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
-                                    color:
-                                        isDark
-                                            ? Colors.white
-                                            : AppTheme.gray800,
+                                    color: isDark
+                                        ? Colors.white
+                                        : AppTheme.gray800,
                                   ),
                                 ),
                               ],
@@ -351,12 +356,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color:
-                                    isDark
-                                        ? AppTheme.gray800
-                                        : AppTheme.primary.withValues(
-                                          alpha: 0.08,
-                                        ),
+                                color: isDark
+                                    ? AppTheme.gray800
+                                    : AppTheme.primary.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -364,8 +366,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                                 style: GoogleFonts.outfit(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color:
-                                      isDark ? Colors.white : AppTheme.primary,
+                                  color: isDark
+                                      ? Colors.white
+                                      : AppTheme.primary,
                                 ),
                               ),
                             ),
@@ -428,16 +431,14 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color:
-                              isDark
-                                  ? AppTheme.gray800.withValues(alpha: 0.3)
-                                  : AppTheme.gray100.withValues(alpha: 0.6),
+                          color: isDark
+                              ? AppTheme.gray800.withValues(alpha: 0.3)
+                              : AppTheme.gray100.withValues(alpha: 0.6),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color:
-                                isDark
-                                    ? AppTheme.gray700.withValues(alpha: 0.4)
-                                    : AppTheme.gray200.withValues(alpha: 0.5),
+                            color: isDark
+                                ? AppTheme.gray700.withValues(alpha: 0.4)
+                                : AppTheme.gray200.withValues(alpha: 0.5),
                           ),
                         ),
                         child: Column(
@@ -449,10 +450,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                                   'Subtotal',
                                   style: GoogleFonts.outfit(
                                     fontSize: 12,
-                                    color:
-                                        isDark
-                                            ? AppTheme.gray400
-                                            : AppTheme.gray600,
+                                    color: isDark
+                                        ? AppTheme.gray400
+                                        : AppTheme.gray600,
                                   ),
                                 ),
                                 Text(
@@ -460,10 +460,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                                   style: GoogleFonts.outfit(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
-                                    color:
-                                        isDark
-                                            ? Colors.white
-                                            : AppTheme.gray800,
+                                    color: isDark
+                                        ? Colors.white
+                                        : AppTheme.gray800,
                                   ),
                                 ),
                               ],
@@ -478,10 +477,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                                     'Discount (${discVal.toStringAsFixed(0)}%)',
                                     style: GoogleFonts.outfit(
                                       fontSize: 12,
-                                      color:
-                                          isDark
-                                              ? AppTheme.gray400
-                                              : AppTheme.gray600,
+                                      color: isDark
+                                          ? AppTheme.gray400
+                                          : AppTheme.gray600,
                                     ),
                                   ),
                                   Text(
@@ -505,10 +503,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                                     'Tax (${taxVal.toStringAsFixed(0)}%)',
                                     style: GoogleFonts.outfit(
                                       fontSize: 12,
-                                      color:
-                                          isDark
-                                              ? AppTheme.gray400
-                                              : AppTheme.gray600,
+                                      color: isDark
+                                          ? AppTheme.gray400
+                                          : AppTheme.gray600,
                                     ),
                                   ),
                                   Text(
@@ -516,10 +513,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                                     style: GoogleFonts.outfit(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
-                                      color:
-                                          isDark
-                                              ? Colors.white
-                                              : AppTheme.primary,
+                                      color: isDark
+                                          ? Colors.white
+                                          : AppTheme.primary,
                                     ),
                                   ),
                                 ],
@@ -536,10 +532,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                                   style: GoogleFonts.outfit(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color:
-                                        isDark
-                                            ? Colors.white
-                                            : AppTheme.gray800,
+                                    color: isDark
+                                        ? Colors.white
+                                        : AppTheme.gray800,
                                   ),
                                 ),
                                 Text(
@@ -547,10 +542,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                                   style: GoogleFonts.outfit(
                                     fontSize: 15,
                                     fontWeight: FontWeight.bold,
-                                    color:
-                                        isDark
-                                            ? Colors.white
-                                            : AppTheme.primary,
+                                    color: isDark
+                                        ? Colors.white
+                                        : AppTheme.primary,
                                   ),
                                 ),
                               ],
@@ -565,55 +559,53 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                              if (tempItem == null) {
-                                showErrorToast('select_item'.tr());
-                                return;
-                              }
-                              final qty =
-                                  double.tryParse(qtyController.text.trim()) ??
-                                  1.0;
-                              final rate =
-                                  double.tryParse(rateController.text.trim()) ??
-                                  0.0;
-                              final disc =
-                                  double.tryParse(discController.text.trim()) ??
-                                  0.0;
-                              final tax =
-                                  double.tryParse(taxController.text.trim()) ??
-                                  0.0;
+                          if (tempItem == null) {
+                            showErrorToast('select_item'.tr());
+                            return;
+                          }
+                          final qty =
+                              double.tryParse(qtyController.text.trim()) ?? 1.0;
+                          final rate =
+                              double.tryParse(rateController.text.trim()) ??
+                              0.0;
+                          final disc =
+                              double.tryParse(discController.text.trim()) ??
+                              0.0;
+                          final tax =
+                              double.tryParse(taxController.text.trim()) ?? 0.0;
 
-                              final total =
-                                  (rate * qty) - ((rate * qty) * (disc / 100));
-                              final totalWithTax =
-                                  total + (total * (tax / 100));
+                          final total =
+                              (rate * qty) - ((rate * qty) * (disc / 100));
+                          final totalWithTax = total + (total * (tax / 100));
 
-                              final invoiceItem = InvoiceItem(
-                                id: '',
-                                invoiceId: '',
-                                itemId: tempItem!.id,
-                                name: tempItem!.name,
-                                quantity: qty,
-                                unitPrice: rate,
-                                discountPercentage: disc,
-                                discountAmount: (rate * qty) * (disc / 100),
-                                taxRate: tax,
-                                taxAmount: total * (tax / 100),
-                                totalAmount: totalWithTax,
-                              );
+                          final invoiceItem = InvoiceItem(
+                            id: '',
+                            invoiceId: '',
+                            itemId: tempItem!.id,
+                            name: tempItem!.name,
+                            quantity: qty,
+                            unitPrice: rate,
+                            discountPercentage: disc,
+                            discountAmount: (rate * qty) * (disc / 100),
+                            taxRate: tax,
+                            taxAmount: total * (tax / 100),
+                            totalAmount: totalWithTax,
+                            hsnCode: tempItem!.hsnCode,
+                          );
 
-                              setState(() {
-                                _lineItems.add(invoiceItem);
-                              });
-                              _calculateTotals();
-                              Navigator.of(context).pop();
-                            },
-                            child: Text(
-                              'Add Item',
-                              style: GoogleFonts.outfit(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                          setState(() {
+                            _lineItems.add(invoiceItem);
+                          });
+                          _calculateTotals();
+                          Navigator.of(context).pop();
+                        },
+                        child: Text(
+                          'Add Item',
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.w600,
                           ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -658,9 +650,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               primary: Colors.white,
               onPrimary: AppTheme.primaryDark,
             ),
-            dialogTheme: DialogThemeData(
-              backgroundColor: AppTheme.surfaceDark,
-            ),
+            dialogTheme: DialogThemeData(backgroundColor: AppTheme.surfaceDark),
           ),
           child: child!,
         );
@@ -724,16 +714,15 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     final transportCost = _isSale
         ? 0.0
         : (double.tryParse(_transportQtyController.text.trim()) ?? 0.0) *
-            (double.tryParse(_transportRateController.text.trim()) ?? 0.0);
+              (double.tryParse(_transportRateController.text.trim()) ?? 0.0);
 
     final data = {
       'party_id': _selectedPartyId,
       'invoice_number': _invoiceNumberController.text.trim(),
       'invoice_type': _invoiceType.value,
-      'chalan_no':
-          _chalanNoController.text.trim().isEmpty
-              ? null
-              : _chalanNoController.text.trim(),
+      'chalan_no': _chalanNoController.text.trim().isEmpty
+          ? null
+          : _chalanNoController.text.trim(),
       'transport_cost': transportCost,
       'invoice_date': _invoiceDate.toUtc().toIso8601String(),
       if (_dueDate != null) 'due_date': _dueDate?.toUtc().toIso8601String(),
@@ -745,10 +734,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       'total_amount': _totalAmount,
       'payment_status': status.value,
       'payment_mode': _paymentMode.value,
-      'notes':
-          _notesController.text.trim().isEmpty
-              ? '[bill_type:${_billType.value}]'
-              : '[bill_type:${_billType.value}] ${_notesController.text.trim()}',
+      'notes': _notesController.text.trim().isEmpty
+          ? '[bill_type:${_billType.value}]'
+          : '[bill_type:${_billType.value}] ${_notesController.text.trim()}',
       'items': _lineItems.map((e) => e.toJson()).toList(),
       if (_billingAddress != null && _billingAddress!.isNotEmpty)
         'billing_address': _billingAddress,
@@ -761,14 +749,13 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     }
 
     final invoiceProvider = context.read<Core>().invoice;
-    final success =
-        _isEdit
-            ? await invoiceProvider.updateInvoice(
-              businessId,
-              widget.existingInvoice!.id,
-              data,
-            )
-            : await invoiceProvider.createInvoice(businessId, data);
+    final success = _isEdit
+        ? await invoiceProvider.updateInvoice(
+            businessId,
+            widget.existingInvoice!.id,
+            data,
+          )
+        : await invoiceProvider.createInvoice(businessId, data);
 
     if (success && mounted) {
       Navigator.of(context).pop();
@@ -776,16 +763,13 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         context.read<Core>().business.fetchBusinesses();
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) showSuccessToast(
-          _isEdit
-              ? 'invoice_updated'.tr()
-              : 'invoice_generated'.tr(),
-        );
+        if (mounted)
+          showSuccessToast(
+            _isEdit ? 'invoice_updated'.tr() : 'invoice_generated'.tr(),
+          );
       });
     } else if (mounted) {
-      showErrorToast(
-        invoiceProvider.error ?? 'invoice_failed'.tr(),
-      );
+      showErrorToast(invoiceProvider.error ?? 'invoice_failed'.tr());
     }
   }
 
@@ -797,8 +781,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           _isEdit
               ? 'Edit ${widget.existingInvoice!.invoiceNumber}'
               : _isSale
-                  ? (_billType == BillType.gst ? 'gst_invoice'.tr() : 'normal_invoice'.tr())
-                  : 'purchase'.tr(),
+              ? (_billType == BillType.gst
+                    ? 'gst_invoice'.tr()
+                    : 'normal_invoice'.tr())
+              : 'purchase'.tr(),
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
       ),
@@ -813,7 +799,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _isSale ? _buildSaleHeaderCard() : _buildPurchaseHeaderCard(),
+                      _isSale
+                          ? _buildSaleHeaderCard()
+                          : _buildPurchaseHeaderCard(),
                       const SizedBox(height: 20),
 
                       Row(
@@ -831,7 +819,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                             icon: Icon(Icons.add, size: 18),
                             label: Text('add_line_item'.tr()),
                             style: TextButton.styleFrom(
-                              foregroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppTheme.primary,
+                              foregroundColor:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.white
+                                  : AppTheme.primary,
                             ),
                           ),
                         ],
@@ -862,9 +854,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   List<DropdownMenuItem<String>> _buildPartyItems(List<Party> parties) {
     final filtered = parties.where((p) {
       if (_isSale) {
-        return p.partyType == PartyType.customer || p.partyType == PartyType.both;
+        return p.partyType == PartyType.customer ||
+            p.partyType == PartyType.both;
       } else {
-        return p.partyType == PartyType.supplier || p.partyType == PartyType.both;
+        return p.partyType == PartyType.supplier ||
+            p.partyType == PartyType.both;
       }
     }).toList();
 
@@ -920,10 +914,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                 hintText: 'select_customer'.tr(),
                 prefixIcon: const Icon(Icons.person_outline_rounded),
               ),
-              value:
-                  parties.any((p) => p.id == _selectedPartyId)
-                      ? _selectedPartyId
-                      : null,
+              value: parties.any((p) => p.id == _selectedPartyId)
+                  ? _selectedPartyId
+                  : null,
               items: _buildPartyItems(parties),
               onChanged: (val) {
                 setState(() {
@@ -932,12 +925,12 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                     final party = parties.firstWhere((p) => p.id == val);
                     final billAddrs = party.billingAddresses;
                     final shipAddrs = party.shippingAddresses;
-                    _billingAddress =
-                        billAddrs.isNotEmpty ? billAddrs.first : '';
-                    _shippingAddress =
-                        shipAddrs.isNotEmpty
-                            ? shipAddrs.first
-                            : (_billingAddress ?? '');
+                    _billingAddress = billAddrs.isNotEmpty
+                        ? billAddrs.first
+                        : '';
+                    _shippingAddress = shipAddrs.isNotEmpty
+                        ? shipAddrs.first
+                        : (_billingAddress ?? '');
                   } else {
                     _billingAddress = null;
                     _shippingAddress = null;
@@ -950,22 +943,34 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               child: TextButton.icon(
                 onPressed: () async {
                   final createdParty = await Navigator.of(context).push<Party>(
-                    getPageRoute(PartyFormScreen(initialPartyType: PartyType.customer)),
+                    getPageRoute(
+                      PartyFormScreen(initialPartyType: PartyType.customer),
+                    ),
                   );
                   if (createdParty != null && mounted) {
                     setState(() {
                       _selectedPartyId = createdParty.id;
                       final billAddrs = createdParty.billingAddresses;
                       final shipAddrs = createdParty.shippingAddresses;
-                      _billingAddress = billAddrs.isNotEmpty ? billAddrs.first : '';
-                      _shippingAddress = shipAddrs.isNotEmpty ? shipAddrs.first : (_billingAddress ?? '');
+                      _billingAddress = billAddrs.isNotEmpty
+                          ? billAddrs.first
+                          : '';
+                      _shippingAddress = shipAddrs.isNotEmpty
+                          ? shipAddrs.first
+                          : (_billingAddress ?? '');
                     });
                   }
                 },
                 icon: Icon(Icons.add, size: 16),
-                label: Text('add_customer'.tr(), style: TextStyle(fontSize: 13)),
+                label: Text(
+                  'add_customer'.tr(),
+                  style: TextStyle(fontSize: 13),
+                ),
                 style: TextButton.styleFrom(
-                  foregroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppTheme.primary,
+                  foregroundColor:
+                      Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : AppTheme.primary,
                 ),
               ),
             ),
@@ -1117,13 +1122,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                 hintText: 'select_supplier'.tr(),
                 prefixIcon: const Icon(Icons.person_outline_rounded),
               ),
-              value:
-                  parties.any((p) => p.id == _selectedPartyId)
-                      ? _selectedPartyId
-                      : null,
+              value: parties.any((p) => p.id == _selectedPartyId)
+                  ? _selectedPartyId
+                  : null,
               items: _buildPartyItems(parties),
-              validator: (val) =>
-                  Validators.validateRequired(val, 'Supplier'),
+              validator: (val) => Validators.validateRequired(val, 'Supplier'),
               onChanged: (val) {
                 setState(() {
                   _selectedPartyId = val;
@@ -1131,12 +1134,12 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                     final party = parties.firstWhere((p) => p.id == val);
                     final billAddrs = party.billingAddresses;
                     final shipAddrs = party.shippingAddresses;
-                    _billingAddress =
-                        billAddrs.isNotEmpty ? billAddrs.first : '';
-                    _shippingAddress =
-                        shipAddrs.isNotEmpty
-                            ? shipAddrs.first
-                            : (_billingAddress ?? '');
+                    _billingAddress = billAddrs.isNotEmpty
+                        ? billAddrs.first
+                        : '';
+                    _shippingAddress = shipAddrs.isNotEmpty
+                        ? shipAddrs.first
+                        : (_billingAddress ?? '');
                   } else {
                     _billingAddress = null;
                     _shippingAddress = null;
@@ -1149,22 +1152,34 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               child: TextButton.icon(
                 onPressed: () async {
                   final createdParty = await Navigator.of(context).push<Party>(
-                    getPageRoute(PartyFormScreen(initialPartyType: PartyType.supplier)),
+                    getPageRoute(
+                      PartyFormScreen(initialPartyType: PartyType.supplier),
+                    ),
                   );
                   if (createdParty != null && mounted) {
                     setState(() {
                       _selectedPartyId = createdParty.id;
                       final billAddrs = createdParty.billingAddresses;
                       final shipAddrs = createdParty.shippingAddresses;
-                      _billingAddress = billAddrs.isNotEmpty ? billAddrs.first : '';
-                      _shippingAddress = shipAddrs.isNotEmpty ? shipAddrs.first : (_billingAddress ?? '');
+                      _billingAddress = billAddrs.isNotEmpty
+                          ? billAddrs.first
+                          : '';
+                      _shippingAddress = shipAddrs.isNotEmpty
+                          ? shipAddrs.first
+                          : (_billingAddress ?? '');
                     });
                   }
                 },
                 icon: Icon(Icons.add, size: 16),
-                label: Text('add_supplier'.tr(), style: TextStyle(fontSize: 13)),
+                label: Text(
+                  'add_supplier'.tr(),
+                  style: TextStyle(fontSize: 13),
+                ),
                 style: TextButton.styleFrom(
-                  foregroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white : AppTheme.primary,
+                  foregroundColor:
+                      Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : AppTheme.primary,
                 ),
               ),
             ),
@@ -1360,7 +1375,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         ),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: isDark ? AppTheme.gray400 : AppTheme.gray500),
+            Icon(
+              icon,
+              size: 20,
+              color: isDark ? AppTheme.gray400 : AppTheme.gray500,
+            ),
             const SizedBox(width: 10),
             Text(
               text,
@@ -1405,10 +1424,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color:
-              isDark
-                  ? AppTheme.gray800.withValues(alpha: 0.3)
-                  : AppTheme.gray50,
+          color: isDark
+              ? AppTheme.gray800.withValues(alpha: 0.3)
+              : AppTheme.gray50,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isDark ? AppTheme.gray700 : AppTheme.gray200,
@@ -1418,10 +1436,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
           (address != null && address.isNotEmpty) ? address : 'tap_to_set'.tr(),
           style: GoogleFonts.outfit(
             fontSize: 13,
-            color:
-                (address != null && address.isNotEmpty)
-                    ? (isDark ? Colors.white : AppTheme.gray900)
-                    : AppTheme.gray400,
+            color: (address != null && address.isNotEmpty)
+                ? (isDark ? Colors.white : AppTheme.gray900)
+                : AppTheme.gray400,
           ),
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
@@ -1434,15 +1451,13 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final parties = context.read<Core>().party.parties;
-    final party =
-        _selectedPartyId != null
-            ? parties.firstWhere((p) => p.id == _selectedPartyId)
-            : null;
+    final party = _selectedPartyId != null
+        ? parties.firstWhere((p) => p.id == _selectedPartyId)
+        : null;
 
-    final addresses =
-        type == 'billing'
-            ? (party?.billingAddresses ?? <String>[])
-            : (party?.shippingAddresses ?? <String>[]);
+    final addresses = type == 'billing'
+        ? (party?.billingAddresses ?? <String>[])
+        : (party?.shippingAddresses ?? <String>[]);
 
     String customAddress = '';
     final isCustomController = TextEditingController();
@@ -1508,9 +1523,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                         label: 'same_as_billing'.tr(),
                         subtitle:
                             _billingAddress != null &&
-                                    _billingAddress!.isNotEmpty
-                                ? _billingAddress!
-                                : 'no_billing_address'.tr(),
+                                _billingAddress!.isNotEmpty
+                            ? _billingAddress!
+                            : 'no_billing_address'.tr(),
                         isDark: isDark,
                         onTap: () {
                           setState(() {
@@ -1545,19 +1560,18 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                     const SizedBox(height: 8),
                     _addressOption(
                       label: 'Enter Custom Address',
-                      subtitle:
-                          customAddress.isNotEmpty
-                              ? customAddress
-                              : 'type_custom_address'.tr(),
+                      subtitle: customAddress.isNotEmpty
+                          ? customAddress
+                          : 'type_custom_address'.tr(),
                       isDark: isDark,
-                      trailing:
-                          customAddress.isEmpty
-                              ? const Icon(Icons.edit_outlined, size: 18)
-                              : null,
+                      trailing: customAddress.isEmpty
+                          ? const Icon(Icons.edit_outlined, size: 18)
+                          : null,
                       onTap: () {
                         setStateSheet(() {
-                          customAddress =
-                              customAddress.isEmpty ? '_editing' : '';
+                          customAddress = customAddress.isEmpty
+                              ? '_editing'
+                              : '';
                         });
                       },
                     ),
@@ -1604,13 +1618,13 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                             : 'select_party_or_custom'.tr(),
                         style: GoogleFonts.outfit(
                           fontSize: 13,
-                            color: isDark ? AppTheme.gray400 : AppTheme.gray600,
-                          ),
+                          color: isDark ? AppTheme.gray400 : AppTheme.gray600,
                         ),
-                      ],
+                      ),
                     ],
-                  ),
+                  ],
                 ),
+              ),
             );
           },
         );
@@ -1632,10 +1646,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color:
-              isDark
-                  ? AppTheme.gray800.withValues(alpha: 0.3)
-                  : AppTheme.gray50,
+          color: isDark
+              ? AppTheme.gray800.withValues(alpha: 0.3)
+              : AppTheme.gray50,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isDark ? AppTheme.gray700 : AppTheme.gray200,
@@ -1664,16 +1677,16 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              trailing ?? const Icon(Icons.chevron_right_rounded, size: 20),
-            ],
-          ),
+            ),
+            trailing ?? const Icon(Icons.chevron_right_rounded, size: 20),
+          ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
   Widget _buildLineItemsList() {
     final theme = Theme.of(context);
@@ -1693,7 +1706,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         child: Center(
           child: Text(
             'no_items_added_yet'.tr(),
-            style: GoogleFonts.outfit(color: isDark ? AppTheme.gray400 : AppTheme.gray500, fontSize: 13),
+            style: GoogleFonts.outfit(
+              color: isDark ? AppTheme.gray400 : AppTheme.gray500,
+              fontSize: 13,
+            ),
           ),
         ),
       );
@@ -1868,26 +1884,21 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             ),
             const SizedBox(height: 6),
             DropdownButtonFormField<PaymentMode>(
-              value:
-                  PaymentMode.values.contains(_paymentMode)
-                      ? _paymentMode
-                      : PaymentMode.cash,
+              value: PaymentMode.values.contains(_paymentMode)
+                  ? _paymentMode
+                  : PaymentMode.cash,
               decoration: const InputDecoration(
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 4,
                 ),
               ),
-              items:
-                  PaymentMode.values.map((mode) {
-                    return DropdownMenuItem<PaymentMode>(
-                      value: mode,
-                      child: Text(
-                        mode.displayName,
-                        style: GoogleFonts.outfit(),
-                      ),
-                    );
-                  }).toList(),
+              items: PaymentMode.values.map((mode) {
+                return DropdownMenuItem<PaymentMode>(
+                  value: mode,
+                  child: Text(mode.displayName, style: GoogleFonts.outfit()),
+                );
+              }).toList(),
               onChanged: (val) {
                 if (val != null) {
                   setState(() {

@@ -186,7 +186,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ).push(getPageRoute(const SignupScreen()));
                             },
                             child: Text(
-                              'sign_up_btn'.tr(),
+                              'signup'.tr(),
                               style: GoogleFonts.outfit(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,

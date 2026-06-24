@@ -31,10 +31,24 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
   void _loadData() {
     final businessId = context.read<Core>().business.selectedBusiness?.id;
     if (businessId != null) {
+      final from = _fromDate != null
+          ? DateTime(_fromDate!.year, _fromDate!.month, _fromDate!.day, 0, 0, 0)
+          : null;
+      final to = _toDate != null
+          ? DateTime(
+              _toDate!.year,
+              _toDate!.month,
+              _toDate!.day,
+              23,
+              59,
+              59,
+              999,
+            )
+          : null;
       context.read<Core>().dashboard.fetchProfitLoss(
         businessId,
-        fromDate: _fromDate?.toIso8601String(),
-        toDate: _toDate?.toIso8601String(),
+        fromDate: from?.toUtc().toIso8601String(),
+        toDate: to?.toUtc().toIso8601String(),
       );
     }
   }
@@ -112,8 +126,8 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
                       style: GoogleFonts.outfit(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-color: isDark ? Colors.white : AppTheme.primary,
-                    ),
+                        color: isDark ? Colors.white : AppTheme.primary,
+                      ),
                     ),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -142,7 +156,11 @@ color: isDark ? Colors.white : AppTheme.primary,
 
           Expanded(
             child: _buildProfitLossBody(
-              isDark, theme, isLoadingProfitLoss, profitLoss, profitLossError,
+              isDark,
+              theme,
+              isLoadingProfitLoss,
+              profitLoss,
+              profitLossError,
             ),
           ),
         ],
@@ -162,10 +180,7 @@ color: isDark ? Colors.white : AppTheme.primary,
     }
 
     if (profitLossError != null) {
-      return AppErrorWidget(
-        errorMessage: profitLossError,
-        onRetry: _loadData,
-      );
+      return AppErrorWidget(errorMessage: profitLossError, onRetry: _loadData);
     }
 
     final pl = profitLoss;
@@ -197,7 +212,12 @@ color: isDark ? Colors.white : AppTheme.primary,
             _plRow('gross_sales'.tr(), pl.grossSales, isDark, prefix: '+'),
             _plRow('sales_returns'.tr(), pl.salesReturns, isDark, prefix: '-'),
             const _PlDivider(),
-            _plRow('net_sales_revenue'.tr(), pl.netRevenue, isDark, isSubtotal: true),
+            _plRow(
+              'net_sales_revenue'.tr(),
+              pl.netRevenue,
+              isDark,
+              isSubtotal: true,
+            ),
           ]),
           const SizedBox(height: 16),
 
@@ -205,10 +225,25 @@ color: isDark ? Colors.white : AppTheme.primary,
           _buildSectionHeader(isDark, 'cost_of_goods'.tr()),
           const SizedBox(height: 12),
           _buildPlCard(isDark, [
-            _plRow('gross_purchases'.tr(), pl.grossPurchases, isDark, prefix: '+'),
-            _plRow('purchase_returns'.tr(), pl.purchaseReturns, isDark, prefix: '-'),
+            _plRow(
+              'gross_purchases'.tr(),
+              pl.grossPurchases,
+              isDark,
+              prefix: '+',
+            ),
+            _plRow(
+              'purchase_returns'.tr(),
+              pl.purchaseReturns,
+              isDark,
+              prefix: '-',
+            ),
             const _PlDivider(),
-            _plRow('net_purchase_cost'.tr(), pl.netPurchases, isDark, isSubtotal: true),
+            _plRow(
+              'net_purchase_cost'.tr(),
+              pl.netPurchases,
+              isDark,
+              isSubtotal: true,
+            ),
           ]),
           const SizedBox(height: 16),
 
@@ -216,7 +251,13 @@ color: isDark ? Colors.white : AppTheme.primary,
           _buildSectionHeader(isDark, 'operating_expenses'.tr()),
           const SizedBox(height: 12),
           _buildPlCard(isDark, [
-            _plRow('total_expenses'.tr(), pl.operatingExpenses, isDark, prefix: '-', isSubtotal: true),
+            _plRow(
+              'total_expenses'.tr(),
+              pl.operatingExpenses,
+              isDark,
+              prefix: '-',
+              isSubtotal: true,
+            ),
           ]),
         ],
       ),
@@ -225,12 +266,8 @@ color: isDark ? Colors.white : AppTheme.primary,
 
   // --- Net Profit Hero ---
   Widget _buildProfitHero(bool isDark, ProfitLoss pl, bool isProfit) {
-    final primaryColor = isProfit
-        ? AppTheme.success
-        : AppTheme.rose;
-    final secondaryColor = isProfit
-        ? AppTheme.successDark
-        : AppTheme.roseDark;
+    final primaryColor = isProfit ? AppTheme.success : AppTheme.rose;
+    final secondaryColor = isProfit ? AppTheme.successDark : AppTheme.roseDark;
 
     return Container(
       width: double.infinity,
@@ -352,7 +389,10 @@ color: isDark ? Colors.white : AppTheme.primary,
   }
 
   // --- P&L Row ---
-  Widget _plRow(String label, double amount, bool isDark, {
+  Widget _plRow(
+    String label,
+    double amount,
+    bool isDark, {
     String prefix = '',
     bool isSubtotal = false,
   }) {
@@ -398,7 +438,9 @@ class _PlDivider extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Container(
         height: 1,
-        color: isDark ? AppTheme.gray700.withValues(alpha: 0.5) : AppTheme.gray200,
+        color: isDark
+            ? AppTheme.gray700.withValues(alpha: 0.5)
+            : AppTheme.gray200,
       ),
     );
   }
