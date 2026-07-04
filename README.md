@@ -1,4 +1,4 @@
-# VyaparSetu (व्यापारसेतु)
+# VyaparSetu
 
 VyaparSetu is a modern, cross-platform Flutter application designed to simplify business invoicing, party management, expenses, and inventory tracking for small to medium enterprises. Built with performance and local-first capabilities in mind, it provides a user-friendly interface to manage business operations seamlessly.
 
@@ -88,34 +88,6 @@ Ensure you have the Flutter SDK installed.
     ```bash
     flutter run
     ```
-
-### Building for Release
-
-- **Android App Bundle (AAB)**:
-  ```bash
-  flutter build appbundle
-  ```
-- **Android APK**:
-  ```bash
-  flutter build apk
-  ```
-- **iOS Build**:
-  ```bash
-  flutter build ipa
-  ```
-
----
-
-## 🤝 Contributing
-
-1.  Create a feature branch from `main`:
-    ```bash
-    git checkout -b feature/your-feature-name
-    ```
-2.  Commit your changes following standard practices.
-3.  Push your changes and open a Pull Request.
-
----
 
 ## 📝 License
 
