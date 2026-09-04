@@ -185,37 +185,29 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppTextField(
-                        controller: _phoneController,
-                        labelText: 'phone'.tr(),
-                        hintText: 'mobile_hint'.tr(),
-                        keyboardType: TextInputType.phone,
-                        prefixIcon: Icons.phone_outlined,
-                        maxLength: 10,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        validator: Validators.validatePhone,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: AppTextField(
-                        controller: _emailController,
-                        labelText: 'email'.tr(),
-                        hintText: 'email_hint'.tr(),
-                        keyboardType: TextInputType.emailAddress,
-                        prefixIcon: Icons.email_outlined,
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) return null;
-                          return Validators.validateEmail(val);
-                        },
-                      ),
-                    ),
+                AppTextField(
+                  controller: _phoneController,
+                  labelText: 'phone'.tr(),
+                  hintText: 'mobile_hint'.tr(),
+                  keyboardType: TextInputType.phone,
+                  prefixIcon: Icons.phone_outlined,
+                  maxLength: 10,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
                   ],
+                  validator: Validators.validatePhone,
+                ),
+                const SizedBox(height: 16),
+                AppTextField(
+                  controller: _emailController,
+                  labelText: 'email'.tr(),
+                  hintText: 'email_hint'.tr(),
+                  keyboardType: TextInputType.emailAddress,
+                  prefixIcon: Icons.email_outlined,
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) return null;
+                    return Validators.validateEmail(val);
+                  },
                 ),
                 const SizedBox(height: 16),
 
@@ -232,62 +224,51 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
 
                 // Opening Balance (Only for creation)
                 if (!_isEdit) ...[
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  AppTextField(
+                    controller: _openingBalanceController,
+                    labelText: 'opening_balance'.tr(),
+                    hintText: 'e.g. 5000',
+                    keyboardType: TextInputType.number,
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty) return null;
+                      return Validators.validateAmount(val, 'Opening Balance');
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        flex: 2,
-                        child: AppTextField(
-                          controller: _openingBalanceController,
-                          labelText: 'opening_balance'.tr(),
-                          hintText: 'e.g. 5000',
-                          keyboardType: TextInputType.number,
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) return null;
-                            return Validators.validateAmount(val, 'Opening Balance');
-                          },
+                      Text(
+                        'opening_balance_type'.tr(),
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.6),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 1,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'opening_balance_type'.tr(),
-                              style: GoogleFonts.outfit(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.6),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            DropdownButtonFormField<OpeningBalanceType>(
-                              value: _balanceType,
-                              decoration: const InputDecoration(
-                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                              ),
-                              items: [
-                                DropdownMenuItem(
-                                  value: OpeningBalanceType.receive,
-                                  child: Text('receive'.tr()),
-                                ),
-                                DropdownMenuItem(
-                                  value: OpeningBalanceType.pay,
-                                  child: Text('pay'.tr()),
-                                ),
-                              ],
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() {
-                                    _balanceType = val;
-                                  });
-                                }
-                              },
-                            ),
-                          ],
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<OpeningBalanceType>(
+                        value: _balanceType,
+                        decoration: const InputDecoration(
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         ),
+                        items: [
+                          DropdownMenuItem(
+                            value: OpeningBalanceType.receive,
+                            child: Text('receive'.tr()),
+                          ),
+                          DropdownMenuItem(
+                            value: OpeningBalanceType.pay,
+                            child: Text('pay'.tr()),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _balanceType = val;
+                            });
+                          }
+                        },
                       ),
                     ],
                   ),

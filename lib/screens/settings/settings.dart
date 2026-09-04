@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -106,7 +107,7 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 8),
             _buildSettingTile(
               context,
-              icon: Icons.business_center_rounded,
+              customLeading: _buildBusinessLogoWidget(selectedBusiness, isDark),
               title: selectedBusiness?.name ?? 'business_details'.tr(),
               subtitle:
                   selectedBusiness != null
@@ -273,7 +274,8 @@ class SettingsScreen extends StatelessWidget {
 
   Widget _buildSettingTile(
     BuildContext context, {
-    required IconData icon,
+    IconData? icon,
+    Widget? customLeading,
     required String title,
     String? subtitle,
     Widget? trailing,
@@ -283,6 +285,23 @@ class SettingsScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    final leadingWidget = customLeading ?? Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: titleColor?.withValues(alpha: 0.1) ??
+                (isDark ? Colors.white.withValues(alpha: 0.12) : AppTheme.primary.withValues(alpha: 0.1)),
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+          ),
+          child: icon != null ? Icon(
+            icon,
+            size: 20,
+            color:
+                titleColor ??
+                (isDark ? Colors.white : AppTheme.primary),
+          ) : null,
+        );
+
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
@@ -291,22 +310,7 @@ class SettingsScreen extends StatelessWidget {
       ),
       child: ListTile(
         onTap: onTap,
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: titleColor?.withValues(alpha: 0.1) ??
-                (isDark ? Colors.white.withValues(alpha: 0.12) : AppTheme.primary.withValues(alpha: 0.1)),
-            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-          ),
-          child: Icon(
-            icon,
-            size: 20,
-            color:
-                titleColor ??
-                (isDark ? Colors.white : AppTheme.primary),
-          ),
-        ),
+        leading: leadingWidget,
         title: Text(
           title,
           style: GoogleFonts.outfit(
@@ -476,5 +480,65 @@ class SettingsScreen extends StatelessWidget {
         );
       }
     }
+  }
+
+  Widget _buildBusinessLogoWidget(Business? selectedBusiness, bool isDark) {
+    if (selectedBusiness?.logoUrl != null && selectedBusiness!.logoUrl!.isNotEmpty) {
+      if (selectedBusiness.logoUrl!.startsWith('data:image')) {
+        try {
+          final base64Str = selectedBusiness.logoUrl!.split(',')[1];
+          return Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              child: Image.memory(
+                base64Decode(base64Str),
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                errorBuilder: (_, __, ___) => _buildFallbackLogo(isDark),
+              ),
+            ),
+          );
+        } catch (_) {}
+      } else {
+        return Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            child: Image.network(
+              selectedBusiness.logoUrl!,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (_, __, ___) => _buildFallbackLogo(isDark),
+            ),
+          ),
+        );
+      }
+    }
+    return _buildFallbackLogo(isDark);
+  }
+
+  Widget _buildFallbackLogo(bool isDark) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.12) : AppTheme.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      ),
+      child: Icon(
+        Icons.business_center_rounded,
+        size: 20,
+        color: isDark ? Colors.white : AppTheme.primary,
+      ),
+    );
   }
 }

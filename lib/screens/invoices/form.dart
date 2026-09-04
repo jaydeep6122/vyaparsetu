@@ -378,50 +378,34 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                     ],
                     const SizedBox(height: 16),
                     // Quantity and Rate
-                    Row(
-                      children: [
-                        Expanded(
-                          child: AppTextField(
-                            controller: qtyController,
-                            labelText: 'quantity_label'.tr(),
-                            keyboardType: TextInputType.number,
-                            prefixIcon: Icons.unfold_more_rounded,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: AppTextField(
-                            controller: rateController,
-                            labelText: 'rate_label'.tr(),
-                            keyboardType: TextInputType.number,
-                            hintText: 'rate_hint'.tr(),
-                            prefixIcon: Icons.currency_rupee_rounded,
-                          ),
-                        ),
-                      ],
+                    AppTextField(
+                      controller: qtyController,
+                      labelText: 'quantity_label'.tr(),
+                      keyboardType: TextInputType.number,
+                      prefixIcon: Icons.unfold_more_rounded,
+                    ),
+                    const SizedBox(height: 16),
+                    AppTextField(
+                      controller: rateController,
+                      labelText: 'rate_label'.tr(),
+                      keyboardType: TextInputType.number,
+                      hintText: 'rate_hint'.tr(),
+                      prefixIcon: Icons.currency_rupee_rounded,
                     ),
                     if (_billType == BillType.gst) ...[
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: AppTextField(
-                              controller: discController,
-                              labelText: 'discount_label'.tr(),
-                              keyboardType: TextInputType.number,
-                              prefixIcon: Icons.percent_rounded,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: AppTextField(
-                              controller: taxController,
-                              labelText: 'tax_rate_label'.tr(),
-                              keyboardType: TextInputType.number,
-                              prefixIcon: Icons.gavel_rounded,
-                            ),
-                          ),
-                        ],
+                      AppTextField(
+                        controller: discController,
+                        labelText: 'discount_label'.tr(),
+                        keyboardType: TextInputType.number,
+                        prefixIcon: Icons.percent_rounded,
+                      ),
+                      const SizedBox(height: 16),
+                      AppTextField(
+                        controller: taxController,
+                        labelText: 'tax_rate_label'.tr(),
+                        keyboardType: TextInputType.number,
+                        prefixIcon: Icons.gavel_rounded,
                       ),
                     ],
                     if (tempItem != null) ...[
@@ -1185,110 +1169,56 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
             ),
             const SizedBox(height: 16),
 
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _fieldLabel('Invoice No.'),
-                      AppTextField(
-                        controller: _invoiceNumberController,
-                        labelText: '',
-                        hintText: 'inv_hint'.tr(),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _fieldLabel('Chalan No.'),
-                      AppTextField(
-                        controller: _chalanNoController,
-                        labelText: '',
-                        hintText: 'chalan_hint'.tr(),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            _fieldLabel('Invoice No.'),
+            AppTextField(
+              controller: _invoiceNumberController,
+              labelText: '',
+              hintText: 'inv_hint'.tr(),
             ),
             const SizedBox(height: 16),
 
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _fieldLabel('Invoice Date'),
-                      _buildDateField(
-                        date: _invoiceDate,
-                        icon: Icons.calendar_today_outlined,
-                        onTap: () => _selectDate(context, 0),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _fieldLabel('Due Date'),
-                      _buildDateField(
-                        date: _dueDate,
-                        placeholder: 'Select',
-                        icon: Icons.calendar_month_outlined,
-                        onTap: () => _selectDate(context, 1),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            _fieldLabel('Chalan No.'),
+            AppTextField(
+              controller: _chalanNoController,
+              labelText: '',
+              hintText: 'chalan_hint'.tr(),
             ),
             const SizedBox(height: 16),
 
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _fieldLabel('Transport Qty'),
-                      AppTextField(
-                        controller: _transportQtyController,
-                        labelText: '',
-                        hintText: 'qty_hint'.tr(),
-                        keyboardType: TextInputType.number,
-                        onChanged: (val) => _calculateTotals(),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _fieldLabel('Transport Rate'),
-                      AppTextField(
-                        controller: _transportRateController,
-                        labelText: '',
-                        hintText: 'rate_hint_label'.tr(),
-                        keyboardType: TextInputType.number,
-                        onChanged: (val) => _calculateTotals(),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            _fieldLabel('Invoice Date'),
+            _buildDateField(
+              date: _invoiceDate,
+              icon: Icons.calendar_today_outlined,
+              onTap: () => _selectDate(context, 0),
+            ),
+            const SizedBox(height: 16),
+
+            _fieldLabel('Due Date'),
+            _buildDateField(
+              date: _dueDate,
+              placeholder: 'Select',
+              icon: Icons.calendar_month_outlined,
+              onTap: () => _selectDate(context, 1),
+            ),
+            const SizedBox(height: 16),
+
+            _fieldLabel('Transport Qty'),
+            AppTextField(
+              controller: _transportQtyController,
+              labelText: '',
+              hintText: 'qty_hint'.tr(),
+              keyboardType: TextInputType.number,
+              onChanged: (val) => _calculateTotals(),
+            ),
+            const SizedBox(height: 16),
+
+            _fieldLabel('Transport Rate'),
+            AppTextField(
+              controller: _transportRateController,
+              labelText: '',
+              hintText: 'rate_hint_label'.tr(),
+              keyboardType: TextInputType.number,
+              onChanged: (val) => _calculateTotals(),
             ),
             if (transportCost > 0)
               Padding(
@@ -1317,35 +1247,17 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
               ),
             const SizedBox(height: 16),
 
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _fieldLabel('Bill To'),
-                      _buildAddressCard(
-                        address: _billingAddress,
-                        onTap: () => _showAddressPicker('billing'),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _fieldLabel('Ship To'),
-                      _buildAddressCard(
-                        address: _shippingAddress,
-                        onTap: () => _showAddressPicker('shipping'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            _fieldLabel('Bill To'),
+            _buildAddressCard(
+              address: _billingAddress,
+              onTap: () => _showAddressPicker('billing'),
+            ),
+            const SizedBox(height: 16),
+
+            _fieldLabel('Ship To'),
+            _buildAddressCard(
+              address: _shippingAddress,
+              onTap: () => _showAddressPicker('shipping'),
             ),
           ],
         ),

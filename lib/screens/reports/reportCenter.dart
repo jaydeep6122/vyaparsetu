@@ -34,12 +34,12 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
   }
 
   static const _filters = [
+    'custom',
     'lifetime',
     'today',
     'week',
     'month',
     'year',
-    'custom',
   ];
 
   String _filterLabel(String f) {
@@ -164,6 +164,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
         business: business,
         invoices: invoices,
         period: _englishPeriodLabel,
+        isMounted: () => mounted,
       );
     } catch (_) {}
 
@@ -193,6 +194,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
         business: business,
         invoices: invoices,
         period: _englishPeriodLabel,
+        isMounted: () => mounted,
       );
     } catch (_) {}
 
@@ -222,6 +224,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
         business: business,
         invoices: invoices,
         period: _englishPeriodLabel,
+        isMounted: () => mounted,
       );
     } catch (_) {}
 
@@ -253,6 +256,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
         partyName: party.name,
         invoices: invoices,
         period: _englishPeriodLabel,
+        isMounted: () => mounted,
       );
     } catch (_) {}
 
@@ -284,6 +288,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
         partyName: party.name,
         invoices: invoices,
         period: _englishPeriodLabel,
+        isMounted: () => mounted,
       );
     } catch (_) {}
 
@@ -553,40 +558,31 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _reportTile(
+                 _reportTile(
                   isDark: isDark,
                   icon: Icons.analytics_rounded,
                   title: 'overall_business_health'.tr(),
                   subtitle: 'health_subtitle'.tr(),
-                  color: const Color(0xFF6366F1),
-                  loading: _generatingReport == 'health'
-                      ? 'generating'.tr()
-                      : null,
-                  onTap: _generateBusinessHealth,
+                  loading: _generatingReport == 'health' ? 'generating'.tr() : null,
+                  onTap: _generatingReport != null ? null : _generateBusinessHealth,
                 ),
                 const SizedBox(height: 10),
-                _reportTile(
+                 _reportTile(
                   isDark: isDark,
                   icon: Icons.receipt_long_rounded,
                   title: 'full_sales_log'.tr(),
                   subtitle: 'sales_log_subtitle'.tr(),
-                  color: const Color(0xFF10B981),
-                  loading: _generatingReport == 'sales'
-                      ? 'generating'.tr()
-                      : null,
-                  onTap: _generateSalesReport,
+                  loading: _generatingReport == 'sales' ? 'generating'.tr() : null,
+                  onTap: _generatingReport != null ? null : _generateSalesReport,
                 ),
                 const SizedBox(height: 10),
-                _reportTile(
+                 _reportTile(
                   isDark: isDark,
                   icon: Icons.shopping_cart_outlined,
                   title: 'full_purchase_log'.tr(),
                   subtitle: 'purchase_log_subtitle'.tr(),
-                  color: const Color(0xFFEF4444),
-                  loading: _generatingReport == 'purchase'
-                      ? 'generating'.tr()
-                      : null,
-                  onTap: _generatePurchaseReport,
+                  loading: _generatingReport == 'purchase' ? 'generating'.tr() : null,
+                  onTap: _generatingReport != null ? null : _generatePurchaseReport,
                 ),
                 const SizedBox(height: 28),
 
@@ -601,77 +597,27 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _reportTile(
+                 _reportTile(
                   isDark: isDark,
                   icon: Icons.people_outline_rounded,
                   title: 'customer_report'.tr(),
                   subtitle: 'customer_report_subtitle'.tr(),
-                  color: const Color(0xFF3B82F6),
-                  loading: _generatingReport == 'customer'
-                      ? 'generating'.tr()
-                      : null,
-                  onTap: () => _showPartyPicker(isCustomer: true),
+                  loading: _generatingReport == 'customer' ? 'generating'.tr() : null,
+                  onTap: _generatingReport != null ? null : () => _showPartyPicker(isCustomer: true),
                 ),
                 const SizedBox(height: 10),
-                _reportTile(
+                 _reportTile(
                   isDark: isDark,
                   icon: Icons.business_outlined,
                   title: 'supplier_report'.tr(),
                   subtitle: 'supplier_report_subtitle'.tr(),
-                  color: const Color(0xFFF59E0B),
-                  loading: _generatingReport == 'supplier'
-                      ? 'generating'.tr()
-                      : null,
-                  onTap: () => _showPartyPicker(isCustomer: false),
+                  loading: _generatingReport == 'supplier' ? 'generating'.tr() : null,
+                  onTap: _generatingReport != null ? null : () => _showPartyPicker(isCustomer: false),
                 ),
                 const SizedBox(height: 40),
               ],
             ),
           ),
-          if (_generatingReport != null)
-            Positioned.fill(
-              child: Container(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.black26,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: isDark ? AppTheme.gray800 : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isDark ? AppTheme.gray600 : AppTheme.gray200,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: isDark ? Colors.black54 : Colors.black12,
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(
-                          color: isDark ? AppTheme.accentDark : null,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'generating_pdf'.tr(),
-                          style: GoogleFonts.outfit(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white : AppTheme.gray900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -682,11 +628,11 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
     required IconData icon,
     required String title,
     required String subtitle,
-    required Color color,
     Widget? trailing,
     String? loading,
     VoidCallback? onTap,
   }) {
+    final themeColor = isDark ? Colors.white70 : AppTheme.primary;
     return Container(
       decoration: BoxDecoration(
         color: isDark ? AppTheme.cardDark : Colors.white,
@@ -696,7 +642,7 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: loading != null ? null : onTap,
+          onTap: onTap,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -705,10 +651,10 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: isDark ? 0.15 : 0.08),
+                    color: themeColor.withValues(alpha: isDark ? 0.15 : 0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, color: color, size: 22),
+                  child: Icon(icon, color: themeColor, size: 22),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -727,7 +673,11 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
                       if (loading != null)
                         Text(
                           loading,
-                          style: GoogleFonts.outfit(fontSize: 12, color: color),
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: isDark ? AppTheme.primaryDark : AppTheme.secondary,
+                          ),
                         )
                       else
                         Text(
@@ -745,10 +695,13 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
                 if (trailing != null)
                   trailing
                 else if (loading != null)
-                  const SizedBox(
+                  SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: isDark ? AppTheme.primaryDark : AppTheme.secondary,
+                    ),
                   )
                 else
                   Icon(

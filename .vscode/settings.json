@@ -1,4 +1,7 @@
 {
   "cmake.sourceDirectory": "/Users/jaydeepsarvaiya/Desktop/PlayStore/vyaparsetu/linux",
-  "java.configuration.updateBuildConfiguration": "automatic"
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "cSpell.words": [
+    "vyaparsetu"
+  ]
 }

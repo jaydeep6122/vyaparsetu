@@ -476,15 +476,45 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 3),
-                                Text(
-                                  inv.invoiceNumber,
-                                  style: GoogleFonts.outfit(
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 13,
-                                    color: isDark
-                                        ? AppTheme.gray400
-                                        : AppTheme.gray600,
-                                  ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      inv.invoiceNumber,
+                                      style: GoogleFonts.outfit(
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 13,
+                                        color: isDark
+                                            ? AppTheme.gray400
+                                            : AppTheme.gray600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: (inv.billType == BillType.gst
+                                                ? const Color(0xFF10B981)
+                                                : const Color(0xFF6B7280))
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        inv.billType == BillType.gst
+                                            ? 'GST'
+                                            : 'Non-GST',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w900,
+                                          color: inv.billType == BillType.gst
+                                              ? const Color(0xFF10B981)
+                                              : const Color(0xFF6B7280),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 1),
                                 Text(

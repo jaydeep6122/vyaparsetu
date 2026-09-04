@@ -55,8 +55,9 @@ class _TransactionScreenState extends State<TransactionScreen> {
     final isLoading = context.select<Core, bool>(
       (c) => c.party.isLoadingPartyLedger,
     );
-    final entries = partyLedger?.ledger ?? <LedgerEntry>[];
-    final totalAmount = entries.fold(0.0, (s, e) => s + e.totalAmount);
+    final entries = (partyLedger?.ledger ?? <LedgerEntry>[])
+        .where((e) => !e.type.contains('sale') && !e.type.contains('purchase'))
+        .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -128,13 +129,8 @@ class _TransactionScreenState extends State<TransactionScreen> {
                     : CustomScrollView(
                       physics: const BouncingScrollPhysics(),
                       slivers: [
-                        SliverToBoxAdapter(
-                          child: _buildSummaryHeader(
-                            isDark, entries.length, totalAmount,
-                          ),
-                        ),
                         SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                           sliver: SliverList(
                             delegate: SliverChildBuilderDelegate(
                               (context, index) =>
@@ -153,85 +149,6 @@ class _TransactionScreenState extends State<TransactionScreen> {
     );
   }
 
-  Widget _buildSummaryHeader(
-    bool isDark,
-    int count,
-    double total,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isDark
-                ? [AppTheme.cardDark, AppTheme.gray800]
-                : [
-                    AppTheme.primary.withValues(alpha: 0.05),
-                    AppTheme.surface,
-                  ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? AppTheme.primary.withValues(alpha: 0.3)
-                    : AppTheme.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(
-                Icons.receipt_long_rounded,
-                size: 28,
-                color: isDark ? AppTheme.accentDark : AppTheme.primary,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'transactions_count'.tr(namedArgs: {'count': '$count'}),
-                    style: GoogleFonts.outfit(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : AppTheme.gray900,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'total_volume'.tr(),
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      color: isDark ? AppTheme.gray400 : AppTheme.slate500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              Formatters.formatCurrency(total),
-              style: GoogleFonts.outfit(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : AppTheme.primary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildTransactionCard(
     bool isDark,

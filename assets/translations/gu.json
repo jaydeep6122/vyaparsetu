@@ -738,5 +738,16 @@
   "tax_amount": "ટેક્સ",
   "total_amount": "કુલ",
   "profit": "નફો",
-  "loss": "નુકસાન"
+  "loss": "નુકસાન",
+  "good_morning": "સુપ્રભાત",
+  "good_afternoon": "શુભ બપોર",
+  "good_evening": "શુભ સાંજ",
+  "low_stock_warning": "ઓછા સ્ટોકની ચેતવણી",
+  "net_balance": "ચોખ્ખી સિલક",
+  "optional": "વૈકલ્પિક",
+  "step": "પગલું",
+  "of": "માંથી",
+  "next": "આગળ",
+  "previous": "પાછળ",
+  "misc_sale": "પરચુરણ વેચાણ"
 }

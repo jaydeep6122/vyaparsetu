@@ -798,7 +798,7 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
               ),
               const SizedBox(height: 2),
               Text(
-                item.sold.toStringAsFixed(2),
+                Formatters.formatDouble(item.sold),
                 style: GoogleFonts.outfit(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,

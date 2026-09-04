@@ -15,12 +15,12 @@ class AppTheme {
   static const Color info = Color(0xFF3B82F6);
 
   // ── Brand Colors (Dark) ──
-  static const Color primaryDark = Color(0xFF1E293B);
+  static const Color primaryDark = Color(0xFF8B5CF6);
   static const Color secondaryDark = Color(0xFFC4B5FD);
-  static const Color accentDark = Color(0xFF67E8F9);
+  static const Color accentDark = Color(0xFF3B82F6);
   static const Color backgroundDark = Color(0xFF030712);
-  static const Color surfaceDark = Color(0xFF111827);
-  static const Color cardDark = Color(0xFF1F2937);
+  static const Color surfaceDark = Color(0xFF0F172A);
+  static const Color cardDark = Color(0xFF1E293B);
 
   // ── Extended Semantic Colors ──
   static const Color rose = Color(0xFFF43F5E);

@@ -519,6 +519,12 @@
   "pdf_transport": "Transport",
   "pdf_round_off": "Round Off",
 
+  "optional": "Optional",
+  "step": "Step",
+  "of": "of",
+  "next": "Next",
+  "previous": "Back",
+
   "factory.factories": "Brick Kilns / Chimneys",
   "factory.add_factory": "Add Kiln / Chimney",
   "factory.edit_factory": "Change Kiln / Chimney",
@@ -738,5 +744,11 @@
   "tax_amount": "Tax",
   "total_amount": "Total",
   "profit": "Profit",
-  "loss": "Loss"
+  "loss": "Loss",
+  "good_morning": "Good morning",
+  "good_afternoon": "Good afternoon",
+  "good_evening": "Good evening",
+  "low_stock_warning": "Low Stock Warning",
+  "net_balance": "Net Balance",
+  "misc_sale": "Misc Sale"
 }

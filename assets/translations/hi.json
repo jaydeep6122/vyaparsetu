@@ -738,5 +738,16 @@
   "tax_amount": "कर",
   "total_amount": "कुल",
   "profit": "लाभ",
-  "loss": "हानि"
+  "loss": "हानि",
+  "good_morning": "शुभ प्रभात",
+  "good_afternoon": "शुभ दोपहर",
+  "good_evening": "शुभ संध्या",
+  "low_stock_warning": "कम स्टॉक चेतावनी",
+  "net_balance": "कुल शेष",
+  "optional": "वैकल्पिक",
+  "step": "चरण",
+  "of": "में से",
+  "next": "आगे",
+  "previous": "पीछे",
+  "misc_sale": "विविध बिक्री"
 }
