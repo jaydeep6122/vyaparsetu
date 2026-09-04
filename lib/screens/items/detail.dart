@@ -27,10 +27,10 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
   }
 
-  void _loadData() {
+  void _loadData({bool forceRefresh = false}) {
     final businessId = context.read<Core>().business.selectedBusiness?.id;
     if (businessId != null) {
-      context.read<Core>().item.fetchQuantitySummary(businessId, widget.item.id);
+      context.read<Core>().item.fetchQuantitySummary(businessId, widget.item.id, forceRefresh: forceRefresh);
     }
   }
 
@@ -64,6 +64,15 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Select the latest updated item from context
+    final items = context.select<Core, List<Item>>((c) => c.item.items);
+    final matchedItem = items.firstWhere(
+      (i) => i.id == widget.item.id,
+      orElse: () => widget.item,
+    );
+
     final quantitySummary = context.select<Core, ItemQuantitySummary?>(
       (c) => c.item.quantitySummary,
     );
@@ -74,74 +83,223 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       (c) => c.item.quantitySummaryError,
     );
 
+    final double netStock = quantitySummary?.overall.netStock ?? 0.0;
+    final bool isPositive = netStock >= 0;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          widget.item.name,
+          matchedItem.name,
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
             onPressed: () {
-              Navigator.of(context).push(getPageRoute(ItemFormScreen(existingItem: widget.item)));
+              Navigator.of(context).push(getPageRoute(ItemFormScreen(existingItem: matchedItem)));
             },
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline_rounded),
-            onPressed: () => _deleteItem(context, widget.item),
+            onPressed: () => _deleteItem(context, matchedItem),
           ),
+          const SizedBox(width: 8),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDetailsSection(
-              context,
-              title: 'catalog_specifications'.tr(),
-              items: {
-                'item_name_label'.tr(): widget.item.name,
-                'hsn_code_label'.tr(): widget.item.hsnCode ?? 'not_provided'.tr(),
-                'measuring_unit_label'.tr(): widget.item.measuringUnit,
-                'created_at_label'.tr(): Formatters.formatDate(widget.item.createdAt),
-                'last_updated_label'.tr(): Formatters.formatDate(widget.item.updatedAt),
-              },
-            ),
-            const SizedBox(height: 20),
-
-            _buildSectionHeader(context, 'quantity_summary'.tr()),
-            const SizedBox(height: 12),
-
-            if (isLoadingSummary)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(strokeWidth: 2),
+      body: RefreshIndicator(
+        color: AppTheme.primary,
+        onRefresh: () async => _loadData(forceRefresh: true),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Big Available Stock Card (Color-Coded)
+              Card(
+                elevation: 0,
+                color: isDark ? AppTheme.cardDark : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: isDark ? AppTheme.gray700 : AppTheme.gray200,
+                  ),
                 ),
-              )
-            else if (summaryError != null && quantitySummary == null)
-              _buildErrorRetry(context, summaryError)
-            else if (quantitySummary != null)
-              _buildQuantitySummary(context, quantitySummary),
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Row(
+                    children: [
+                      // Left Side: Stock details
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'current_stock'.tr().toUpperCase(),
+                              style: GoogleFonts.outfit(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? AppTheme.gray400 : AppTheme.slate500,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              textBaseline: TextBaseline.alphabetic,
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              children: [
+                                Text(
+                                  Formatters.formatDouble(netStock),
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 34,
+                                    fontWeight: FontWeight.w900,
+                                    color: isPositive
+                                        ? (isDark ? Colors.green[300] : Colors.green[800])
+                                        : (isDark ? Colors.red[300] : Colors.red[800]),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  matchedItem.measuringUnit,
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? AppTheme.gray500 : AppTheme.gray400,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            // Mini status description
+                            Row(
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: isPositive ? Colors.green : Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  netStock > 0
+                                      ? 'Everything looks good'
+                                      : netStock == 0
+                                          ? 'No stock remaining'
+                                          : 'Stock is in minus',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? AppTheme.gray400 : AppTheme.slate500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // Right Side: Large visual badge
+                      Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: (isPositive ? Colors.green : Colors.red).withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isPositive ? Icons.check_circle_rounded : Icons.warning_rounded,
+                              color: isPositive ? Colors.green : Colors.red,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            netStock > 0
+                                ? 'IN STOCK'
+                                : netStock == 0
+                                    ? 'OUT OF STOCK'
+                                    : 'MINUS STOCK',
+                            style: GoogleFonts.outfit(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: isPositive ? Colors.green : Colors.red,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
 
-            const SizedBox(height: 32),
-          ],
+              // 2. Activity Summary List
+              Text(
+                'quantity_summary'.tr(),
+                style: GoogleFonts.outfit(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : AppTheme.primary,
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              if (isLoadingSummary)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(40),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else if (summaryError != null && quantitySummary == null)
+                _buildErrorRetry(context, summaryError)
+              else if (quantitySummary != null) ...[
+                _buildActivityItem(
+                  context,
+                  label: 'purchased_label'.tr() + ' (Bought)',
+                  value: quantitySummary.overall.purchased,
+                  unit: matchedItem.measuringUnit,
+                  icon: Icons.trending_down_rounded,
+                  color: AppTheme.success,
+                ),
+                _buildActivityItem(
+                  context,
+                  label: 'sold_label'.tr() + ' (Sales)',
+                  value: quantitySummary.overall.sold,
+                  unit: matchedItem.measuringUnit,
+                  icon: Icons.trending_up_rounded,
+                  color: AppTheme.warning,
+                ),
+                _buildActivityItem(
+                  context,
+                  label: 'sale_return_label'.tr() + ' (From Customer)',
+                  value: quantitySummary.overall.saleReturned,
+                  unit: matchedItem.measuringUnit,
+                  icon: Icons.keyboard_return_rounded,
+                  color: AppTheme.error,
+                ),
+                _buildActivityItem(
+                  context,
+                  label: 'purchase_return_label'.tr() + ' (To Supplier)',
+                  value: quantitySummary.overall.purchaseReturned,
+                  unit: matchedItem.measuringUnit,
+                  icon: Icons.keyboard_double_arrow_right_rounded,
+                  color: AppTheme.secondary,
+                ),
+              ],
+
+              const SizedBox(height: 20),
+
+              // 3. Product Info Card
+              _buildProductInfoCard(context, matchedItem),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(BuildContext context, String title) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Text(
-      title,
-      style: GoogleFonts.outfit(
-        fontSize: 15,
-        fontWeight: FontWeight.bold,
-        letterSpacing: 0.5,
-        color: isDark ? Colors.white : AppTheme.gray900,
       ),
     );
   }
@@ -149,24 +307,24 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   Widget _buildErrorRetry(BuildContext context, String error) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppTheme.error.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
-          Icon(Icons.error_outline_rounded, color: AppTheme.error, size: 32),
-          const SizedBox(height: 8),
+          Icon(Icons.error_outline_rounded, color: AppTheme.error, size: 28),
+          const SizedBox(height: 6),
           Text(
             error,
             textAlign: TextAlign.center,
             style: GoogleFonts.outfit(fontSize: 13, color: AppTheme.error),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           TextButton.icon(
             onPressed: _loadData,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
+            icon: const Icon(Icons.refresh_rounded, size: 16),
             label: Text('retry'.tr()),
           ),
         ],
@@ -174,180 +332,140 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  Widget _buildQuantitySummary(BuildContext context, ItemQuantitySummary summary) {
+  Widget _buildActivityItem(
+    BuildContext context, {
+    required String label,
+    required double value,
+    required String unit,
+    required IconData icon,
+    required Color color,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final borderColor = isDark ? AppTheme.gray700 : AppTheme.gray200;
-
-    return Column(
-      children: [
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: isDark ? AppTheme.cardDark : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: borderColor),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.cardDark : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppTheme.gray700 : AppTheme.gray200,
+        ),
+        boxShadow: AppTheme.shadowSm,
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 18),
           ),
-          child: IntrinsicHeight(
-            child: Row(
-              children: [
-                _buildMetricColumn(context, 'sold_label'.tr(), summary.overall.sold, AppTheme.warning),
-                VerticalDivider(width: 1, thickness: 1, color: borderColor),
-                _buildMetricColumn(context, 'purchased_label'.tr(), summary.overall.purchased, AppTheme.success),
-                VerticalDivider(width: 1, thickness: 1, color: borderColor),
-                _buildMetricColumn(context, 'sale_return_label'.tr(), summary.overall.saleReturned, AppTheme.error),
-                VerticalDivider(width: 1, thickness: 1, color: borderColor),
-                _buildMetricColumn(context, 'purchase_return_label'.tr(), summary.overall.purchaseReturned, AppTheme.secondary),
-              ],
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: isDark ? AppTheme.gray300 : AppTheme.gray700,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: isDark ? AppTheme.cardDark : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: borderColor),
-          ),
-          child: Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Icon(Icons.inventory_2_rounded, size: 20, color: AppTheme.primary),
-              const SizedBox(width: 12),
               Text(
-                'net_stock'.tr(),
+                Formatters.formatDouble(value),
                 style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: isDark ? AppTheme.gray400 : AppTheme.slate500,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                summary.overall.netStock.toStringAsFixed(2),
-                style: GoogleFonts.outfit(
-                  fontSize: 20,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: summary.overall.netStock >= 0 ? AppTheme.success : AppTheme.error,
+                  color: isDark ? Colors.white : AppTheme.primary,
                 ),
               ),
-              const SizedBox(width: 8),
               Text(
-                widget.item.measuringUnit,
+                unit,
                 style: GoogleFonts.outfit(
-                  fontSize: 12,
+                  fontSize: 10,
                   fontWeight: FontWeight.w500,
                   color: isDark ? AppTheme.gray500 : AppTheme.gray400,
                 ),
               ),
             ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildMetricColumn(BuildContext context, String label, double value, Color color) {
+  Widget _buildProductInfoCard(BuildContext context, Item item) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              height: 26,
-              child: Center(
-                child: Text(
-                  label.toUpperCase(),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  style: GoogleFonts.outfit(
-                    fontSize: 9,
-                    color: isDark ? AppTheme.gray400 : AppTheme.slate500,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                value.toStringAsFixed(2),
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-            ),
-          ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.cardDark : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppTheme.gray700 : AppTheme.gray200,
         ),
+        boxShadow: AppTheme.shadowSm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Product Details',
+            style: GoogleFonts.outfit(
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+              color: isDark ? Colors.white : AppTheme.primary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Divider(height: 1, thickness: 1, color: isDark ? AppTheme.gray700 : AppTheme.gray200),
+          const SizedBox(height: 8),
+          _buildInfoRow(context, 'item_name_label'.tr(), item.name, Icons.shopping_bag_outlined),
+          _buildInfoRow(
+            context,
+            'Tax Code (HSN)',
+            (item.hsnCode != null && item.hsnCode!.trim().isNotEmpty) ? item.hsnCode! : 'not_provided'.tr(),
+            Icons.tag_rounded,
+          ),
+          _buildInfoRow(context, 'measuring_unit_label'.tr(), item.measuringUnit, Icons.scale_rounded),
+          _buildInfoRow(context, 'Added On', Formatters.formatDate(item.createdAt), Icons.calendar_today_rounded),
+        ],
       ),
     );
   }
 
-  Widget _buildDetailsSection(BuildContext context, {required String title, required Map<String, String> items}) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: GoogleFonts.outfit(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: isDark ? Colors.white : AppTheme.primary,
-              ),
+  Widget _buildInfoRow(BuildContext context, String label, String value, IconData icon) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: isDark ? AppTheme.gray400 : AppTheme.slate500),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: isDark ? AppTheme.gray400 : AppTheme.slate500,
             ),
-            const SizedBox(height: 8),
-            const Divider(),
-            ...items.entries.map((entry) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 140,
-                      child: Text(
-                        entry.key,
-                        style: GoogleFonts.outfit(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        entry.value,
-                        style: GoogleFonts.outfit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: theme.textTheme.bodyLarge?.color,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        ),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : AppTheme.primary,
+            ),
+          ),
+        ],
       ),
     );
   }

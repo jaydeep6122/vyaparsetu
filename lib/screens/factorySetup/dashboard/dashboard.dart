@@ -299,11 +299,7 @@ class _FactoryDashboardScreenState extends State<FactoryDashboardScreen> {
               color: accentColor.withValues(alpha: isDark ? 0.15 : 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              color: accentColor,
-              size: 24,
-            ),
+            child: Icon(icon, color: accentColor, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -345,18 +341,32 @@ class _FactoryDashboardScreenState extends State<FactoryDashboardScreen> {
     );
   }
 
-
   Widget _buildQuickActions(bool isDark, Factory? selectedFactory) {
     final actions = [
-      ('factory.handoff'.tr(), Icons.compare_arrows_rounded, 'handoff', AppTheme.primary),
-      ('factory.direct'.tr(), Icons.edit_note_rounded, 'direct', AppTheme.secondary),
+      (
+        'factory.handoff'.tr(),
+        Icons.compare_arrows_rounded,
+        'handoff',
+        AppTheme.primary,
+      ),
+      (
+        'factory.direct'.tr(),
+        Icons.edit_note_rounded,
+        'direct',
+        AppTheme.secondary,
+      ),
       (
         'factory.truck_distribution'.tr(),
         Icons.local_shipping_rounded,
         'truck_dist',
         AppTheme.accent,
       ),
-      ('factory.give_money'.tr(), Icons.payments_rounded, 'money_given', AppTheme.warning),
+      (
+        'factory.give_money'.tr(),
+        Icons.payments_rounded,
+        'money_given',
+        AppTheme.warning,
+      ),
       (
         'factory.add_worker'.tr(),
         Icons.person_add_alt_1_rounded,
@@ -440,7 +450,10 @@ class _FactoryDashboardScreenState extends State<FactoryDashboardScreen> {
                           .push<Map<String, dynamic>>(getPageRoute(form))
                           .then((change) {
                             if (change != null && mounted) {
-                              context.read<Core>().factory.updateLocalStats(selectedFactory.id, change);
+                              context.read<Core>().factory.updateLocalStats(
+                                selectedFactory.id,
+                                change,
+                              );
                             }
                           });
                     },

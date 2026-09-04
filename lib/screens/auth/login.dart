@@ -508,12 +508,15 @@ class _AnimatedLogoState extends State<_AnimatedLogo>
       scale: _scaleAnimation,
       child: FadeTransition(
         opacity: _fadeAnimation,
-        child: SizedBox(
-          width: 80,
-          height: 80,
-          child: Image.asset(
-            'assets/images/app_logo_foreground.png',
-            fit: BoxFit.contain,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: SizedBox(
+            width: 80,
+            height: 80,
+            child: Image.asset(
+              'assets/images/app_logo_foreground.png',
+              fit: BoxFit.contain,
+            ),
           ),
         ),
       ),

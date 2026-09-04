@@ -227,29 +227,21 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
                 const SizedBox(height: 16),
 
                 // Pricing
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppTextField(
-                        controller: _totalController,
-                        labelText: 'total_amount_label'.tr(),
-                        hintText: 'total_cost_hint'.tr(),
-                        keyboardType: TextInputType.number,
-                        validator: (val) => Validators.validatePositiveAmount(val, 'Total Amount'),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: AppTextField(
-                        controller: _paidController,
-                        labelText: 'paid_amount'.tr(),
-                        hintText: 'enter_paid_amount'.tr(),
-                        keyboardType: TextInputType.number,
-                        readOnly: _paymentMode == PaymentMode.credit,
-                        validator: (val) => Validators.validateAmount(val, 'Paid Amount'),
-                      ),
-                    ),
-                  ],
+                AppTextField(
+                  controller: _totalController,
+                  labelText: 'total_amount_label'.tr(),
+                  hintText: 'total_cost_hint'.tr(),
+                  keyboardType: TextInputType.number,
+                  validator: (val) => Validators.validatePositiveAmount(val, 'Total Amount'),
+                ),
+                const SizedBox(height: 16),
+                AppTextField(
+                  controller: _paidController,
+                  labelText: 'paid_amount'.tr(),
+                  hintText: 'enter_paid_amount'.tr(),
+                  keyboardType: TextInputType.number,
+                  readOnly: _paymentMode == PaymentMode.credit,
+                  validator: (val) => Validators.validateAmount(val, 'Paid Amount'),
                 ),
                 const SizedBox(height: 16),
 

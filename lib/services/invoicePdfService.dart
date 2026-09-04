@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:vyaparsetu/types/invoice.dart';
 import 'package:vyaparsetu/types/business.dart';
 import 'package:vyaparsetu/types/party.dart';
@@ -691,46 +694,46 @@ class InvoicePdfService {
           ],
         ),
         pw.TableRow(
+          decoration: const pw.BoxDecoration(
+            border: pw.Border(
+              bottom: pw.BorderSide(color: tableBorder, width: 0.5),
+            ),
+          ),
           children: [
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                _bankRowWidget(
-                  'Branch & IFSC Code',
-                  business.ifscCode ?? '',
-                  font,
-                ),
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(5),
-                  decoration: const pw.BoxDecoration(
-                    border: pw.Border(
-                      top: pw.BorderSide(color: tableBorder, width: 0.5),
-                    ),
+            _bankRowWidget(
+              'Branch & IFSC Code',
+              business.ifscCode ?? '',
+              font,
+            ),
+            _cell('', font),
+          ],
+        ),
+        pw.TableRow(
+          children: [
+            pw.Container(
+              padding: const pw.EdgeInsets.all(5),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'Terms and Conditions',
+                    style: pw.TextStyle(font: boldFont, fontSize: 8),
                   ),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        'Terms and Conditions',
-                        style: pw.TextStyle(font: boldFont, fontSize: 8),
-                      ),
-                      pw.Text(
-                        _cleanNotes(invoice.notes) ??
-                            '1. in case of any discrepancy in the invoice we request you to get back to us on Phone number given.',
-                        style: const pw.TextStyle(fontSize: 8),
-                      ),
-                      pw.Text(
-                        '2. Cheque/DD to be drawn in favour of : ${business.name}',
-                        style: const pw.TextStyle(fontSize: 8),
-                      ),
-                      pw.Text(
-                        '3. Goods once sold will not be acceped return.',
-                        style: const pw.TextStyle(fontSize: 8),
-                      ),
-                    ],
+                  pw.Text(
+                    _cleanNotes(invoice.notes) ??
+                        '1. in case of any discrepancy in the invoice we request you to get back to us on Phone number given.',
+                    style: const pw.TextStyle(fontSize: 8),
                   ),
-                ),
-              ],
+                  pw.Text(
+                    '2. Cheque/DD to be drawn in favour of : ${business.name}',
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
+                  pw.Text(
+                    '3. Goods once sold will not be acceped return.',
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
+                ],
+              ),
             ),
             pw.Container(
               child: pw.Column(
@@ -3924,7 +3927,12 @@ class InvoicePdfService {
   /// Share PDF via system share sheet
   static Future<void> sharePdf(pw.Document doc, String fileName) async {
     final bytes = await doc.save();
-    await Printing.sharePdf(bytes: bytes, filename: '$fileName.pdf');
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/$fileName.pdf');
+    await file.writeAsBytes(bytes);
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(file.path)], text: fileName),
+    );
   }
 
   /// Print PDF

@@ -21,6 +21,7 @@ class ReportService {
     required Business business,
     required List<Invoice> invoices,
     required String period,
+    required bool Function() isMounted,
   }) async {
     final pdf = pw.Document();
     final font = await PdfGoogleFonts.robotoRegular();
@@ -115,6 +116,7 @@ class ReportService {
       ),
     );
 
+    if (!isMounted()) return;
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
     );
@@ -126,6 +128,7 @@ class ReportService {
     required Business business,
     required List<Invoice> invoices,
     required String period,
+    required bool Function() isMounted,
   }) async {
     final pdf = pw.Document();
     final font = await PdfGoogleFonts.robotoRegular();
@@ -208,6 +211,7 @@ class ReportService {
       ),
     );
 
+    if (!isMounted()) return;
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
     );
@@ -219,6 +223,7 @@ class ReportService {
     required Business business,
     required List<Invoice> invoices,
     required String period,
+    required bool Function() isMounted,
   }) async {
     final pdf = pw.Document();
     final font = await PdfGoogleFonts.robotoRegular();
@@ -307,6 +312,7 @@ class ReportService {
       ),
     );
 
+    if (!isMounted()) return;
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
     );
@@ -319,6 +325,7 @@ class ReportService {
     required String partyName,
     required List<Invoice> invoices,
     required String period,
+    required bool Function() isMounted,
   }) async {
     final pdf = pw.Document();
     final font = await PdfGoogleFonts.robotoRegular();
@@ -404,6 +411,7 @@ class ReportService {
       ),
     );
 
+    if (!isMounted()) return;
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
     );
@@ -416,6 +424,7 @@ class ReportService {
     required String partyName,
     required List<Invoice> invoices,
     required String period,
+    required bool Function() isMounted,
   }) async {
     final pdf = pw.Document();
     final font = await PdfGoogleFonts.robotoRegular();
@@ -507,6 +516,7 @@ class ReportService {
       ),
     );
 
+    if (!isMounted()) return;
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
     );

@@ -66,6 +66,7 @@ dependencies:
   image: ^4.5.2               # Pure-Dart image decode/resize/encode for compression
   hand_signature: ^3.0.2       # Signature drawing pad
   path_provider: ^2.1.5        # File system paths for saving images
+  share_plus: ^12.0.2
 
 dev_dependencies:
   flutter_test:

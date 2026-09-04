@@ -240,4 +240,12 @@ class Invoice {
     }
     return cleaned;
   }
+
+  BillType get billType {
+    if (notes == null) return BillType.gst;
+    if (notes!.contains('[bill_type:normal]')) {
+      return BillType.normal;
+    }
+    return BillType.gst;
+  }
 }

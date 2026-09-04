@@ -82,14 +82,17 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       backgroundColor: isDark ? AppTheme.backgroundDark : const Color(0xFFFAFBF6),
       body: Center(
-        child: SizedBox(
-          width: 140,
-          height: 140,
-          child: Image.asset(
-            isDark
-                ? 'assets/images/app_logo_foreground.png'
-                : 'assets/images/app_logo.png',
-            fit: BoxFit.contain,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(32),
+          child: SizedBox(
+            width: 140,
+            height: 140,
+            child: Image.asset(
+              isDark
+                  ? 'assets/images/app_logo_foreground.png'
+                  : 'assets/images/app_logo.png',
+              fit: BoxFit.contain,
+            ),
           ),
         ),
       ),

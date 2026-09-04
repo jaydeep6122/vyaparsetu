@@ -60,7 +60,9 @@ class _VyaparSetuAppState extends State<VyaparSetuApp> {
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = context.select<Core, ThemeMode>((c) => c.settings.themeMode);
+    final themeMode = context.select<Core, ThemeMode>(
+      (c) => c.settings.themeMode,
+    );
     final locale = context.select<Core, Locale>((c) => c.settings.locale);
 
     return MaterialApp(

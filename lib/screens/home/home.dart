@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -94,7 +95,6 @@ class HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-
 
     try {
       await factory.fetchDashboardData();
@@ -239,8 +239,6 @@ class HomeScreenState extends State<HomeScreen> {
       return _buildFactoryAppBar(isDark, selectedFactoryName, factoryCount);
     }
 
-    if (_currentIndex == 0) return null;
-
     return _buildBusinessAppBar(
       isDark,
       selectedBusiness,
@@ -271,13 +269,13 @@ class HomeScreenState extends State<HomeScreen> {
           child: Container(
             decoration: BoxDecoration(
               color: isDark
-                  ? AppTheme.surfaceDark.withValues(alpha: 0.8)
+                  ? AppTheme.backgroundDark.withValues(alpha: 0.8)
                   : Colors.white.withValues(alpha: 0.85),
               border: Border(
                 bottom: BorderSide(
                   color: isDark
-                      ? AppTheme.gray800.withValues(alpha: 0.4)
-                      : AppTheme.gray200.withValues(alpha: 0.6),
+                      ? AppTheme.gray800.withValues(alpha: 0.3)
+                      : AppTheme.gray200.withValues(alpha: 0.5),
                   width: 1.0,
                 ),
               ),
@@ -288,60 +286,72 @@ class HomeScreenState extends State<HomeScreen> {
       title: GestureDetector(
         onTap: hasMultiple
             ? () {
+                HapticFeedback.lightImpact();
                 Navigator.of(
                   context,
                 ).push(getPageRoute(const BusinessListScreen()));
               }
             : null,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                selectedBusiness?.name ?? 'VyaparSetu',
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                  color: isDark ? Colors.white : AppTheme.gray900,
-                  letterSpacing: -0.5,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.cardDark : Colors.white,
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(
+              color: isDark
+                  ? AppTheme.gray700.withValues(alpha: 0.3)
+                  : AppTheme.gray200,
+              width: 1.0,
             ),
-            if (hasMultiple) ...[
-              const SizedBox(width: 4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
               Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: isDark ? Colors.white : AppTheme.gray800,
-                size: 20,
+                Icons.storefront_rounded,
+                color: isDark ? AppTheme.primaryDark : AppTheme.primary,
+                size: 14,
               ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  selectedBusiness?.name ?? 'VyaparSetu',
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: isDark ? Colors.white : AppTheme.gray900,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (hasMultiple) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: isDark ? AppTheme.gray400 : AppTheme.gray500,
+                  size: 16,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
       actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 16),
-          child: GestureDetector(
-            onTap: () {
-              setState(() {
-                _currentIndex = 3;
-                _visited[3] = true;
-              });
-            },
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: isDark
-                  ? AppTheme.gray800
-                  : AppTheme.primary.withValues(alpha: 0.08),
-              child: Text(
-                userInitials,
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : AppTheme.primary,
-                ),
-              ),
+        GestureDetector(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            setState(() {
+              _currentIndex = 3;
+              _visited[3] = true;
+            });
+          },
+          child: Container(
+            margin: const EdgeInsets.only(right: 16),
+            child: _buildLogoWidget(
+              selectedBusiness?.logoUrl,
+              16,
+              userInitials,
+              isDark,
             ),
           ),
         ),
@@ -482,6 +492,74 @@ class HomeScreenState extends State<HomeScreen> {
     // _FactoryWorkersTab(),
     SizedBox.shrink(),
   ];
+
+  Widget _buildLogoWidget(
+    String? logoUrl,
+    double radius,
+    String userInitials,
+    bool isDark,
+  ) {
+    if (logoUrl != null && logoUrl.isNotEmpty) {
+      if (logoUrl.startsWith('data:image')) {
+        try {
+          final base64Str = logoUrl.split(',')[1];
+          return CircleAvatar(
+            radius: radius,
+            backgroundColor: isDark
+                ? AppTheme.gray800
+                : AppTheme.primary.withValues(alpha: 0.08),
+            child: ClipOval(
+              child: Image.memory(
+                base64Decode(base64Str),
+                width: radius * 2,
+                height: radius * 2,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                errorBuilder: (_, __, ___) =>
+                    _buildFallbackAvatar(radius, userInitials, isDark),
+              ),
+            ),
+          );
+        } catch (_) {}
+      } else {
+        return CircleAvatar(
+          radius: radius,
+          backgroundColor: isDark
+              ? AppTheme.gray800
+              : AppTheme.primary.withValues(alpha: 0.08),
+          child: ClipOval(
+            child: Image.network(
+              logoUrl,
+              width: radius * 2,
+              height: radius * 2,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (_, __, ___) =>
+                  _buildFallbackAvatar(radius, userInitials, isDark),
+            ),
+          ),
+        );
+      }
+    }
+    return _buildFallbackAvatar(radius, userInitials, isDark);
+  }
+
+  Widget _buildFallbackAvatar(double radius, String initials, bool isDark) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: isDark
+          ? AppTheme.gray800
+          : AppTheme.primary.withValues(alpha: 0.08),
+      child: Text(
+        initials,
+        style: GoogleFonts.outfit(
+          fontSize: radius * 0.7,
+          fontWeight: FontWeight.w900,
+          color: isDark ? Colors.white : AppTheme.primary,
+        ),
+      ),
+    );
+  }
 }
 
 // class _FactoryWorkersTab extends StatelessWidget {

@@ -24,6 +24,20 @@ class Formatters {
     return _indianRupeesFormat.format(amount);
   }
 
+  static String formatDouble(double val) {
+    if (val % 1 == 0) {
+      return val.toInt().toString();
+    }
+    String str = val.toStringAsFixed(2);
+    while (str.endsWith('0')) {
+      str = str.substring(0, str.length - 1);
+    }
+    if (str.endsWith('.')) {
+      str = str.substring(0, str.length - 1);
+    }
+    return str;
+  }
+
   static String formatDate(DateTime date) {
     return _dateFormat.format(date.toLocal());
   }
