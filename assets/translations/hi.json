@@ -603,5 +603,13 @@
   "of": "में से",
   "next": "आगे",
   "previous": "पीछे",
-  "misc_sale": "विविध बिक्री"
+  "misc_sale": "विविध बिक्री",
+  "money_in_hand": "हाथ में पैसा",
+  "upi": "यूपीआई",
+  "see_all": "सभी देखें",
+  "sales": "बिक्री",
+  "purchases": "खरीद",
+  "low_stock_count": "{count} वस्तुओं का स्टॉक कम है",
+  "no_money_recorded": "अभी तक कोई नकद, बैंक या यूपीआई शेष दर्ज नहीं है",
+  "this_is_all_time": "अब तक"
 }

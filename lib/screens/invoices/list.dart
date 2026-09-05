@@ -374,7 +374,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
                         icon: Icons.receipt_long_rounded,
                         title: 'no_invoices_found'.tr(),
                         description: _searchQuery.isNotEmpty
-                            ? 'no_match_invoices'.tr(args: [_searchQuery])
+                            ? 'no_match_invoices'.tr(namedArgs: {'query': _searchQuery})
                             : 'invoices_empty_msg'.tr(),
                         buttonText: _searchQuery.isEmpty
                             ? 'create_invoice'.tr()

@@ -603,5 +603,13 @@
   "good_afternoon": "Good afternoon",
   "good_evening": "Good evening",
   "net_balance": "Net Balance",
-  "misc_sale": "Misc Sale"
+  "misc_sale": "Misc Sale",
+  "money_in_hand": "Money in Hand",
+  "upi": "UPI",
+  "see_all": "See all",
+  "sales": "Sales",
+  "purchases": "Purchases",
+  "low_stock_count": "{count} items running low",
+  "no_money_recorded": "No cash, bank or UPI balance recorded yet",
+  "this_is_all_time": "All time"
 }

@@ -1513,7 +1513,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       const SizedBox(height: 12),
                       Text(
                         party != null
-                            ? 'no_saved_addresses'.tr(args: [type])
+                            ? 'no_saved_addresses'.tr(namedArgs: {'type': type})
                             : 'select_party_or_custom'.tr(),
                         style: GoogleFonts.outfit(
                           fontSize: 13,

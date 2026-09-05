@@ -603,5 +603,13 @@
   "of": "માંથી",
   "next": "આગળ",
   "previous": "પાછળ",
-  "misc_sale": "પરચુરણ વેચાણ"
+  "misc_sale": "પરચુરણ વેચાણ",
+  "money_in_hand": "હાથમાં નાણાં",
+  "upi": "યુપીઆઈ",
+  "see_all": "બધું જુઓ",
+  "sales": "વેચાણ",
+  "purchases": "ખરીદી",
+  "low_stock_count": "{count} વસ્તુઓનો સ્ટોક ઓછો છે",
+  "no_money_recorded": "હજી સુધી કોઈ રોકડ, બેંક કે યુપીઆઈ સિલક નોંધાઈ નથી",
+  "this_is_all_time": "અત્યાર સુધી"
 }
