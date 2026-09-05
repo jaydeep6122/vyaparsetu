@@ -5,6 +5,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:vyaparsetu/components/loadingIndicator.dart';
 import 'package:vyaparsetu/components/emptyState.dart';
 import 'package:vyaparsetu/components/errorWidget.dart';
+import 'package:vyaparsetu/helpers/datePicker.dart';
 import 'package:vyaparsetu/helpers/formatters.dart';
 import 'package:vyaparsetu/global/themes.dart';
 import 'package:vyaparsetu/helpers/navigation.dart';
@@ -53,11 +54,9 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
   }
 
   Future<void> _pickDate(bool isFrom) async {
-    final picked = await showDatePicker(
+    final picked = await pickAppDate(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
     );
     if (picked != null) {
       setState(() {

@@ -3,4 +3,8 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/images/app_logo.png"
   adaptive_icon_background: "#22252A"
-  adaptive_icon_foreground: "assets/images/app_logo_foreground.png"
+  # NOTE: this was a byte-identical copy of app_logo.png, so it was shipping the
+  # same 997 KB image twice. Pointing at the one file changes nothing today.
+  # A proper adaptive foreground still needs generating: Android crops the
+  # foreground to roughly the middle 66%, so a full-bleed logo loses its edges.
+  adaptive_icon_foreground: "assets/images/app_logo.png"

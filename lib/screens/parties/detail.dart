@@ -43,33 +43,35 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
   }
 
   void _deleteParty(Party party) async {
-    final businessId = context.read<Core>().business.selectedBusiness?.id;
+    final core = context.read<Core>();
+    final businessId = core.business.selectedBusiness?.id;
     if (businessId == null) return;
+
+    // Captured before the async gaps below so nothing reaches for `context`
+    // after an await.
+    final navigator = Navigator.of(context);
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => ConfirmationDialog(
-            title: 'delete_party'.tr(),
-            content: 'delete_party_confirm'.tr(),
-            confirmText: 'delete'.tr(),
-            isDestructive: true,
-            icon: Icons.delete_outline_rounded,
-          ),
+      builder: (context) => ConfirmationDialog(
+        title: 'delete_party'.tr(),
+        content: 'delete_party_confirm'.tr(),
+        confirmText: 'delete'.tr(),
+        isDestructive: true,
+        icon: Icons.delete_outline_rounded,
+      ),
     );
 
-    if (confirm == true && context.mounted) {
-      final success = await context.read<Core>().party.deleteParty(
-        businessId,
-        party.id,
-      );
-      if (success && context.mounted) {
-        Navigator.of(context).pop();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) showSuccessToast('party_deleted'.tr());
-        });
-      }
-    }
+    if (confirm != true || !mounted) return;
+
+    final success = await core.party.deleteParty(businessId, party.id);
+    if (!success || !mounted) return;
+
+    navigator.pop();
+    // showSuccessToast resolves its own context via navigatorKey.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      showSuccessToast('party_deleted'.tr());
+    });
   }
 
   @override

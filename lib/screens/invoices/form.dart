@@ -12,6 +12,7 @@ import 'package:vyaparsetu/components/appButton.dart';
 import 'package:vyaparsetu/screens/items/form.dart';
 import 'package:vyaparsetu/screens/parties/form.dart';
 import 'package:vyaparsetu/helpers/validators.dart';
+import 'package:vyaparsetu/helpers/datePicker.dart';
 import 'package:vyaparsetu/helpers/formatters.dart';
 import 'package:vyaparsetu/helpers/toastNotifications.dart';
 import 'package:vyaparsetu/global/themes.dart';
@@ -620,25 +621,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       default:
         initialDate = DateTime.now();
     }
-    final picked = await showDatePicker(
+    final picked = await pickAppDate(
       context: context,
       initialDate: initialDate,
-      firstDate: DateTime(2025),
-      lastDate: DateTime(2030),
-      builder: (context, child) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        if (!isDark) return child!;
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.dark(
-              primary: Colors.white,
-              onPrimary: AppTheme.primaryDark,
-            ),
-            dialogTheme: DialogThemeData(backgroundColor: AppTheme.surfaceDark),
-          ),
-          child: child!,
-        );
-      },
     );
 
     if (picked != null) {
@@ -718,9 +703,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       'total_amount': _totalAmount,
       'payment_status': status.value,
       'payment_mode': _paymentMode.value,
-      'notes': _notesController.text.trim().isEmpty
-          ? '[bill_type:${_billType.value}]'
-          : '[bill_type:${_billType.value}] ${_notesController.text.trim()}',
+      // bill_type is its own column now. It used to be prefixed onto notes,
+      // which meant a customer typing "[bill_type:normal]" into their notes
+      // silently turned a GST invoice into a plain one.
+      'bill_type': _billType.value,
+      'notes': _notesController.text.trim(),
       'items': _lineItems.map((e) => e.toJson()).toList(),
       if (_billingAddress != null && _billingAddress!.isNotEmpty)
         'billing_address': _billingAddress,
@@ -1526,7 +1513,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                       const SizedBox(height: 12),
                       Text(
                         party != null
-                            ? 'no_saved_addresses'.tr(args: [type])
+                            ? 'no_saved_addresses'.tr(namedArgs: {'type': type})
                             : 'select_party_or_custom'.tr(),
                         style: GoogleFonts.outfit(
                           fontSize: 13,

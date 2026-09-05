@@ -32,6 +32,7 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _gstinController = TextEditingController();
+  final _stateController = TextEditingController();
   final List<TextEditingController> _billingAddressControllers = [];
   final List<TextEditingController> _shippingAddressControllers = [];
   final _openingBalanceController = TextEditingController();
@@ -66,6 +67,7 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
     _phoneController.text = p.phone ?? '';
     _emailController.text = p.email ?? '';
     _gstinController.text = p.gstin ?? '';
+    _stateController.text = p.state ?? '';
     
     _billingAddressControllers.clear();
     for (final addr in p.billingAddresses) {
@@ -94,6 +96,7 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
     _phoneController.dispose();
     _emailController.dispose();
     _gstinController.dispose();
+    _stateController.dispose();
     for (final c in _billingAddressControllers) {
       c.dispose();
     }
@@ -128,6 +131,7 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
       'phone': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
       'email': _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
       'gstin': _gstinController.text.trim().isEmpty ? null : _gstinController.text.trim().toUpperCase(),
+      'state': _stateController.text.trim().isEmpty ? null : _stateController.text.trim(),
       'billing_address': billingAddressesList.isEmpty ? null : jsonEncode(billingAddressesList),
       'shipping_address': shippingAddressesList.isEmpty ? null : jsonEncode(shippingAddressesList),
       'party_type': _partyType.value,
@@ -219,6 +223,14 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
                   labelText: 'gstin'.tr(),
                   hintText: 'gstin_hint'.tr(),
                   validator: Validators.validateGSTIN,
+                ),
+                const SizedBox(height: 16),
+
+                // State - decides CGST+SGST vs IGST on GST invoices.
+                AppTextField(
+                  controller: _stateController,
+                  labelText: 'state'.tr(),
+                  hintText: 'state_hint'.tr(),
                 ),
                 const SizedBox(height: 16),
 

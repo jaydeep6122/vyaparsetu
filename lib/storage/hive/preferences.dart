@@ -55,14 +55,15 @@ class PreferencesBox {
     return box.get(prevVersionKey) ?? '';
   }
 
-  static Future<void> setAppMode(String mode) async {
+  /// Removes the app-mode preference left behind by the factory module.
+  ///
+  /// The app is business-only now, so a stale "factory" value would otherwise
+  /// sit in the box forever. Called once on startup.
+  static Future<void> clearAppMode() async {
     final box = Hive.box(boxName);
-    await box.put(appModeKey, mode);
-  }
-
-  static String getAppMode() {
-    final box = Hive.box(boxName);
-    return box.get(appModeKey) ?? 'business';
+    if (box.containsKey(appModeKey)) {
+      await box.delete(appModeKey);
+    }
   }
 
   static Future<void> setInvoiceDesign(String design) async {

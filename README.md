@@ -1,18 +1,17 @@
 # VyaparSetu
 
-VyaparSetu is a modern, cross-platform Flutter application designed to simplify business invoicing, party management, expenses, and inventory tracking for small to medium enterprises. Built with performance and local-first capabilities in mind, it provides a user-friendly interface to manage business operations seamlessly.
+VyaparSetu is a cross-platform Flutter application that simplifies GST invoicing, party ledgers and expense tracking for small and medium Indian businesses.
 
 ---
 
 ## 🚀 Key Features
 
-- **Invoicing & Billing**: Generate, preview, share, and print invoices as PDF documents. Includes a custom invoice wizard.
-- **Voice-Activated Invoicing**: Intelligent speech-to-text integration to create invoices on-the-go via the Voice Invoice Wizard.
-- **Inventory/Item Management**: Efficiently track stock levels, item pricing, and categories.
+- **Invoicing & Billing**: Generate, preview, share, and print invoices as PDF documents across five designs (three GST, two non-GST), with correct CGST/SGST vs IGST treatment based on place of supply.
+- **Item Catalogue**: Maintain items with HSN codes and measuring units for reuse across invoices.
 - **Party Ledger**: Manage transactions and balances for buyers and suppliers.
 - **Expense Tracker**: Log and categorize daily business expenses.
 - **Multi-Language Support (Localization)**: Full localization in English, Hindi (हिंदी), and Gujarati (ગુજરાતી) using `easy_localization`.
-- **Offline-First & Local Storage**: Utilizes `Hive` for fast, lightweight local database storage.
+- **Local Storage**: Uses `Hive` to cache your profile, businesses and dashboard summaries for fast startup. Note that the app requires a network connection - invoices, parties, items, payments and expenses are fetched on demand.
 - **Secure Storage**: Sensitive user credentials are stored using `flutter_secure_storage`.
 - **Modern UI/UX**: Seamless light and dark mode toggling with a premium user experience.
 
@@ -41,8 +40,7 @@ lib/
 ├── core/           # Core configurations and central application controller
 ├── extensions/     # Dart/Flutter extension methods
 ├── global/         # Constants, theme definitions, and global styling variables
-├── helpers/        # Helper utilities, navigation handlers, and formatters
-├── routes/         # Application routing structure
+├── helpers/        # Helper utilities, navigation, formatters, GST rules
 ├── screens/        # Feature screens (Auth, Invoices, Items, Parties, Payments, Settings, etc.)
 ├── services/       # Core app services
 ├── storage/        # Hive initialization and database access boxes

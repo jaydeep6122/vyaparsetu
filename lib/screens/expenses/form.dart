@@ -7,6 +7,7 @@ import 'package:vyaparsetu/global/constants.dart';
 import 'package:vyaparsetu/components/appTextField.dart';
 import 'package:vyaparsetu/components/appButton.dart';
 import 'package:vyaparsetu/helpers/validators.dart';
+import 'package:vyaparsetu/helpers/datePicker.dart';
 import 'package:vyaparsetu/helpers/formatters.dart';
 import 'package:vyaparsetu/helpers/toastNotifications.dart';
 import 'package:vyaparsetu/core/Core.dart';
@@ -87,11 +88,9 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
   }
 
   Future<void> _selectDate(BuildContext context) async {
-    final picked = await showDatePicker(
+    final picked = await pickAppDate(
       context: context,
       initialDate: _expenseDate,
-      firstDate: DateTime(2025),
-      lastDate: DateTime(2030),
     );
 
     if (picked != null) {

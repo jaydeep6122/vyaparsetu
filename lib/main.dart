@@ -5,6 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:vyaparsetu/global/constants.dart';
 import 'package:vyaparsetu/global/themes.dart';
 import 'package:vyaparsetu/screens/auth/login.dart';
+import 'package:vyaparsetu/helpers/crashReporting.dart';
 import 'package:vyaparsetu/helpers/navigation.dart';
 import 'package:vyaparsetu/screens/splash/splash.dart';
 import 'package:vyaparsetu/storage/hive.dart';
@@ -12,30 +13,36 @@ import 'package:vyaparsetu/api/dio.dart';
 import 'package:vyaparsetu/api/api.dart';
 import 'package:vyaparsetu/core/Core.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+void main() {
+  // Everything runs inside the guarded zone so startup failures are reported
+  // too, not just errors raised once the app is running.
+  CrashReporting.runGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  await Hive.initFlutter();
-  await openAllBoxes();
-  await EasyLocalization.ensureInitialized();
+    await Hive.initFlutter();
+    await openAllBoxes();
+    await EasyLocalization.ensureInitialized();
 
-  final dioInstance = await DioInstance.init(baseURL: AppConstants.apiBaseUrl);
-  Api.initialize(dioInstance.dio);
+    final dioInstance = await DioInstance.init(
+      baseURL: AppConstants.apiBaseUrl,
+    );
+    Api.initialize(dioInstance.dio);
 
-  final core = Core();
-  core.settings.load();
+    final core = Core();
+    core.settings.load();
 
-  runApp(
-    EasyLocalization(
-      supportedLocales: const [Locale('en'), Locale('hi'), Locale('gu')],
-      path: 'assets/translations',
-      fallbackLocale: const Locale('en'),
-      child: ChangeNotifierProvider.value(
-        value: core,
-        child: const VyaparSetuApp(),
+    runApp(
+      EasyLocalization(
+        supportedLocales: const [Locale('en'), Locale('hi'), Locale('gu')],
+        path: 'assets/translations',
+        fallbackLocale: const Locale('en'),
+        child: ChangeNotifierProvider.value(
+          value: core,
+          child: const VyaparSetuApp(),
+        ),
       ),
-    ),
-  );
+    );
+  });
 }
 
 class VyaparSetuApp extends StatefulWidget {
