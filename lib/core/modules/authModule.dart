@@ -152,7 +152,6 @@ class AuthModule {
       _user = null;
 
       // Clear all in-memory module state
-      core.factory.clearAll();
       core.business.clearAll();
       core.party.clearAll();
       core.item.clearAll();
@@ -172,7 +171,6 @@ class AuthModule {
 
   void handleSessionExpired() {
     _user = null;
-    core.factory.clearAll();
     core.business.clearAll();
     core.party.clearAll();
     core.item.clearAll();

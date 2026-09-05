@@ -6,7 +6,6 @@ import 'package:vyaparsetu/api/modules/item.dart';
 import 'package:vyaparsetu/api/modules/invoice.dart';
 import 'package:vyaparsetu/api/modules/payment.dart';
 import 'package:vyaparsetu/api/modules/expense.dart';
-import 'package:vyaparsetu/api/modules/factoryApi.dart';
 import 'package:vyaparsetu/api/modules/dashboard.dart';
 import 'package:vyaparsetu/api/modules/appConfig.dart';
 
@@ -22,7 +21,6 @@ class Api {
   late final PaymentApi payment;
   late final ExpenseApi expense;
   late final DashboardApi dashboard;
-  late final FactoryApi factory;
   late final AppConfigApi appConfig;
 
   Api._internal(Dio dio) {
@@ -34,7 +32,6 @@ class Api {
     payment = PaymentApi(dio);
     expense = ExpenseApi(dio);
     dashboard = DashboardApi(dio);
-    factory = FactoryApi(dio);
     appConfig = AppConfigApi(dio);
   }
 

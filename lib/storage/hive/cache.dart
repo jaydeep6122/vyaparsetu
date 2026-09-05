@@ -63,44 +63,21 @@ class CacheBox {
     return box.get(selectedBusinessIdKey);
   }
 
-  static Future<void> setSelectedFactoryId(String? factoryId) async {
+  /// Removes cache entries left behind by the factory module.
+  ///
+  /// Existing installs still hold these keys, and nothing reads them any more,
+  /// so purge them once on startup rather than leaving stale data on disk.
+  static Future<void> purgeFactoryCache() async {
     final box = Hive.box(boxName);
-    if (factoryId == null) {
-      await box.delete(selectedFactoryIdKey);
-    } else {
-      await box.put(selectedFactoryIdKey, factoryId);
+    for (final key in const [
+      selectedFactoryIdKey,
+      'cachedFactories',
+      'cachedSummaries',
+    ]) {
+      if (box.containsKey(key)) {
+        await box.delete(key);
+      }
     }
-  }
-
-  static String? getSelectedFactoryId() {
-    final box = Hive.box(boxName);
-    return box.get(selectedFactoryIdKey);
-  }
-
-  // --- Persistent Factory Caching ---
-  static const String cachedFactoriesKey = 'cachedFactories';
-  static const String cachedSummariesKey = 'cachedSummaries';
-
-  static Future<void> setCachedFactories(List<Map<String, dynamic>> list) async {
-    final box = Hive.box(boxName);
-    await box.put(cachedFactoriesKey, list);
-  }
-
-  static List<Map<String, dynamic>> getCachedFactories() {
-    final box = Hive.box(boxName);
-    final list = box.get(cachedFactoriesKey) ?? [];
-    return (list as List).map((e) => Map<String, dynamic>.from(e)).toList();
-  }
-
-  static Future<void> setCachedSummaries(Map<String, dynamic> summaries) async {
-    final box = Hive.box(boxName);
-    await box.put(cachedSummariesKey, summaries);
-  }
-
-  static Map<String, dynamic> getCachedSummaries() {
-    final box = Hive.box(boxName);
-    final data = box.get(cachedSummariesKey) ?? {};
-    return Map<String, dynamic>.from(data);
   }
 
   // --- Persistent Business Dashboard Caching ---

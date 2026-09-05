@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:vyaparsetu/storage/hive/cache.dart';
 import 'package:vyaparsetu/storage/hive/preferences.dart';
 import 'package:vyaparsetu/core/Core.dart';
-
-enum AppMode { business, factory }
 
 class SettingsModule {
   final Core core;
@@ -16,13 +15,13 @@ class SettingsModule {
   Locale _locale = const Locale('en');
   Locale get locale => _locale;
 
-  AppMode _appMode = AppMode.business;
-  AppMode get appMode => _appMode;
-
   void load() {
     _loadTheme();
     _loadLocale();
-    _loadAppMode();
+    // The factory module has been removed. Drop anything it persisted so a
+    // stale app mode or cached factory data cannot linger in a user's boxes.
+    PreferencesBox.clearAppMode();
+    CacheBox.purgeFactoryCache();
   }
 
   void _loadTheme() {
@@ -34,22 +33,6 @@ class SettingsModule {
   void _loadLocale() {
     final code = PreferencesBox.getLocaleCode();
     _locale = Locale(code);
-    core.notify();
-  }
-
-  void _loadAppMode() {
-    final mode = PreferencesBox.getAppMode();
-    _appMode = mode == 'factory' ? AppMode.factory : AppMode.business;
-  }
-
-  Future<void> switchAppMode() async {
-    if (_appMode == AppMode.business) {
-      _appMode = AppMode.factory;
-      await PreferencesBox.setAppMode('factory');
-    } else {
-      _appMode = AppMode.business;
-      await PreferencesBox.setAppMode('business');
-    }
     core.notify();
   }
 
