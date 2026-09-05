@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:vyaparsetu/helpers/datePicker.dart';
 import 'package:vyaparsetu/types/payment.dart';
 import 'package:vyaparsetu/components/loadingIndicator.dart';
 import 'package:vyaparsetu/components/emptyState.dart';
@@ -149,11 +150,9 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
   }
 
   Future<void> _pickDate(bool isFrom) async {
-    final picked = await showDatePicker(
+    final picked = await pickAppDate(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
     );
     if (picked != null) {
       setState(() {

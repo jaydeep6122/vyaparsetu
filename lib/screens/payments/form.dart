@@ -11,6 +11,7 @@ import 'package:vyaparsetu/components/appTextField.dart';
 import 'package:vyaparsetu/components/appButton.dart';
 import 'package:vyaparsetu/components/confirmationDialog.dart';
 import 'package:vyaparsetu/helpers/validators.dart';
+import 'package:vyaparsetu/helpers/datePicker.dart';
 import 'package:vyaparsetu/helpers/formatters.dart';
 import 'package:vyaparsetu/helpers/toastNotifications.dart';
 import 'package:vyaparsetu/core/Core.dart';
@@ -196,11 +197,9 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
   }
 
   Future<void> _selectDate() async {
-    final picked = await showDatePicker(
+    final picked = await pickAppDate(
       context: context,
       initialDate: _paymentDate,
-      firstDate: DateTime(2025),
-      lastDate: DateTime(2030),
     );
     if (picked != null) {
       setState(() => _paymentDate = picked);

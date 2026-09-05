@@ -11,6 +11,7 @@ import 'package:vyaparsetu/types/business.dart';
 import 'package:vyaparsetu/types/party.dart';
 import 'package:vyaparsetu/types/item.dart';
 import 'package:vyaparsetu/global/constants.dart';
+import 'package:vyaparsetu/helpers/crashReporting.dart';
 import 'package:vyaparsetu/helpers/formatters.dart';
 
 class InvoicePdfService {
@@ -23,6 +24,25 @@ class InvoicePdfService {
     ..maximumFractionDigits = 2;
 
   static String _formatPlain(double amount) => _plainFormat.format(amount);
+
+  /// Decodes a base64 logo/signature into an embeddable image.
+  ///
+  /// Returns null when there is nothing to decode or the data is unreadable.
+  /// A corrupt image should never abort the whole document — but it must not
+  /// vanish silently either, which is what the empty `catch {}` blocks that
+  /// used to be inlined at every call site did. Failures are now reported.
+  static pw.MemoryImage? _decodeEmbeddedImage(String? source, String label) {
+    if (source == null || source.isEmpty) return null;
+    try {
+      final base64Str = source.startsWith('data:image')
+          ? source.split(',')[1]
+          : source;
+      return pw.MemoryImage(base64Decode(base64Str));
+    } catch (e, stack) {
+      CrashReporting.report(e, stack, context: 'InvoicePdfService.$label');
+      return null;
+    }
+  }
 
   /// Generates a Classic-style invoice PDF (matching JayKunj Enterprise design)
   static Future<pw.Document> generateInvoicePdf({
@@ -44,32 +64,16 @@ class InvoicePdfService {
     }
 
     // Load logo if available
-    pw.MemoryImage? logoImage;
-    if (business.logoUrl != null && business.logoUrl!.isNotEmpty) {
-      try {
-        String base64Str;
-        if (business.logoUrl!.startsWith('data:image')) {
-          base64Str = business.logoUrl!.split(',')[1];
-        } else {
-          base64Str = business.logoUrl!;
-        }
-        logoImage = pw.MemoryImage(base64Decode(base64Str));
-      } catch (e) {}
-    }
+    final pw.MemoryImage? logoImage = _decodeEmbeddedImage(
+      business.logoUrl,
+      'logo',
+    );
 
     // Load signature if available
-    pw.MemoryImage? signatureImage;
-    if (business.signatureUrl != null && business.signatureUrl!.isNotEmpty) {
-      try {
-        String base64Str;
-        if (business.signatureUrl!.startsWith('data:image')) {
-          base64Str = business.signatureUrl!.split(',')[1];
-        } else {
-          base64Str = business.signatureUrl!;
-        }
-        signatureImage = pw.MemoryImage(base64Decode(base64Str));
-      } catch (e) {}
-    }
+    final pw.MemoryImage? signatureImage = _decodeEmbeddedImage(
+      business.signatureUrl,
+      'signature',
+    );
 
     final hasGst = business.gstin != null && business.gstin!.isNotEmpty;
     final customerName = party?.name ?? invoice.partyName ?? 'Walk-in Customer';
@@ -1035,31 +1039,15 @@ class InvoicePdfService {
       }
     }
 
-    pw.MemoryImage? logoImage;
-    if (business.logoUrl != null && business.logoUrl!.isNotEmpty) {
-      try {
-        String base64Str;
-        if (business.logoUrl!.startsWith('data:image')) {
-          base64Str = business.logoUrl!.split(',')[1];
-        } else {
-          base64Str = business.logoUrl!;
-        }
-        logoImage = pw.MemoryImage(base64Decode(base64Str));
-      } catch (e) {}
-    }
+    final pw.MemoryImage? logoImage = _decodeEmbeddedImage(
+      business.logoUrl,
+      'logo',
+    );
 
-    pw.MemoryImage? signatureImage;
-    if (business.signatureUrl != null && business.signatureUrl!.isNotEmpty) {
-      try {
-        String base64Str;
-        if (business.signatureUrl!.startsWith('data:image')) {
-          base64Str = business.signatureUrl!.split(',')[1];
-        } else {
-          base64Str = business.signatureUrl!;
-        }
-        signatureImage = pw.MemoryImage(base64Decode(base64Str));
-      } catch (e) {}
-    }
+    final pw.MemoryImage? signatureImage = _decodeEmbeddedImage(
+      business.signatureUrl,
+      'signature',
+    );
 
     final customerName = party?.name ?? invoice.partyName ?? 'Walk-in Customer';
     final customerAddress =
@@ -1754,31 +1742,15 @@ class InvoicePdfService {
       }
     }
 
-    pw.MemoryImage? logoImage;
-    if (business.logoUrl != null && business.logoUrl!.isNotEmpty) {
-      try {
-        String base64Str;
-        if (business.logoUrl!.startsWith('data:image')) {
-          base64Str = business.logoUrl!.split(',')[1];
-        } else {
-          base64Str = business.logoUrl!;
-        }
-        logoImage = pw.MemoryImage(base64Decode(base64Str));
-      } catch (e) {}
-    }
+    final pw.MemoryImage? logoImage = _decodeEmbeddedImage(
+      business.logoUrl,
+      'logo',
+    );
 
-    pw.MemoryImage? signatureImage;
-    if (business.signatureUrl != null && business.signatureUrl!.isNotEmpty) {
-      try {
-        String base64Str;
-        if (business.signatureUrl!.startsWith('data:image')) {
-          base64Str = business.signatureUrl!.split(',')[1];
-        } else {
-          base64Str = business.signatureUrl!;
-        }
-        signatureImage = pw.MemoryImage(base64Decode(base64Str));
-      } catch (e) {}
-    }
+    final pw.MemoryImage? signatureImage = _decodeEmbeddedImage(
+      business.signatureUrl,
+      'signature',
+    );
 
     final customerName = party?.name ?? invoice.partyName ?? 'Walk-in Customer';
     final customerAddress =
@@ -2526,31 +2498,15 @@ class InvoicePdfService {
       }
     }
 
-    pw.MemoryImage? logoImage;
-    if (business.logoUrl != null && business.logoUrl!.isNotEmpty) {
-      try {
-        String base64Str;
-        if (business.logoUrl!.startsWith('data:image')) {
-          base64Str = business.logoUrl!.split(',')[1];
-        } else {
-          base64Str = business.logoUrl!;
-        }
-        logoImage = pw.MemoryImage(base64Decode(base64Str));
-      } catch (e) {}
-    }
+    final pw.MemoryImage? logoImage = _decodeEmbeddedImage(
+      business.logoUrl,
+      'logo',
+    );
 
-    pw.MemoryImage? signatureImage;
-    if (business.signatureUrl != null && business.signatureUrl!.isNotEmpty) {
-      try {
-        String base64Str;
-        if (business.signatureUrl!.startsWith('data:image')) {
-          base64Str = business.signatureUrl!.split(',')[1];
-        } else {
-          base64Str = business.signatureUrl!;
-        }
-        signatureImage = pw.MemoryImage(base64Decode(base64Str));
-      } catch (e) {}
-    }
+    final pw.MemoryImage? signatureImage = _decodeEmbeddedImage(
+      business.signatureUrl,
+      'signature',
+    );
 
     final customerName = party?.name ?? invoice.partyName ?? 'Walk-in Customer';
     final customerAddress =
@@ -3091,7 +3047,7 @@ class InvoicePdfService {
                         ),
                         decoration: const pw.BoxDecoration(
                           color: primaryColor,
-                          borderRadius: const pw.BorderRadius.only(
+                          borderRadius: pw.BorderRadius.only(
                             bottomLeft: pw.Radius.circular(4),
                             bottomRight: pw.Radius.circular(4),
                           ),
@@ -3257,31 +3213,15 @@ class InvoicePdfService {
       }
     }
 
-    pw.MemoryImage? logoImage;
-    if (business.logoUrl != null && business.logoUrl!.isNotEmpty) {
-      try {
-        String base64Str;
-        if (business.logoUrl!.startsWith('data:image')) {
-          base64Str = business.logoUrl!.split(',')[1];
-        } else {
-          base64Str = business.logoUrl!;
-        }
-        logoImage = pw.MemoryImage(base64Decode(base64Str));
-      } catch (e) {}
-    }
+    final pw.MemoryImage? logoImage = _decodeEmbeddedImage(
+      business.logoUrl,
+      'logo',
+    );
 
-    pw.MemoryImage? signatureImage;
-    if (business.signatureUrl != null && business.signatureUrl!.isNotEmpty) {
-      try {
-        String base64Str;
-        if (business.signatureUrl!.startsWith('data:image')) {
-          base64Str = business.signatureUrl!.split(',')[1];
-        } else {
-          base64Str = business.signatureUrl!;
-        }
-        signatureImage = pw.MemoryImage(base64Decode(base64Str));
-      } catch (e) {}
-    }
+    final pw.MemoryImage? signatureImage = _decodeEmbeddedImage(
+      business.signatureUrl,
+      'signature',
+    );
 
     final customerName = party?.name ?? invoice.partyName ?? 'Walk-in Customer';
     final customerAddress =

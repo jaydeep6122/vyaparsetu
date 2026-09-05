@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:vyaparsetu/global/themes.dart';
 import 'package:vyaparsetu/helpers/toastNotifications.dart';
+import 'package:vyaparsetu/helpers/datePicker.dart';
 import 'package:vyaparsetu/helpers/formatters.dart';
 import 'package:vyaparsetu/types/party.dart';
 import 'package:vyaparsetu/global/constants.dart';
@@ -127,11 +128,9 @@ class _ReportCenterScreenState extends State<ReportCenterScreen> {
 
   Future<void> _pickDateRange() async {
     final now = DateTime.now();
-    final picked = await showDateRangePicker(
+    final picked = await pickAppDateRange(
       context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(now.year + 1),
-      initialDateRange:
+      initialRange:
           _selectedDateRange ?? DateTimeRange(start: now, end: now),
     );
     if (picked != null) {

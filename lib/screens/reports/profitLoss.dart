@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:vyaparsetu/components/loadingIndicator.dart';
 import 'package:vyaparsetu/components/errorWidget.dart';
+import 'package:vyaparsetu/helpers/datePicker.dart';
 import 'package:vyaparsetu/helpers/formatters.dart';
 import 'package:vyaparsetu/global/themes.dart';
 import 'package:vyaparsetu/types/profitLoss.dart';
@@ -54,11 +55,9 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> {
   }
 
   Future<void> _selectDateRange() async {
-    final picked = await showDateRangePicker(
+    final picked = await pickAppDateRange(
       context: context,
-      firstDate: DateTime(2025),
-      lastDate: DateTime(2030),
-      initialDateRange: _fromDate != null && _toDate != null
+      initialRange: _fromDate != null && _toDate != null
           ? DateTimeRange(start: _fromDate!, end: _toDate!)
           : null,
     );

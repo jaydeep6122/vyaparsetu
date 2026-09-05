@@ -12,6 +12,7 @@ import 'package:vyaparsetu/components/appButton.dart';
 import 'package:vyaparsetu/screens/items/form.dart';
 import 'package:vyaparsetu/screens/parties/form.dart';
 import 'package:vyaparsetu/helpers/validators.dart';
+import 'package:vyaparsetu/helpers/datePicker.dart';
 import 'package:vyaparsetu/helpers/formatters.dart';
 import 'package:vyaparsetu/helpers/toastNotifications.dart';
 import 'package:vyaparsetu/global/themes.dart';
@@ -620,25 +621,9 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       default:
         initialDate = DateTime.now();
     }
-    final picked = await showDatePicker(
+    final picked = await pickAppDate(
       context: context,
       initialDate: initialDate,
-      firstDate: DateTime(2025),
-      lastDate: DateTime(2030),
-      builder: (context, child) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        if (!isDark) return child!;
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.dark(
-              primary: Colors.white,
-              onPrimary: AppTheme.primaryDark,
-            ),
-            dialogTheme: DialogThemeData(backgroundColor: AppTheme.surfaceDark),
-          ),
-          child: child!,
-        );
-      },
     );
 
     if (picked != null) {
