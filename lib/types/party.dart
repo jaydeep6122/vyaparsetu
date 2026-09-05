@@ -8,6 +8,12 @@ class Party {
   final String? phone;
   final String? email;
   final String? gstin;
+
+  /// Party's state, used to decide CGST+SGST vs IGST on GST invoices.
+  ///
+  /// Nullable because parties created before this field existed have no
+  /// value; those keep the previous intra-state treatment.
+  final String? state;
   final String? billingAddress;
   final String? shippingAddress;
   final PartyType partyType;
@@ -24,6 +30,7 @@ class Party {
     this.phone,
     this.email,
     this.gstin,
+    this.state,
     this.billingAddress,
     this.shippingAddress,
     required this.partyType,
@@ -42,6 +49,7 @@ class Party {
       phone: json['phone'] as String?,
       email: json['email'] as String?,
       gstin: json['gstin'] as String?,
+      state: json['state'] as String?,
       billingAddress: json['billing_address'] as String?,
       shippingAddress: json['shipping_address'] as String?,
       partyType: PartyType.fromString(json['party_type'] as String? ?? 'customer'),
@@ -65,6 +73,7 @@ class Party {
       'phone': phone,
       'email': email,
       'gstin': gstin,
+      'state': state,
       'billing_address': billingAddress,
       'shipping_address': shippingAddress,
       'party_type': partyType.value,
@@ -83,6 +92,7 @@ class Party {
     String? phone,
     String? email,
     String? gstin,
+    String? state,
     String? billingAddress,
     String? shippingAddress,
     PartyType? partyType,
@@ -99,6 +109,7 @@ class Party {
       phone: phone ?? this.phone,
       email: email ?? this.email,
       gstin: gstin ?? this.gstin,
+      state: state ?? this.state,
       billingAddress: billingAddress ?? this.billingAddress,
       shippingAddress: shippingAddress ?? this.shippingAddress,
       partyType: partyType ?? this.partyType,

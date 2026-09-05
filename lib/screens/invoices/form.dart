@@ -703,9 +703,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       'total_amount': _totalAmount,
       'payment_status': status.value,
       'payment_mode': _paymentMode.value,
-      'notes': _notesController.text.trim().isEmpty
-          ? '[bill_type:${_billType.value}]'
-          : '[bill_type:${_billType.value}] ${_notesController.text.trim()}',
+      // bill_type is its own column now. It used to be prefixed onto notes,
+      // which meant a customer typing "[bill_type:normal]" into their notes
+      // silently turned a GST invoice into a plain one.
+      'bill_type': _billType.value,
+      'notes': _notesController.text.trim(),
       'items': _lineItems.map((e) => e.toJson()).toList(),
       if (_billingAddress != null && _billingAddress!.isNotEmpty)
         'billing_address': _billingAddress,

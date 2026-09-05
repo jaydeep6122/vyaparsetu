@@ -12,6 +12,7 @@ import 'package:vyaparsetu/types/party.dart';
 import 'package:vyaparsetu/types/item.dart';
 import 'package:vyaparsetu/global/constants.dart';
 import 'package:vyaparsetu/helpers/crashReporting.dart';
+import 'package:vyaparsetu/helpers/gst.dart';
 import 'package:vyaparsetu/helpers/formatters.dart';
 
 class InvoicePdfService {
@@ -91,15 +92,28 @@ class InvoicePdfService {
             : customerAddress);
     final shippingGstin = party?.gstin;
 
-    // Compute effective GST rate
-    double effectiveGstRate = 0;
-    if (invoice.subTotal > 0 && invoice.taxAmount > 0) {
-      effectiveGstRate = (invoice.taxAmount / invoice.subTotal) * 100;
-    }
-    final cgstRate = effectiveGstRate / 2;
-    final sgstRate = effectiveGstRate / 2;
-    final totalCgst = invoice.taxAmount / 2;
-    final totalSgst = invoice.taxAmount / 2;
+    // Place of supply follows the buyer, not the seller. When it lands in a
+    // different state the tax is a single IGST line, not CGST + SGST.
+    final sellerStateCode = resolveStateCode(
+      gstin: business.gstin,
+      stateName: business.state,
+    );
+    final buyerStateCode = resolveStateCode(
+      gstin: party?.gstin,
+      stateName: party?.state,
+    );
+    final isInterState = isInterStateSupply(
+      sellerCode: sellerStateCode,
+      buyerCode: buyerStateCode,
+    );
+    final placeOfSupply =
+        stateNameFromCode(buyerStateCode) ?? party?.state ?? business.state;
+
+    final gst = GstSplit.amounts(
+      isInterState: isInterState,
+      subTotal: invoice.subTotal,
+      taxAmount: invoice.taxAmount,
+    );
 
     pdf.addPage(
       pw.MultiPage(
@@ -123,7 +137,7 @@ class InvoicePdfService {
             _buildInvoiceHeader(
               invoiceNumber: invoice.invoiceNumber,
               invoiceDate: invoice.invoiceDate,
-              placeOfSupply: business.state,
+              placeOfSupply: placeOfSupply,
               font: font,
               boldFont: boldFont,
             ),
@@ -142,10 +156,7 @@ class InvoicePdfService {
               itemMap: itemMap,
               font: font,
               boldFont: boldFont,
-              cgstRate: cgstRate,
-              sgstRate: sgstRate,
-              totalCgst: totalCgst,
-              totalSgst: totalSgst,
+              gst: gst,
             ),
             _buildFooter(
               invoice: invoice,
@@ -153,10 +164,7 @@ class InvoicePdfService {
               font: font,
               boldFont: boldFont,
               signatureImage: signatureImage,
-              cgstRate: cgstRate,
-              sgstRate: sgstRate,
-              totalCgst: totalCgst,
-              totalSgst: totalSgst,
+              gst: gst,
             ),
           ];
         },
@@ -450,10 +458,7 @@ class InvoicePdfService {
     required Map<String, Item> itemMap,
     required pw.Font font,
     required pw.Font boldFont,
-    required double cgstRate,
-    required double sgstRate,
-    required double totalCgst,
-    required double totalSgst,
+    required GstSplit gst,
   }) {
     return pw.Table(
       defaultVerticalAlignment: pw.TableCellVerticalAlignment.full,
@@ -472,9 +477,16 @@ class InvoicePdfService {
         5: const pw.FixedColumnWidth(34),
         6: const pw.FixedColumnWidth(43),
         7: const pw.FixedColumnWidth(34),
-        8: const pw.FixedColumnWidth(63),
-        9: const pw.FixedColumnWidth(63),
-        10: const pw.FixedColumnWidth(77),
+        // Inter-state prints one IGST column in place of CGST + SGST, so it
+        // takes their combined width and everything after it shifts left one.
+        if (gst.isInterState) ...{
+          8: const pw.FixedColumnWidth(126),
+          9: const pw.FixedColumnWidth(77),
+        } else ...{
+          8: const pw.FixedColumnWidth(63),
+          9: const pw.FixedColumnWidth(63),
+          10: const pw.FixedColumnWidth(77),
+        },
       },
       children: [
         pw.TableRow(
@@ -505,8 +517,12 @@ class InvoicePdfService {
             _cell('Unit', boldFont, fontSize: 9, align: pw.TextAlign.center),
             _cell('Qty', boldFont, fontSize: 9, align: pw.TextAlign.center),
             _cell('Rate', boldFont, fontSize: 9, align: pw.TextAlign.center),
-            _nestedGstHeader('CGST', boldFont),
-            _nestedGstHeader('SGST', boldFont),
+            if (gst.isInterState)
+              _nestedGstHeader('IGST', boldFont)
+            else ...[
+              _nestedGstHeader('CGST', boldFont),
+              _nestedGstHeader('SGST', boldFont),
+            ],
             _cell('Amount', boldFont, fontSize: 9, align: pw.TextAlign.center),
           ],
         ),
@@ -520,10 +536,13 @@ class InvoicePdfService {
             final hsn = item.hsnCode ?? catalogItem?.hsnCode ?? '';
             final unit = catalogItem?.measuringUnit ?? '';
             final lineAmount = item.quantity * item.unitPrice;
-            final itemCgstRate = item.taxRate / 2;
-            final itemSgstRate = item.taxRate / 2;
-            final itemCgstAmt = lineAmount * (itemCgstRate / 100);
-            final itemSgstAmt = lineAmount * (itemSgstRate / 100);
+            final lineGst = GstSplit.ofRate(
+              isInterState: gst.isInterState,
+              rate: item.taxRate,
+            );
+            final itemCgstAmt = lineAmount * (lineGst.cgstRate / 100);
+            final itemSgstAmt = lineAmount * (lineGst.sgstRate / 100);
+            final itemIgstAmt = lineAmount * (lineGst.igstRate / 100);
 
             return pw.TableRow(
               children: [
@@ -560,16 +579,24 @@ class InvoicePdfService {
                   fontSize: 9,
                   align: pw.TextAlign.right,
                 ),
-                _gstDataRow(
-                  '${itemCgstRate.toStringAsFixed(1)}%',
-                  _formatPlain(itemCgstAmt),
-                  font,
-                ),
-                _gstDataRow(
-                  '${itemSgstRate.toStringAsFixed(1)}%',
-                  _formatPlain(itemSgstAmt),
-                  font,
-                ),
+                if (gst.isInterState)
+                  _gstDataRow(
+                    '${lineGst.igstRate.toStringAsFixed(1)}%',
+                    _formatPlain(itemIgstAmt),
+                    font,
+                  )
+                else ...[
+                  _gstDataRow(
+                    '${lineGst.cgstRate.toStringAsFixed(1)}%',
+                    _formatPlain(itemCgstAmt),
+                    font,
+                  ),
+                  _gstDataRow(
+                    '${lineGst.sgstRate.toStringAsFixed(1)}%',
+                    _formatPlain(itemSgstAmt),
+                    font,
+                  ),
+                ],
                 _cell(
                   _formatPlain(lineAmount),
                   font,
@@ -592,8 +619,12 @@ class InvoicePdfService {
             _cell('', font, fontSize: 9),
             _cell('', font, fontSize: 9),
             _cell('Total', boldFont, fontSize: 10, align: pw.TextAlign.center),
-            _gstDataRow('', _formatPlain(totalCgst), boldFont),
-            _gstDataRow('', _formatPlain(totalSgst), boldFont),
+            if (gst.isInterState)
+              _gstDataRow('', _formatPlain(gst.igstAmount), boldFont)
+            else ...[
+              _gstDataRow('', _formatPlain(gst.cgstAmount), boldFont),
+              _gstDataRow('', _formatPlain(gst.sgstAmount), boldFont),
+            ],
             _cell(
               _formatPlain(invoice.totalAmount),
               boldFont,
@@ -612,10 +643,7 @@ class InvoicePdfService {
     required pw.Font font,
     required pw.Font boldFont,
     pw.MemoryImage? signatureImage,
-    required double cgstRate,
-    required double sgstRate,
-    required double totalCgst,
-    required double totalSgst,
+    required GstSplit gst,
   }) {
     final amountInWords =
         '${Formatters.numberToWords(invoice.totalAmount.round())} Only';
@@ -658,8 +686,10 @@ class InvoicePdfService {
           children: [
             _cell('Companys Bank Details', boldFont, fontSize: 9),
             _summarySummaryRow(
-              'Add CGST @ ${cgstRate.toStringAsFixed(1)}%',
-              totalCgst,
+              gst.isInterState
+                  ? 'Add IGST @ ${gst.igstRate.toStringAsFixed(1)}%'
+                  : 'Add CGST @ ${gst.cgstRate.toStringAsFixed(1)}%',
+              gst.isInterState ? gst.igstAmount : gst.cgstAmount,
               boldFont,
               hasBottomBorder: false,
             ),
@@ -673,11 +703,16 @@ class InvoicePdfService {
           ),
           children: [
             _bankRowWidget('Bank Name', business.bankName ?? '', font),
+            // Inter-state has no second tax line, but the row is kept so the
+            // bank-details column beside it stays aligned.
             _summarySummaryRow(
-              'Add SGST @ ${sgstRate.toStringAsFixed(1)}%',
-              totalSgst,
+              gst.isInterState
+                  ? ''
+                  : 'Add SGST @ ${gst.sgstRate.toStringAsFixed(1)}%',
+              gst.sgstAmount,
               boldFont,
               hasBottomBorder: false,
+              showValue: !gst.isInterState,
             ),
           ],
         ),
@@ -919,6 +954,7 @@ class InvoicePdfService {
     double value,
     pw.Font font, {
     bool hasBottomBorder = true,
+    bool showValue = true,
   }) {
     return pw.Container(
       decoration: hasBottomBorder
@@ -941,7 +977,7 @@ class InvoicePdfService {
             children: [
               _cell(label, font, fontSize: 9, align: pw.TextAlign.right),
               _cell(
-                _formatPlain(value),
+                showValue ? _formatPlain(value) : '',
                 font,
                 fontSize: 9,
                 align: pw.TextAlign.right,
@@ -1043,6 +1079,30 @@ class InvoicePdfService {
       business.logoUrl,
       'logo',
     );
+
+    // Place of supply follows the buyer. A different state means one IGST
+    // line at the full rate, not CGST + SGST.
+    final gst = GstSplit.amounts(
+      isInterState: isInterStateSupply(
+        sellerCode: resolveStateCode(
+          gstin: business.gstin,
+          stateName: business.state,
+        ),
+        buyerCode: resolveStateCode(
+          gstin: party?.gstin,
+          stateName: party?.state,
+        ),
+      ),
+      subTotal: invoice.subTotal,
+      taxAmount: invoice.taxAmount,
+    );
+    final placeOfSupply =
+        stateNameFromCode(
+          resolveStateCode(gstin: party?.gstin, stateName: party?.state),
+        ) ??
+        party?.state ??
+        business.state;
+
 
     final pw.MemoryImage? signatureImage = _decodeEmbeddedImage(
       business.signatureUrl,
@@ -1322,7 +1382,7 @@ class InvoicePdfService {
                         ),
                       _rowInfo(
                         'Place of Supply:',
-                        business.state,
+                        placeOfSupply,
                         font,
                         boldFont,
                         textDark,
@@ -1350,9 +1410,16 @@ class InvoicePdfService {
                 2: const pw.FixedColumnWidth(48), // Qty
                 3: const pw.FixedColumnWidth(46), // Rate
                 4: const pw.FixedColumnWidth(36), // Disc%
-                5: const pw.FixedColumnWidth(55), // CGST
-                6: const pw.FixedColumnWidth(55), // SGST
-                7: const pw.FixedColumnWidth(65), // Amount
+                // Inter-state collapses CGST + SGST into one IGST column, so
+                // it takes their combined width and Amount shifts left one.
+                if (gst.isInterState) ...{
+                  5: const pw.FixedColumnWidth(110), // IGST
+                  6: const pw.FixedColumnWidth(65), // Amount
+                } else ...{
+                  5: const pw.FixedColumnWidth(55), // CGST
+                  6: const pw.FixedColumnWidth(55), // SGST
+                  7: const pw.FixedColumnWidth(65), // Amount
+                },
               },
               children: [
                 pw.TableRow(
@@ -1393,20 +1460,30 @@ class InvoicePdfService {
                       color: PdfColors.white,
                       align: pw.TextAlign.right,
                     ),
-                    _cell(
-                      'CGST',
-                      boldFont,
-                      fontSize: 8,
-                      color: PdfColors.white,
-                      align: pw.TextAlign.right,
-                    ),
-                    _cell(
-                      'SGST',
-                      boldFont,
-                      fontSize: 8,
-                      color: PdfColors.white,
-                      align: pw.TextAlign.right,
-                    ),
+                    if (gst.isInterState)
+                      _cell(
+                        'IGST',
+                        boldFont,
+                        fontSize: 8,
+                        color: PdfColors.white,
+                        align: pw.TextAlign.right,
+                      )
+                    else ...[
+                      _cell(
+                        'CGST',
+                        boldFont,
+                        fontSize: 8,
+                        color: PdfColors.white,
+                        align: pw.TextAlign.right,
+                      ),
+                      _cell(
+                        'SGST',
+                        boldFont,
+                        fontSize: 8,
+                        color: PdfColors.white,
+                        align: pw.TextAlign.right,
+                      ),
+                    ],
                     _cell(
                       'Amount',
                       boldFont,
@@ -1423,8 +1500,12 @@ class InvoicePdfService {
                     final catalogItem = item.itemId != null ? itemMap[item.itemId] : null;
                     final hsn = item.hsnCode ?? catalogItem?.hsnCode ?? '';
                     final lineAmount = item.quantity * item.unitPrice;
-                    final itemCgstRate = item.taxRate / 2;
-                    final itemSgstRate = item.taxRate / 2;
+                    final lineGst = GstSplit.ofRate(
+                      isInterState: gst.isInterState,
+                      rate: item.taxRate,
+                    );
+                    final itemCgstRate = lineGst.cgstRate;
+                    final itemSgstRate = lineGst.sgstRate;
                     final itemCgstAmt = lineAmount * (itemCgstRate / 100);
                     final itemSgstAmt = lineAmount * (itemSgstRate / 100);
                     final isEven = entry.key % 2 == 0;
@@ -1480,18 +1561,27 @@ class InvoicePdfService {
                           fontSize: 8,
                           align: pw.TextAlign.right,
                         ),
-                        _cell(
-                          '${itemCgstRate.toStringAsFixed(0)}%\n${_formatPlain(itemCgstAmt)}',
-                          font,
-                          fontSize: 7.5,
-                          align: pw.TextAlign.right,
-                        ),
-                        _cell(
-                          '${itemSgstRate.toStringAsFixed(0)}%\n${_formatPlain(itemSgstAmt)}',
-                          font,
-                          fontSize: 7.5,
-                          align: pw.TextAlign.right,
-                        ),
+                        if (gst.isInterState)
+                          _cell(
+                            '${lineGst.igstRate.toStringAsFixed(0)}%\n${_formatPlain(lineAmount * (lineGst.igstRate / 100))}',
+                            font,
+                            fontSize: 7.5,
+                            align: pw.TextAlign.right,
+                          )
+                        else ...[
+                          _cell(
+                            '${itemCgstRate.toStringAsFixed(0)}%\n${_formatPlain(itemCgstAmt)}',
+                            font,
+                            fontSize: 7.5,
+                            align: pw.TextAlign.right,
+                          ),
+                          _cell(
+                            '${itemSgstRate.toStringAsFixed(0)}%\n${_formatPlain(itemSgstAmt)}',
+                            font,
+                            fontSize: 7.5,
+                            align: pw.TextAlign.right,
+                          ),
+                        ],
                         _cell(
                           _formatPlain(lineAmount),
                           boldFont,
@@ -1611,19 +1701,23 @@ class InvoicePdfService {
                           PdfColor.fromInt(0xFFD32F2F),
                         ),
                       _rowInfo(
-                        'CGST Total:',
-                        _formatPlain(invoice.taxAmount / 2),
+                        gst.isInterState ? 'IGST Total:' : 'CGST Total:',
+                        _formatPlain(
+                          gst.isInterState ? gst.igstAmount : gst.cgstAmount,
+                        ),
                         font,
                         boldFont,
                         textDark,
                       ),
-                      _rowInfo(
-                        'SGST Total:',
-                        _formatPlain(invoice.taxAmount / 2),
-                        font,
-                        boldFont,
-                        textDark,
-                      ),
+                      // Inter-state has no second tax line.
+                      if (!gst.isInterState)
+                        _rowInfo(
+                          'SGST Total:',
+                          _formatPlain(gst.sgstAmount),
+                          font,
+                          boldFont,
+                          textDark,
+                        ),
                       pw.Divider(
                         color: PdfColors.grey300,
                         thickness: 0.5,
@@ -1746,6 +1840,30 @@ class InvoicePdfService {
       business.logoUrl,
       'logo',
     );
+
+    // Place of supply follows the buyer. A different state means one IGST
+    // line at the full rate, not CGST + SGST.
+    final gst = GstSplit.amounts(
+      isInterState: isInterStateSupply(
+        sellerCode: resolveStateCode(
+          gstin: business.gstin,
+          stateName: business.state,
+        ),
+        buyerCode: resolveStateCode(
+          gstin: party?.gstin,
+          stateName: party?.state,
+        ),
+      ),
+      subTotal: invoice.subTotal,
+      taxAmount: invoice.taxAmount,
+    );
+    final placeOfSupply =
+        stateNameFromCode(
+          resolveStateCode(gstin: party?.gstin, stateName: party?.state),
+        ) ??
+        party?.state ??
+        business.state;
+
 
     final pw.MemoryImage? signatureImage = _decodeEmbeddedImage(
       business.signatureUrl,
@@ -2075,7 +2193,7 @@ class InvoicePdfService {
                         ],
                         _rowInfo(
                           'Place of Supply:',
-                          business.state,
+                          placeOfSupply,
                           font,
                           boldFont,
                           textDark,
@@ -2105,9 +2223,16 @@ class InvoicePdfService {
                 3: const pw.FixedColumnWidth(48), // Qty
                 4: const pw.FixedColumnWidth(46), // Rate
                 5: const pw.FixedColumnWidth(36), // Disc
-                6: const pw.FixedColumnWidth(55), // CGST
-                7: const pw.FixedColumnWidth(55), // SGST
-                8: const pw.FixedColumnWidth(65), // Amount
+                // Inter-state collapses CGST + SGST into one IGST column, so
+                // it takes their combined width and Amount shifts left one.
+                if (gst.isInterState) ...{
+                  6: const pw.FixedColumnWidth(110), // IGST
+                  7: const pw.FixedColumnWidth(65), // Amount
+                } else ...{
+                  6: const pw.FixedColumnWidth(55), // CGST
+                  7: const pw.FixedColumnWidth(55), // SGST
+                  8: const pw.FixedColumnWidth(65), // Amount
+                },
               },
               children: [
                 pw.TableRow(
@@ -2155,20 +2280,30 @@ class InvoicePdfService {
                       color: PdfColors.white,
                       align: pw.TextAlign.right,
                     ),
-                    _cell(
-                      'CGST',
-                      boldFont,
-                      fontSize: 8,
-                      color: PdfColors.white,
-                      align: pw.TextAlign.right,
-                    ),
-                    _cell(
-                      'SGST',
-                      boldFont,
-                      fontSize: 8,
-                      color: PdfColors.white,
-                      align: pw.TextAlign.right,
-                    ),
+                    if (gst.isInterState)
+                      _cell(
+                        'IGST',
+                        boldFont,
+                        fontSize: 8,
+                        color: PdfColors.white,
+                        align: pw.TextAlign.right,
+                      )
+                    else ...[
+                      _cell(
+                        'CGST',
+                        boldFont,
+                        fontSize: 8,
+                        color: PdfColors.white,
+                        align: pw.TextAlign.right,
+                      ),
+                      _cell(
+                        'SGST',
+                        boldFont,
+                        fontSize: 8,
+                        color: PdfColors.white,
+                        align: pw.TextAlign.right,
+                      ),
+                    ],
                     _cell(
                       'Amount',
                       boldFont,
@@ -2187,8 +2322,12 @@ class InvoicePdfService {
                         : null;
                     final hsn = item.hsnCode ?? catalogItem?.hsnCode ?? '';
                     final lineAmount = item.quantity * item.unitPrice;
-                    final itemCgstRate = item.taxRate / 2;
-                    final itemSgstRate = item.taxRate / 2;
+                    final lineGst = GstSplit.ofRate(
+                      isInterState: gst.isInterState,
+                      rate: item.taxRate,
+                    );
+                    final itemCgstRate = lineGst.cgstRate;
+                    final itemSgstRate = lineGst.sgstRate;
                     final itemCgstAmt = lineAmount * (itemCgstRate / 100);
                     final itemSgstAmt = lineAmount * (itemSgstRate / 100);
                     final isEven = entry.key % 2 == 0;
@@ -2236,18 +2375,27 @@ class InvoicePdfService {
                           fontSize: 8,
                           align: pw.TextAlign.right,
                         ),
-                        _cell(
-                          '${itemCgstRate.toStringAsFixed(0)}%\n${_formatPlain(itemCgstAmt)}',
-                          font,
-                          fontSize: 7.5,
-                          align: pw.TextAlign.right,
-                        ),
-                        _cell(
-                          '${itemSgstRate.toStringAsFixed(0)}%\n${_formatPlain(itemSgstAmt)}',
-                          font,
-                          fontSize: 7.5,
-                          align: pw.TextAlign.right,
-                        ),
+                        if (gst.isInterState)
+                          _cell(
+                            '${lineGst.igstRate.toStringAsFixed(0)}%\n${_formatPlain(lineAmount * (lineGst.igstRate / 100))}',
+                            font,
+                            fontSize: 7.5,
+                            align: pw.TextAlign.right,
+                          )
+                        else ...[
+                          _cell(
+                            '${itemCgstRate.toStringAsFixed(0)}%\n${_formatPlain(itemCgstAmt)}',
+                            font,
+                            fontSize: 7.5,
+                            align: pw.TextAlign.right,
+                          ),
+                          _cell(
+                            '${itemSgstRate.toStringAsFixed(0)}%\n${_formatPlain(itemSgstAmt)}',
+                            font,
+                            fontSize: 7.5,
+                            align: pw.TextAlign.right,
+                          ),
+                        ],
                         _cell(
                           _formatPlain(lineAmount),
                           boldFont,
@@ -2367,19 +2515,23 @@ class InvoicePdfService {
                           PdfColor.fromInt(0xFFD32F2F),
                         ),
                       _rowInfo(
-                        'CGST Total:',
-                        _formatPlain(invoice.taxAmount / 2),
+                        gst.isInterState ? 'IGST Total:' : 'CGST Total:',
+                        _formatPlain(
+                          gst.isInterState ? gst.igstAmount : gst.cgstAmount,
+                        ),
                         font,
                         boldFont,
                         textDark,
                       ),
-                      _rowInfo(
-                        'SGST Total:',
-                        _formatPlain(invoice.taxAmount / 2),
-                        font,
-                        boldFont,
-                        textDark,
-                      ),
+                      // Inter-state has no second tax line.
+                      if (!gst.isInterState)
+                        _rowInfo(
+                          'SGST Total:',
+                          _formatPlain(gst.sgstAmount),
+                          font,
+                          boldFont,
+                          textDark,
+                        ),
                       pw.Divider(
                         color: PdfColors.grey300,
                         thickness: 0.5,

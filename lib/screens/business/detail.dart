@@ -9,7 +9,6 @@ import 'package:vyaparsetu/global/themes.dart';
 import 'package:vyaparsetu/helpers/navigation.dart';
 import 'package:vyaparsetu/screens/business/form.dart';
 import 'package:vyaparsetu/screens/business/list.dart';
-import 'package:vyaparsetu/types/business.dart';
 import 'package:vyaparsetu/core/Core.dart';
 
 class BusinessDetailScreen extends StatefulWidget {

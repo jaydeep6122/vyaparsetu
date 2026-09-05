@@ -9,6 +9,15 @@ class Invoice {
   final String? partyName;
   final String invoiceNumber;
   final InvoiceType invoiceType;
+
+  /// Whether this is a GST or a plain bill.
+  ///
+  /// This used to be smuggled into [notes] as a `[bill_type:...]` marker and
+  /// recovered with a string search, which meant a customer typing that text
+  /// into their own notes silently changed the invoice's tax treatment. It is
+  /// a real field now; [_billTypeFromNotes] stays only to read rows written
+  /// before the column existed.
+  final BillType billType;
   final String? chalanNo;
   final double transportCost;
   final DateTime invoiceDate;
@@ -35,6 +44,7 @@ class Invoice {
     this.partyName,
     required this.invoiceNumber,
     required this.invoiceType,
+    required this.billType,
     this.chalanNo,
     required this.transportCost,
     required this.invoiceDate,
@@ -65,6 +75,11 @@ class Invoice {
       invoiceType: InvoiceType.fromString(
         json['invoice_type'] as String? ?? 'sale',
       ),
+      // Prefer the real column; fall back to the legacy notes marker for rows
+      // written before it existed.
+      billType: json['bill_type'] != null
+          ? BillType.fromString(json['bill_type'] as String)
+          : _billTypeFromNotes(json['notes'] as String?),
       chalanNo: json['chalan_no'] as String?,
       transportCost:
           double.tryParse(json['transport_cost']?.toString() ?? '0') ?? 0.0,
@@ -128,6 +143,7 @@ class Invoice {
       if (partyName != null) 'party_name': partyName,
       'invoice_number': invoiceNumber,
       'invoice_type': invoiceType.value,
+      'bill_type': billType.value,
       'chalan_no': chalanNo,
       'transport_cost': transportCost,
       'invoice_date': invoiceDate.toUtc().toIso8601String(),
@@ -156,6 +172,7 @@ class Invoice {
     String? partyName,
     String? invoiceNumber,
     InvoiceType? invoiceType,
+    BillType? billType,
     String? chalanNo,
     double? transportCost,
     DateTime? invoiceDate,
@@ -182,6 +199,7 @@ class Invoice {
       partyName: partyName ?? this.partyName,
       invoiceNumber: invoiceNumber ?? this.invoiceNumber,
       invoiceType: invoiceType ?? this.invoiceType,
+      billType: billType ?? this.billType,
       chalanNo: chalanNo ?? this.chalanNo,
       transportCost: transportCost ?? this.transportCost,
       invoiceDate: invoiceDate ?? this.invoiceDate,
@@ -241,11 +259,13 @@ class Invoice {
     return cleaned;
   }
 
-  BillType get billType {
+  /// Reads the legacy `[bill_type:...]` marker out of [notes].
+  ///
+  /// Only for invoices created before `bill_type` became a column. New
+  /// invoices never write this marker.
+  static BillType _billTypeFromNotes(String? notes) {
     if (notes == null) return BillType.gst;
-    if (notes!.contains('[bill_type:normal]')) {
-      return BillType.normal;
-    }
+    if (notes.contains('[bill_type:normal]')) return BillType.normal;
     return BillType.gst;
   }
 }

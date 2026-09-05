@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -15,13 +14,9 @@ import 'package:vyaparsetu/screens/payments/form.dart';
 import 'package:vyaparsetu/screens/expenses/form.dart';
 import 'package:vyaparsetu/screens/items/list.dart';
 import 'package:vyaparsetu/screens/reports/reportCenter.dart';
-import 'package:vyaparsetu/screens/home/home.dart';
-import 'package:vyaparsetu/screens/business/list.dart';
 import 'package:vyaparsetu/screens/business/form.dart';
 import 'package:vyaparsetu/types/dashboardSummary.dart';
 import 'package:vyaparsetu/types/invoice.dart';
-import 'package:vyaparsetu/types/business.dart';
-import 'package:vyaparsetu/types/user.dart';
 import 'package:vyaparsetu/core/Core.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -368,23 +363,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final invoices = context.select<Core, List<Invoice>>(
       (c) => c.invoice.invoices,
     );
-    final selectedBusiness = context.select<Core, Business?>(
-      (c) => c.business.selectedBusiness,
-    );
-    final hasMultiple = context.select<Core, bool>(
-      (c) => c.business.businesses.length > 1,
-    );
-    final user = context.select<Core, User?>((c) => c.auth.user);
-    final userInitials =
-        user?.name.isNotEmpty == true
-            ? user!.name
-                .split(' ')
-                .map((e) => e[0])
-                .take(2)
-                .join()
-                .toUpperCase()
-            : 'U';
-
     if (isLoadingSummary && summary == null) {
       return Scaffold(
         body: LoadingIndicator(message: 'loading_dashboard'.tr()),
@@ -1206,77 +1184,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildLogoWidget(
-    String? logoUrl,
-    double radius,
-    String userInitials,
-    bool isDark,
-  ) {
-    if (logoUrl != null && logoUrl.isNotEmpty) {
-      if (logoUrl.startsWith('data:image')) {
-        try {
-          final base64Str = logoUrl.split(',')[1];
-          return CircleAvatar(
-            radius: radius,
-            backgroundColor:
-                isDark
-                    ? AppTheme.gray800
-                    : AppTheme.primary.withValues(alpha: 0.08),
-            child: ClipOval(
-              child: Image.memory(
-                base64Decode(base64Str),
-                width: radius * 2,
-                height: radius * 2,
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
-                errorBuilder:
-                    (_, __, ___) =>
-                        _buildFallbackAvatar(radius, userInitials, isDark),
-              ),
-            ),
-          );
-        } catch (_) {}
-      } else {
-        return CircleAvatar(
-          radius: radius,
-          backgroundColor:
-              isDark
-                  ? AppTheme.gray800
-                  : AppTheme.primary.withValues(alpha: 0.08),
-          child: ClipOval(
-            child: Image.network(
-              logoUrl,
-              width: radius * 2,
-              height: radius * 2,
-              fit: BoxFit.cover,
-              gaplessPlayback: true,
-              errorBuilder:
-                  (_, __, ___) =>
-                      _buildFallbackAvatar(radius, userInitials, isDark),
-            ),
-          ),
-        );
-      }
-    }
-    return _buildFallbackAvatar(radius, userInitials, isDark);
-  }
-
-  Widget _buildFallbackAvatar(double radius, String initials, bool isDark) {
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor:
-          isDark ? AppTheme.gray800 : AppTheme.primary.withValues(alpha: 0.08),
-      child: Text(
-        initials,
-        style: GoogleFonts.outfit(
-          fontSize: radius * 0.7,
-          fontWeight: FontWeight.w900,
-          color: isDark ? Colors.white : AppTheme.primary,
-        ),
-      ),
     );
   }
 }
