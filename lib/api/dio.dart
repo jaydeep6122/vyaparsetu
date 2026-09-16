@@ -53,9 +53,9 @@ class DioInstance {
 
           if (refreshResponse.statusCode == 200 ||
               refreshResponse.statusCode == 201) {
-            final data = refreshResponse.data;
-            final newAccessToken = data['accessToken'];
-            final newRefreshToken = data['refreshToken'];
+            final data = refreshResponse.data['data'];
+            final newAccessToken = data['access_token'];
+            final newRefreshToken = data['refresh_token'];
 
             if (newAccessToken != null && newRefreshToken != null) {
               await SecureStorage.setAccessToken(newAccessToken);
@@ -77,10 +77,21 @@ class DioInstance {
     return completer.future;
   }
 
+  /// Set once the session has been torn down. A burst of parallel requests
+  /// all failing to refresh must sign out — and navigate — exactly once;
+  /// otherwise the second navigation lands while the first is still running
+  /// and Navigator asserts on `!_debugLocked`.
+  static bool _sessionEnded = false;
+
+  /// Call when a new session starts, so a later expiry is acted on again.
+  static void markSessionStarted() => _sessionEnded = false;
+
   /// Tear down the session. Only called when the refresh itself fails, never
   /// on an arbitrary 401 — an authorization failure on one endpoint should not
   /// destroy a valid session.
   static Future<void> _endSession() async {
+    if (_sessionEnded) return;
+    _sessionEnded = true;
     await SecureStorage.deleteAll();
     await clearBoxes();
     onSessionExpired?.call();
@@ -222,17 +233,16 @@ class DioInstance {
   }
 }
 
-bool _checkIfRequiresAccessToken(String path) {
-  // Login, signup and refresh do not require an access token.
-  //
-  // `/app-version` is public too, and is called from the splash screen before
-  // the user is authenticated. Leaving it in the authenticated set meant a 401
-  // there would tear down a perfectly valid session at startup.
-  if (path.contains('/auth/login') ||
-      path.contains('/auth/signup') ||
-      path.contains('/auth/refresh') ||
-      path.contains('/app-version')) {
-    return false;
-  }
-  return true;
-}
+/// Routes that work without an access token. A 401 from one of these is a
+/// real answer (e.g. wrong password), never a reason to refresh the session.
+const _publicPaths = [
+  '/auth/login',
+  '/auth/signup',
+  '/auth/refresh',
+  '/auth/logout',
+  '/auth/password/forgot',
+  '/auth/password/reset',
+];
+
+bool _checkIfRequiresAccessToken(String path) =>
+    !_publicPaths.any(path.contains);

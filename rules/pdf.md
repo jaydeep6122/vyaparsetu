@@ -1,41 +1,50 @@
 # PDF
 
 ## Rule
-All invoice PDFs use JK's Classic design. PDF generation is only available for Sale invoices. No Purchase invoice PDFs.
+Bills are rendered on the phone by `lib/services/invoicePdfService.dart`. There
+are exactly **two** layouts and no others: a classic tax invoice for GST bills
+and a plain bill for non-GST ones. `BillDesign.forTaxMode(invoice.taxMode)`
+picks between them — screens never choose a design.
 
 ## Service
 
-`lib/services/invoicePdfService.dart` provides static methods:
-
 | Method | Purpose |
 |---|---|
-| `generateInvoicePdf(invoice, business)` | Returns `pw.Document` with full JK's Classic layout |
-| `sharePdf(doc, fileName)` | Shares via system share sheet |
-| `printPdf(doc)` | Prints via system print dialog |
+| `generate({invoice, business, bankAccount})` | Returns the PDF as `Uint8List` |
+| `share({bytes, fileName, message})` | Saves to a temp file and opens the share sheet (WhatsApp, email…) |
+| `printBill(bytes, fileName)` | System print dialog |
 
-## Layout (JK's Classic)
+`PdfPreviewScreen` (`screens/invoices/pdfPreview.dart`) shows the bytes with a
+share action.
 
-The PDF is A4 format with these sections:
+## Layouts
 
-1. **Header** — Business name, logo, address, GSTIN, phone
-2. **Invoice Header** — Invoice #, date, due date
-3. **Bill To / Ship To** — Party name, address, GSTIN
-4. **Items Table** — Columns: HSN, Description, Qty, Rate, CGST, SGST, Amount
-5. **Footer** — Subtotal, discount, taxable amount, CGST/SGST totals, grand total (in words), bank details, signature, terms
+**GST classic** — bordered A4: header with logo, business address and GSTIN;
+bill-to and bill meta boxes; ship-to and transport boxes when present; item
+table with HSN, qty, rate, taxable and CGST+SGST (or a single IGST column when
+`invoice.isInterState`); charges; totals; amount in words; bank details, terms
+and signature.
 
-### Implementation Notes
+**Non-GST simple** — the same information without any tax columns.
 
-- Font: `PdfGoogleFonts.robotoRegular()` / `robotoBold()`
-- A4 page format
-- All monetary values in INR (₹)
+## Rules of the layout
+
+- Every figure comes from the server (`taxableTotal`, `cgstTotal`, `lineTotal`,
+  `roundOff`, …). The PDF never recalculates tax or totals.
+- Fonts: Noto Sans through `PdfGoogleFonts`, falling back to Helvetica offline.
+  Helvetica has no ₹ glyph, so amounts print as `Rs.` in that fallback.
+- The bank block prints the business's default bank account, passed in by the
+  caller; there is no bank data on the business itself.
+- Logos and signatures are `data:image/...` URIs, decoded with
+  `decodeImageDataUri`.
 
 ## DO
-- Call `InvoicePdfService.generateInvoicePdf()` from screens via `context.read<Core>()`
-- Use JK's Classic layout only
-- Generate PDFs for Sale invoices only
+- Add new sections inside `InvoicePdfService`, not in screens
+- Keep both layouts working when you change shared helpers
+- Test with a walk-in bill (no party) and an inter-state bill
 
 ## DON'T
-- Create alternative PDF layouts — JK's Classic is the only design
-- Generate PDFs for Purchase invoices
-- Use custom fonts other than Roboto (via PdfGoogleFonts)
-- Build PDF content directly in screen files — always use `InvoicePdfService`
+- Add a third design or per-user design settings
+- Compute tax, totals or round-off in the PDF
+- Call the backend's own `/invoices/:id/pdf` endpoint from the app — the phone
+  builds the bill so it works offline

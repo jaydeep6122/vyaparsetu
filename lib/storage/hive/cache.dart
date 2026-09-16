@@ -6,91 +6,81 @@ class CacheBox {
   static const String userKey = 'user';
   static const String businessesKey = 'businesses';
   static const String selectedBusinessIdKey = 'selectedBusinessId';
-  static const String selectedFactoryIdKey = 'selectedFactoryId';
+  static const String dashboardsKey = 'dashboards';
+
+  static Box get _box => Hive.box(boxName);
 
   static Future<void> open() async {
     await Hive.openBox(boxName);
   }
 
   static Future<void> close() async {
-    final box = Hive.box(boxName);
-    await box.close();
+    await _box.close();
   }
 
   static Future<void> clear() async {
-    final box = Hive.box(boxName);
-    await box.clear();
+    await _box.clear();
   }
 
-  // Data methods
   static Future<void> setUser(Map<String, dynamic>? userJson) async {
-    final box = Hive.box(boxName);
     if (userJson == null) {
-      await box.delete(userKey);
+      await _box.delete(userKey);
     } else {
-      await box.put(userKey, userJson);
+      await _box.put(userKey, userJson);
     }
   }
 
   static Map<String, dynamic>? getUser() {
-    final box = Hive.box(boxName);
-    final user = box.get(userKey);
+    final user = _box.get(userKey);
     return user == null ? null : Map<String, dynamic>.from(user);
   }
 
   static Future<void> setBusinesses(List<Map<String, dynamic>> businesses) async {
-    final box = Hive.box(boxName);
-    await box.put(businessesKey, businesses);
+    await _box.put(businessesKey, businesses);
   }
 
   static List<Map<String, dynamic>> getBusinesses() {
-    final box = Hive.box(boxName);
-    final list = box.get(businessesKey) ?? [];
+    final list = _box.get(businessesKey) ?? [];
     return (list as List).map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
   static Future<void> setSelectedBusinessId(String? businessId) async {
-    final box = Hive.box(boxName);
     if (businessId == null) {
-      await box.delete(selectedBusinessIdKey);
+      await _box.delete(selectedBusinessIdKey);
     } else {
-      await box.put(selectedBusinessIdKey, businessId);
+      await _box.put(selectedBusinessIdKey, businessId);
     }
   }
 
-  static String? getSelectedBusinessId() {
-    final box = Hive.box(boxName);
-    return box.get(selectedBusinessIdKey);
+  static String? getSelectedBusinessId() => _box.get(selectedBusinessIdKey);
+
+  /// Last dashboard per business, shown instantly while a fresh one loads.
+  static Future<void> setDashboard(
+    String businessId,
+    Map<String, dynamic> json,
+  ) async {
+    final all = Map<String, dynamic>.from(_box.get(dashboardsKey) ?? {});
+    all[businessId] = json;
+    await _box.put(dashboardsKey, all);
   }
 
-  /// Removes cache entries left behind by the factory module.
-  ///
-  /// Existing installs still hold these keys, and nothing reads them any more,
-  /// so purge them once on startup rather than leaving stale data on disk.
-  static Future<void> purgeFactoryCache() async {
-    final box = Hive.box(boxName);
+  static Map<String, dynamic>? getDashboard(String businessId) {
+    final all = _box.get(dashboardsKey);
+    if (all is! Map) return null;
+    final json = all[businessId];
+    return json is Map ? Map<String, dynamic>.from(json) : null;
+  }
+
+  /// Removes entries written by older app versions (factory module, the old
+  /// dashboard summary format).
+  static Future<void> purgeLegacyCache() async {
     for (final key in const [
-      selectedFactoryIdKey,
+      'selectedFactoryId',
       'cachedFactories',
       'cachedSummaries',
+      'cachedBusinessSummaries',
     ]) {
-      if (box.containsKey(key)) {
-        await box.delete(key);
-      }
+      if (_box.containsKey(key)) await _box.delete(key);
     }
-  }
-
-  // --- Persistent Business Dashboard Caching ---
-  static const String cachedBusinessSummariesKey = 'cachedBusinessSummaries';
-
-  static Future<void> setCachedBusinessSummaries(Map<String, dynamic> summaries) async {
-    final box = Hive.box(boxName);
-    await box.put(cachedBusinessSummariesKey, summaries);
-  }
-
-  static Map<String, dynamic> getCachedBusinessSummaries() {
-    final box = Hive.box(boxName);
-    final data = box.get(cachedBusinessSummariesKey) ?? {};
-    return Map<String, dynamic>.from(data);
   }
 }

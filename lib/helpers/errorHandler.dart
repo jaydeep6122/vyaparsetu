@@ -1,57 +1,37 @@
 import 'package:dio/dio.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:vyaparsetu/helpers/toastNotifications.dart';
 import 'package:vyaparsetu/helpers/userFriendlyErrors.dart';
 
-String extractErrorMessage(dynamic e) {
-  try {
-    if (e is DioException && e.response?.data is Map) {
-      final data = e.response!.data as Map;
-      if (data.containsKey('message') && data['message'] is String) {
-        return userFriendlyError(data['message'] as String);
-      }
+/// A message fit to show the user for any error from an API call.
+String extractErrorMessage(Object? error) {
+  if (error is DioException) {
+    final data = error.response?.data;
+    if (data is Map && data['message'] is String) {
+      return userFriendlyError(
+        data['message'] as String,
+        constraint: data['constraint'] as String?,
+      );
     }
-  } catch (_) {}
-  if (e is DioException) {
-    return 'Server error (${e.response?.statusCode})';
+
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return 'error_timeout'.tr();
+      case DioExceptionType.connectionError:
+        return 'error_no_internet'.tr();
+      case DioExceptionType.cancel:
+        return 'error_cancelled'.tr();
+      default:
+        final status = error.response?.statusCode ?? 0;
+        if (status >= 500) return 'error_server'.tr();
+    }
   }
-  return 'Something went wrong. Please try again.';
+  return 'error_generic'.tr();
 }
 
-void apiErrorHandler(dynamic e, [StackTrace? stackTrace]) {
-  String errorMessage = 'Something went wrong. Please try again.';
-
-  if (e is DioException) {
-    if (e.response != null && e.response?.data != null) {
-      final data = e.response?.data;
-      if (data is Map && data.containsKey('message')) {
-        errorMessage = data['message'] as String;
-      } else if (data is Map && data.containsKey('error')) {
-        errorMessage = data['error'] as String;
-      } else {
-        errorMessage = 'Server error (${e.response?.statusCode})';
-      }
-    } else {
-      switch (e.type) {
-        case DioExceptionType.connectionTimeout:
-        case DioExceptionType.sendTimeout:
-        case DioExceptionType.receiveTimeout:
-          errorMessage = 'Connection timed out. Please try again.';
-          break;
-        case DioExceptionType.connectionError:
-          errorMessage = 'No internet connection. Please check your network.';
-          break;
-        case DioExceptionType.cancel:
-          errorMessage = 'Request cancelled.';
-          break;
-        default:
-          errorMessage = 'Network error. Please try again.';
-      }
-    }
-  } else if (e is String) {
-    errorMessage = e;
-  } else if (e != null) {
-    errorMessage = e.toString();
-  }
-
-  showErrorToast(errorMessage);
+/// Shows an API error as a toast.
+void apiErrorHandler(Object? error, [StackTrace? stackTrace]) {
+  showErrorToast(extractErrorMessage(error));
 }

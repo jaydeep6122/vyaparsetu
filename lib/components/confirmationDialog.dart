@@ -1,146 +1,189 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:vyaparsetu/components/appButton.dart';
 import 'package:vyaparsetu/global/themes.dart';
 
 class ConfirmationDialog extends StatelessWidget {
   final String title;
-  final String content;
+  final String message;
   final String confirmText;
   final String? cancelText;
   final bool isDestructive;
   final IconData? icon;
-  final Widget? additionalContent;
 
-  ConfirmationDialog({
+  const ConfirmationDialog({
     super.key,
     required this.title,
-    required this.content,
-    String? confirmText,
+    required this.message,
+    required this.confirmText,
     this.cancelText,
     this.isDestructive = false,
     this.icon,
-    this.additionalContent,
-  }) : confirmText = confirmText ?? 'confirm'.tr();
+  });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final colors = context.colors;
 
     return AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      icon: icon == null
+          ? null
+          : Icon(icon, size: 28, color: isDestructive ? colors.danger : colors.primary),
+      title: Text(title, textAlign: TextAlign.center),
+      content: Text(message, textAlign: TextAlign.center),
+      actionsPadding: const EdgeInsets.fromLTRB(
+        AppTheme.spaceLg,
+        0,
+        AppTheme.spaceLg,
+        AppTheme.spaceLg,
       ),
-      icon: icon != null
-          ? Padding(
-              padding: const EdgeInsets.only(top: AppTheme.spaceSm),
-              child: CircleAvatar(
-                radius: 24,
-                backgroundColor: isDestructive
-                    ? AppTheme.error.withOpacity(0.1)
-                    : AppTheme.primary.withOpacity(0.1),
-                child: Icon(
-                  icon,
-                  size: 28,
-                  color: isDestructive
-                      ? AppTheme.error
-                      : (isDark ? Colors.white : AppTheme.primary),
-                ),
-              ),
-            )
-          : null,
-      title: Padding(
-        padding: const EdgeInsets.only(top: AppTheme.spaceXs),
-        child: Text(
-          title,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.outfit(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: theme.textTheme.titleLarge?.color,
-          ),
-        ),
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      actions: [
+        Row(
           children: [
-            Text(
-              content,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                fontSize: 15,
-                color: theme.textTheme.bodyMedium?.color,
-                height: 1.4,
+            Expanded(
+              child: AppButton(
+                text: cancelText ?? 'cancel'.tr(),
+                variant: AppButtonVariant.outline,
+                compact: true,
+                onPressed: () => Navigator.of(context).pop(false),
               ),
             ),
-            if (additionalContent != null) ...[
-              const SizedBox(height: AppTheme.spaceMd),
-              additionalContent!,
-            ],
+            const SizedBox(width: AppTheme.spaceSm),
+            Expanded(
+              child: AppButton(
+                text: confirmText,
+                variant: isDestructive ? AppButtonVariant.danger : AppButtonVariant.primary,
+                compact: true,
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+            ),
           ],
         ),
-      ),
-      actionsPadding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(top: AppTheme.spaceSm),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: theme.textTheme.bodyMedium?.color,
-                    side: BorderSide(
-                      color: isDark ? AppTheme.gray600 : AppTheme.gray300,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
-                    ),
-                  ),
-                  child: Text(
-                    cancelText ?? 'cancel'.tr(),
-                    style: GoogleFonts.outfit(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppTheme.spaceSm),
-              Expanded(
-                child: FilledButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: isDestructive
-                        ? AppTheme.error
-                        : AppTheme.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
-                    ),
-                  ),
-                  child: Text(
-                    confirmText,
-                    style: GoogleFonts.outfit(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+      ],
+    );
+  }
+}
+
+/// True only when the user confirms.
+Future<bool> showConfirmDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required String confirmText,
+  String? cancelText,
+  bool isDestructive = false,
+  IconData? icon,
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (_) => ConfirmationDialog(
+      title: title,
+      message: message,
+      confirmText: confirmText,
+      cancelText: cancelText,
+      isDestructive: isDestructive,
+      icon: icon,
+    ),
+  );
+  return result ?? false;
+}
+
+/// Confirms a cancellation with an optional reason. Null when dismissed,
+/// otherwise the reason ('' when left empty).
+Future<String?> showReasonDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required String confirmText,
+  String? hint,
+}) {
+  return showDialog<String>(
+    context: context,
+    builder: (_) => _ReasonDialog(
+      title: title,
+      message: message,
+      confirmText: confirmText,
+      hint: hint,
+    ),
+  );
+}
+
+class _ReasonDialog extends StatefulWidget {
+  final String title;
+  final String message;
+  final String confirmText;
+  final String? hint;
+
+  const _ReasonDialog({
+    required this.title,
+    required this.message,
+    required this.confirmText,
+    this.hint,
+  });
+
+  @override
+  State<_ReasonDialog> createState() => _ReasonDialogState();
+}
+
+class _ReasonDialogState extends State<_ReasonDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(widget.message),
+          const SizedBox(height: AppTheme.spaceLg),
+          TextField(
+            controller: _controller,
+            maxLength: 500,
+            maxLines: 2,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              labelText: 'reason_optional'.tr(),
+              hintText: widget.hint,
+              counterText: '',
+            ),
           ),
+        ],
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(
+        AppTheme.spaceLg,
+        0,
+        AppTheme.spaceLg,
+        AppTheme.spaceLg,
+      ),
+      actions: [
+        Row(
+          children: [
+            Expanded(
+              child: AppButton(
+                text: 'keep'.tr(),
+                variant: AppButtonVariant.outline,
+                compact: true,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            const SizedBox(width: AppTheme.spaceSm),
+            Expanded(
+              child: AppButton(
+                text: widget.confirmText,
+                variant: AppButtonVariant.danger,
+                compact: true,
+                onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+              ),
+            ),
+          ],
         ),
       ],
     );

@@ -1,40 +1,74 @@
 import 'package:dio/dio.dart';
+import 'package:vyaparsetu/api/response.dart';
 
 class PaymentApi {
   final Dio _dio;
 
   PaymentApi(this._dio);
 
-  Future<Map<String, dynamic>> create(String businessId, Map<String, dynamic> data) async {
-    final response = await _dio.post('/businesses/$businessId/payments', data: data);
-    return response.data;
-  }
+  String _base(String businessId) => '${businessPath(businessId)}/payments';
 
-  Future<List<Map<String, dynamic>>> list(
+  Future<PageJson> list(
     String businessId, {
     String? paymentType,
     String? partyId,
-    String? fromDate,
-    String? toDate,
+    String? accountId,
+    String? mode,
+    String? status,
+    String? from,
+    String? to,
+    String? search,
+    int? limit,
+    int offset = 0,
   }) async {
     final response = await _dio.get(
-      '/businesses/$businessId/payments',
-      queryParameters: {
-        if (paymentType != null) 'payment_type': paymentType,
-        if (partyId != null) 'party_id': partyId,
-        if (fromDate != null) 'from_date': fromDate,
-        if (toDate != null) 'to_date': toDate,
-      },
+      _base(businessId),
+      queryParameters: queryOf({
+        'payment_type': paymentType,
+        'party_id': partyId,
+        'account_id': accountId,
+        'mode': mode,
+        'status': status,
+        'from': from,
+        'to': to,
+        'search': search,
+        'limit': limit,
+        'offset': offset,
+      }),
     );
-    final List<dynamic> list = response.data;
-    return list.map((e) => Map<String, dynamic>.from(e)).toList();
+    return PageJson.of(response);
   }
 
-  Future<void> update(String businessId, String paymentId, Map<String, dynamic> data) async {
-    await _dio.put('/businesses/$businessId/payments/$paymentId', data: data);
+  /// Payment with the bills it settles.
+  Future<Map<String, dynamic>> get(String businessId, String paymentId) async {
+    return dataOf(await _dio.get('${_base(businessId)}/$paymentId'));
   }
 
-  Future<void> delete(String businessId, String paymentId) async {
-    await _dio.delete('/businesses/$businessId/payments/$paymentId');
+  Future<Map<String, dynamic>> create(
+    String businessId,
+    Map<String, dynamic> data,
+  ) async {
+    return dataOf(await _dio.post(_base(businessId), data: data));
+  }
+
+  /// Replaces the payment and its allocations.
+  Future<Map<String, dynamic>> update(
+    String businessId,
+    String paymentId,
+    Map<String, dynamic> data,
+  ) async {
+    return dataOf(await _dio.put('${_base(businessId)}/$paymentId', data: data));
+  }
+
+  Future<Map<String, dynamic>> cancel(
+    String businessId,
+    String paymentId, {
+    String? reason,
+  }) async {
+    final response = await _dio.post(
+      '${_base(businessId)}/$paymentId/cancel',
+      data: {if (reason != null) 'reason': reason},
+    );
+    return dataOf(response);
   }
 }

@@ -1,58 +1,57 @@
 # Naming
 
 ## Rule
-ALL file names use `camelCase`. Class names use `PascalCase`. Screen files omit `_screen` suffix.
+File names are `camelCase`, classes `PascalCase`, and screen files carry no
+`_screen` suffix.
 
-## File Names
+## File names
 
 | Category | Convention | Examples |
 |---|---|---|
-| Core modules | camelCase + `Module` suffix | `authModule.dart`, `settingsModule.dart` |
-| Screen files | camelCase (short) | `login.dart`, `list.dart`, `form.dart`, `detail.dart`, `settings.dart` |
-| API modules | camelCase (entity name) | `auth.dart`, `business.dart`, `invoice.dart` |
-| Types/Models | camelCase (entity name) | `invoice.dart`, `user.dart`, `party.dart` |
-| Components | camelCase (descriptive) | `appButton.dart`, `emptyState.dart`, `confirmationDialog.dart` |
-| Services | camelCase | `invoicePdfService.dart` |
-| Storage | camelCase (box purpose) | `user.dart`, `cache.dart`, `preferences.dart`, `secureStorage.dart` |
-| Helpers | camelCase | `navigation.dart`, `formatters.dart`, `toastNotifications.dart` |
+| Core modules | camelCase + `Module` | `partyModule.dart`, `reportModule.dart` |
+| Screens | camelCase, short | `login.dart`, `list.dart`, `form.dart`, `detail.dart` |
+| Screen-only widgets | `widgets.dart` beside the screen | `screens/invoices/widgets.dart` |
+| API modules | camelCase entity | `party.dart`, `invoice.dart`, `report.dart` |
+| Types | camelCase entity | `party.dart`, `stockAdjustment.dart`, `reports.dart` |
+| Components | camelCase, descriptive | `appButton.dart`, `pickerSheet.dart`, `loadStateBody.dart` |
+| Helpers | camelCase | `inputFormatters.dart`, `imageData.dart` |
+| Services | camelCase + `Service` | `invoicePdfService.dart` |
 
-## Class Names
+## Class names
 
-| File | Class Name | Notes |
-|---|---|---|
-| `authModule.dart` | `AuthModule` | PascalCase, matches filename |
-| `login.dart` | `LoginScreen` | Screen classes always end with `Screen` |
-| `list.dart` | `ItemListScreen` | Entity + List + Screen |
-| `form.dart` | `InvoiceFormScreen` | Entity + Form + Screen |
-| `invoice.dart` (api) | `InvoiceApi` | Entity + Api |
-| `invoice.dart` (types) | `Invoice` | Entity name only |
-| `appButton.dart` | `AppButton` | Descriptive PascalCase |
-| `cache.dart` | `CacheBox` | Entity + Box |
-| `user.dart` | `UserBox` | Entity + Box |
-| `invoicePdfService.dart` | `InvoicePdfService` | Descriptive PascalCase |
+| File | Class |
+|---|---|
+| `partyModule.dart` | `PartyModule` |
+| `list.dart` (parties) | `PartyListScreen` |
+| `form.dart` (invoices) | `InvoiceFormScreen` |
+| `party.dart` (api) | `PartyApi` |
+| `party.dart` (types) | `Party` |
+| `cache.dart` | `CacheBox` |
 
-## Variables & Properties
+Screens always end in `Screen`, API classes in `Api`, Hive boxes in `Box`.
 
-- Variables in screens referencing Core modules: use `{module}Module` or `provider` suffix
-  ```dart
-  final businessModule = context.read<Core>().business;
-  await businessModule.fetchBusinesses();
-  ```
-- Avoid single-letter variable names except in trivial lambdas
-- Booleans: prefix with `is`, `has`, `show`, `can`
-  ```dart
-  bool isLoading;
-  bool hasError;
-  bool showDetails;
-  ```
+## Members
+
+- Private form state uses a leading underscore: `_formKey`, `_lines`, `_party`.
+- Booleans read as a question: `isSaving`, `hasMore`, `showTransport`, `canPay`.
+- Draft classes inside a form are private and end in `Draft`
+  (`_LineDraft`, `_ChargeDraft`).
+- Small anonymous shapes use records with named fields:
+  `typedef PartyRef = ({String id, String name});`
+- Module variables in screens read as the module:
+  `final parties = context.watch<Core>().party;`
+
+## Translation keys
+
+snake_case, flat, named after what the user sees (`save_bill`,
+`no_parties_yet_hint`). Enum keys are `<enum>_<wire value>`
+(`payment_mode_bank_transfer`).
 
 ## DO
-- Name screen files as `login.dart`, not `loginScreen.dart` or `login_screen.dart`
-- Keep component names descriptive: `emptyState.dart`, `statusChip.dart`
-- Match class name to filename (PascalCase class, camelCase file)
+- Match the class name to the file name
+- Keep feature directories flat: `list`, `form`, `detail`, `widgets`
 
 ## DON'T
-- Use `_screen` suffix on filenames (`login_screen.dart` → `login.dart`)
-- Use `snake_case` for filenames (`app_text_field.dart` → `appTextField.dart`)
-- Use `kebab-case` for filenames
-- Name screens with full className as filename (`loginScreen.dart` → `login.dart`)
+- Use `snake_case` or `kebab-case` file names
+- Add `_screen` / `_page` suffixes
+- Abbreviate beyond common usage (`gst`, `hsn`, `lr`, `upi` are fine)

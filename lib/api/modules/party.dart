@@ -1,55 +1,73 @@
 import 'package:dio/dio.dart';
+import 'package:vyaparsetu/api/response.dart';
 
 class PartyApi {
   final Dio _dio;
 
   PartyApi(this._dio);
 
-  Future<Map<String, dynamic>> create(String businessId, Map<String, dynamic> data) async {
-    final response = await _dio.post('/businesses/$businessId/parties', data: data);
-    return response.data;
-  }
+  String _base(String businessId) => '${businessPath(businessId)}/parties';
 
-  Future<List<Map<String, dynamic>>> list(
+  Future<PageJson> list(
     String businessId, {
-    String? partyType,
     String? search,
+    String? partyType,
+    bool includeArchived = false,
+    int? limit,
+    int offset = 0,
   }) async {
     final response = await _dio.get(
-      '/businesses/$businessId/parties',
-      queryParameters: {
-        if (partyType != null) 'party_type': partyType,
-        if (search != null) 'search': search,
-      },
+      _base(businessId),
+      queryParameters: queryOf({
+        'search': search,
+        'party_type': partyType,
+        'include_archived': includeArchived ? 'true' : null,
+        'limit': limit,
+        'offset': offset,
+      }),
     );
-    final List<dynamic> list = response.data;
-    return list.map((e) => Map<String, dynamic>.from(e)).toList();
+    return PageJson.of(response);
   }
 
-  Future<Map<String, dynamic>> getById(String businessId, String partyId) async {
-    final response = await _dio.get('/businesses/$businessId/parties/$partyId');
-    return response.data;
+  Future<Map<String, dynamic>> get(String businessId, String partyId) async {
+    return dataOf(await _dio.get('${_base(businessId)}/$partyId'));
   }
 
-  Future<void> update(String businessId, String partyId, Map<String, dynamic> data) async {
-    await _dio.put('/businesses/$businessId/parties/$partyId', data: data);
+  Future<Map<String, dynamic>> create(
+    String businessId,
+    Map<String, dynamic> data,
+  ) async {
+    return dataOf(await _dio.post(_base(businessId), data: data));
   }
 
-  Future<void> delete(String businessId, String partyId) async {
-    await _dio.delete('/businesses/$businessId/parties/$partyId');
+  /// Only the fields sent are changed; null clears a field.
+  Future<Map<String, dynamic>> update(
+    String businessId,
+    String partyId,
+    Map<String, dynamic> data,
+  ) async {
+    return dataOf(await _dio.patch('${_base(businessId)}/$partyId', data: data));
   }
 
-  Future<Map<String, dynamic>> getPartyLedger(String businessId, String partyId) async {
+  Future<Map<String, dynamic>> setArchived(
+    String businessId,
+    String partyId, {
+    required bool archived,
+  }) async {
+    final action = archived ? 'archive' : 'restore';
+    return dataOf(await _dio.post('${_base(businessId)}/$partyId/$action'));
+  }
+
+  Future<Map<String, dynamic>> ledger(
+    String businessId,
+    String partyId, {
+    String? from,
+    String? to,
+  }) async {
     final response = await _dio.get(
-      '/businesses/$businessId/dashboard/reports/party-ledger/$partyId',
+      '${_base(businessId)}/$partyId/ledger',
+      queryParameters: queryOf({'from': from, 'to': to}),
     );
-    return response.data;
-  }
-
-  Future<Map<String, dynamic>> getPartyQuantitySummary(String businessId, String partyId) async {
-    final response = await _dio.get(
-      '/businesses/$businessId/parties/$partyId/quantity-summary',
-    );
-    return response.data;
+    return dataOf(response);
   }
 }

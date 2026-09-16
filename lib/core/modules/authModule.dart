@@ -1,143 +1,150 @@
+import 'package:dio/dio.dart';
 import 'package:vyaparsetu/api/api.dart';
-import 'package:vyaparsetu/types/user.dart';
-import 'package:vyaparsetu/storage/secure_storage.dart';
+import 'package:vyaparsetu/api/dio.dart';
+import 'package:vyaparsetu/core/components/moduleBase.dart';
+import 'package:vyaparsetu/helpers/json.dart';
+import 'package:vyaparsetu/storage/hive.dart';
 import 'package:vyaparsetu/storage/hive/cache.dart';
 import 'package:vyaparsetu/storage/hive/user.dart';
-import 'package:vyaparsetu/storage/hive.dart';
-import 'package:vyaparsetu/core/Core.dart';
-import 'package:vyaparsetu/helpers/errorHandler.dart';
+import 'package:vyaparsetu/storage/secure_storage.dart';
+import 'package:vyaparsetu/types/user.dart';
 
-class AuthModule {
-  final Core core;
-  AuthModule(this.core);
+class AuthModule extends CoreModule {
+  AuthModule(super.core);
 
   User? _user;
   User? get user => _user;
   bool get isLoggedIn => _user != null;
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
-  String? _error;
-  String? get error => _error;
 
-  void setError(String? error) {
-    _error = error;
+  /// Stores the tokens (and the user, when included) from a session response.
+  Future<void> _startSession(Map<String, dynamic> session) async {
+    await SecureStorage.setAccessToken(session['access_token'] as String);
+    await SecureStorage.setRefreshToken(session['refresh_token'] as String);
+    // A fresh session: a later expiry should sign out again.
+    DioInstance.markSessionStarted();
+    final userJson = asMapOrNull(session['user']);
+    if (userJson != null) {
+      _user = User.fromJson(userJson);
+      await CacheBox.setUser(_user!.toJson());
+    }
     core.notify();
   }
 
   Future<bool> login(String email, String password) async {
-    _isLoading = true;
-    _error = null;
-    core.notify();
-
-    try {
-      final response = await Api.instance.auth.login(
-        email: email,
-        password: password,
-        deviceInfo: 'Mobile App',
-      );
-
-      final userJson = response['user'];
-      final accessToken = response['accessToken'];
-      final refreshToken = response['refreshToken'];
-
-      if (userJson != null && accessToken != null && refreshToken != null) {
-        _user = User.fromJson(Map<String, dynamic>.from(userJson));
-        await SecureStorage.setAccessToken(accessToken);
-        await SecureStorage.setRefreshToken(refreshToken);
-        await CacheBox.setUser(_user!.toJson());
-        await UserBox.setLastLoginEmail(email);
-
-        _isLoading = false;
-        core.notify();
-        return true;
-      } else {
-        _error = 'Invalid response from server';
-      }
-    } catch (e) {
-      _error = extractErrorMessage(e);
-    }
-
-    _isLoading = false;
-    core.notify();
-    return false;
+    final session = await runSave(
+      () => Api.instance.auth.login(email: email, password: password),
+    );
+    if (session == null) return false;
+    await _startSession(session);
+    await UserBox.setLastLoginEmail(email);
+    return true;
   }
 
-  Future<bool> signup(String name, String email, String password, String confirmPassword) async {
-    _isLoading = true;
-    _error = null;
-    core.notify();
-
-    try {
-      final response = await Api.instance.auth.signup(
+  Future<bool> signup({
+    required String name,
+    required String email,
+    required String password,
+    String? phone,
+  }) async {
+    final session = await runSave(
+      () => Api.instance.auth.signup(
         name: name,
         email: email,
         password: password,
-        confirmPassword: confirmPassword,
-        deviceInfo: 'Mobile App',
-      );
-
-      final userJson = response['user'];
-      final accessToken = response['accessToken'];
-      final refreshToken = response['refreshToken'];
-
-      if (userJson != null && accessToken != null && refreshToken != null) {
-        _user = User.fromJson(Map<String, dynamic>.from(userJson));
-        await SecureStorage.setAccessToken(accessToken);
-        await SecureStorage.setRefreshToken(refreshToken);
-        await CacheBox.setUser(_user!.toJson());
-        await UserBox.setLastLoginEmail(email);
-
-        _isLoading = false;
-        core.notify();
-        return true;
-      } else {
-        _error = 'Invalid response from server';
-      }
-    } catch (e) {
-      _error = extractErrorMessage(e);
-    }
-
-    _isLoading = false;
-    core.notify();
-    return false;
+        phone: phone,
+      ),
+    );
+    if (session == null) return false;
+    await _startSession(session);
+    await UserBox.setLastLoginEmail(email);
+    return true;
   }
 
+  /// Restores a saved session. Uses the cached user offline, and refreshes it
+  /// from the server when reachable.
   Future<bool> tryAutoLogin() async {
     final cachedUser = CacheBox.getUser();
     final token = await SecureStorage.getAccessToken();
-
-    if (cachedUser == null || token == null) {
-      return false;
-    }
+    if (cachedUser == null || token == null) return false;
 
     _user = User.fromJson(cachedUser);
     core.notify();
 
     try {
-      final response = await Api.instance.auth.getMe();
-      final userJson = response['user'];
-      if (userJson != null) {
-        _user = User.fromJson(Map<String, dynamic>.from(userJson));
-        await CacheBox.setUser(_user!.toJson());
-        core.notify();
-        return true;
-      }
-    } catch (e) {
-      final currentToken = await SecureStorage.getAccessToken();
-      if (currentToken == null) {
+      _user = User.fromJson(await Api.instance.auth.getMe());
+      await CacheBox.setUser(_user!.toJson());
+      core.notify();
+    } on DioException {
+      // Offline or server asleep: keep the cached user. A rejected session is
+      // ended by the Dio interceptor, which clears the token.
+      if (await SecureStorage.getAccessToken() == null) {
         _user = null;
         core.notify();
-        return false;
       }
     }
-
     return _user != null;
   }
 
-  Future<void> logout({bool allDevices = false}) async {
-    _isLoading = true;
-    core.notify();
+  /// Emails a 6-digit code. Succeeds whether or not the email is registered.
+  Future<bool> requestPasswordReset(String email) async {
+    final done = await runSave(
+      () => Api.instance.auth.forgotPassword(email).then((_) => true),
+    );
+    return done ?? false;
+  }
 
+  /// Sets a new password with the emailed code and signs in.
+  Future<bool> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    final session = await runSave(
+      () => Api.instance.auth.resetPassword(
+        email: email,
+        code: code,
+        newPassword: newPassword,
+      ),
+    );
+    if (session == null) return false;
+    await _startSession(session);
+    await UserBox.setLastLoginEmail(email);
+    try {
+      _user = User.fromJson(await Api.instance.auth.getMe());
+      await CacheBox.setUser(_user!.toJson());
+      core.notify();
+    } catch (_) {}
+    return true;
+  }
+
+  Future<bool> updateProfile({required String name, String? phone}) async {
+    final json = await runSave(
+      () => Api.instance.auth.updateMe({'name': name, 'phone': phone}),
+    );
+    if (json == null) return false;
+    _user = User.fromJson(json);
+    await CacheBox.setUser(_user!.toJson());
+    core.notify();
+    return true;
+  }
+
+  /// Every other device is signed out; this one gets a fresh session.
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final session = await runSave(
+      () => Api.instance.auth.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      ),
+    );
+    if (session == null) return false;
+    await _startSession(session);
+    return true;
+  }
+
+  Future<void> logout({bool allDevices = false}) async {
     try {
       final refreshToken = await SecureStorage.getRefreshToken();
       if (refreshToken != null) {
@@ -146,39 +153,17 @@ class AuthModule {
           allDevices: allDevices,
         );
       }
-    } catch (e) {
-      // Ignore API errors during logout
-    } finally {
-      _user = null;
-
-      // Clear all in-memory module state
-      core.business.clearAll();
-      core.party.clearAll();
-      core.item.clearAll();
-      core.invoice.clearAll();
-      core.payment.clearAll();
-      core.expense.clearAll();
-      core.dashboard.clearAll();
-
-      // Clear persisted storage
-      await SecureStorage.deleteAll();
-      await clearBoxes();
-
-      _isLoading = false;
-      core.notify();
+    } catch (_) {
+      // Signing out locally must work even when the server is unreachable.
     }
+    await SecureStorage.deleteAll();
+    await clearBoxes();
+    handleSessionExpired();
   }
 
   void handleSessionExpired() {
     _user = null;
     core.business.clearAll();
-    core.party.clearAll();
-    core.item.clearAll();
-    core.invoice.clearAll();
-    core.payment.clearAll();
-    core.expense.clearAll();
-    core.dashboard.clearAll();
-    core.notify();
+    core.resetBusinessData();
   }
-
 }

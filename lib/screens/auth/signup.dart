@@ -1,17 +1,14 @@
-import 'dart:ui';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:easy_localization/easy_localization.dart';
-import 'package:vyaparsetu/components/appTextField.dart';
 import 'package:vyaparsetu/components/appButton.dart';
-import 'package:vyaparsetu/helpers/validators.dart';
-import 'package:vyaparsetu/helpers/navigation.dart';
-import 'package:vyaparsetu/helpers/toastNotifications.dart';
-import 'package:vyaparsetu/screens/business/form.dart';
-import 'package:vyaparsetu/global/themes.dart';
+import 'package:vyaparsetu/components/appTextField.dart';
 import 'package:vyaparsetu/core/Core.dart';
-import 'package:vyaparsetu/components/appBackButton.dart';
+import 'package:vyaparsetu/global/themes.dart';
+import 'package:vyaparsetu/helpers/toastNotifications.dart';
+import 'package:vyaparsetu/helpers/validators.dart';
+import 'package:vyaparsetu/screens/auth/authLayout.dart';
+import 'package:vyaparsetu/screens/auth/sessionRouter.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -24,15 +21,16 @@ class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  bool _busy = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -40,333 +38,85 @@ class _SignupScreenState extends State<SignupScreen> {
     FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
 
-    final authProvider = context.read<Core>().auth;
-    final businessProvider = context.read<Core>().business;
-
-    final success = await authProvider.signup(
-      _nameController.text.trim(),
-      _emailController.text.trim().toLowerCase(),
-      _passwordController.text,
-      _confirmPasswordController.text,
+    final auth = context.read<Core>().auth;
+    setState(() => _busy = true);
+    final phone = _phoneController.text.trim();
+    final ok = await auth.signup(
+      name: _nameController.text.trim(),
+      email: _emailController.text.trim().toLowerCase(),
+      password: _passwordController.text,
+      phone: phone.isEmpty ? null : phone,
     );
+    if (!mounted) return;
 
-    if (success && mounted) {
-      await businessProvider.clearSelectedBusiness();
-      if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        getPageRoute(const BusinessFormScreen()),
-        (route) => false,
-      );
-    } else if (!success && mounted) {
-      showErrorToast(authProvider.error ?? 'signup_failed'.tr());
+    if (ok) {
+      await openAfterSignIn(context);
+    } else {
+      showErrorToast(auth.error ?? 'signup_failed'.tr());
     }
+    if (mounted) setState(() => _busy = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final isLoading = context.select<Core, bool>((c) => c.auth.isLoading);
-
-    return Scaffold(
-      body: _AmbientBackground(
-        child: SafeArea(
-          child: Column(
-            children: [
-              Align(
-                alignment: Alignment.topLeft,
-                child: const Padding(
-                  padding: EdgeInsets.only(left: 20, top: 12),
-                  child: AppBackButton(),
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 10),
-                      const _AnimatedLogo(),
-                      Text(
-                        'create_account'.tr(),
-                        style: GoogleFonts.outfit(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : AppTheme.gray900,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'start_managing'.tr(),
-                        style: GoogleFonts.outfit(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: isDark ? AppTheme.gray400 : AppTheme.gray500,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Form(
-                        key: _formKey,
-                        child: _GlassmorphicCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'fill_details'.tr(),
-                                style: GoogleFonts.outfit(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? Colors.white : AppTheme.gray800,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              AppTextField(
-                                controller: _nameController,
-                                labelText: 'name'.tr(),
-                                hintText: 'enter_name_hint'.tr(),
-                                prefixIcon: Icons.person_outline,
-                                validator: (val) => Validators.validateRequired(val, 'Name'),
-                              ),
-                              const SizedBox(height: 16),
-                              AppTextField(
-                                controller: _emailController,
-                                labelText: 'email'.tr(),
-                                hintText: 'enter_email_hint'.tr(),
-                                keyboardType: TextInputType.emailAddress,
-                                prefixIcon: Icons.email_outlined,
-                                validator: Validators.validateEmail,
-                              ),
-                              const SizedBox(height: 16),
-                              AppTextField(
-                                controller: _passwordController,
-                                labelText: 'password'.tr(),
-                                hintText: 'enter_password_hint_min'.tr(),
-                                isPassword: true,
-                                prefixIcon: Icons.lock_outline_rounded,
-                                validator: Validators.validatePassword,
-                              ),
-                              const SizedBox(height: 16),
-                              AppTextField(
-                                controller: _confirmPasswordController,
-                                labelText: 'confirm_password'.tr(),
-                                hintText: 'reenter_password_hint'.tr(),
-                                isPassword: true,
-                                prefixIcon: Icons.lock_clock_outlined,
-                                validator: (val) => Validators.validateConfirmPassword(val, _passwordController.text),
-                              ),
-                              const SizedBox(height: 24),
-                              AppButton(
-                                text: 'signup'.tr(),
-                                isLoading: isLoading,
-                                onPressed: _submit,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "${'already_have_account'.tr().split('?').first}? ",
-                            style: GoogleFonts.outfit(
-                              fontSize: 14,
-                              color: isDark ? AppTheme.gray400 : AppTheme.gray500,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).pop();
-                            },
-                            child: Text(
-                              'login'.tr(),
-                              style: GoogleFonts.outfit(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : AppTheme.primary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+    return AuthLayout(
+      title: 'signup_title'.tr(),
+      subtitle: 'signup_subtitle'.tr(),
+      showLogo: false,
+      footer: AuthFooterLink(
+        question: 'already_have_account'.tr(),
+        action: 'login'.tr(),
+        onTap: () => Navigator.of(context).pop(),
       ),
-    );
-  }
-}
-
-class _AmbientBackground extends StatelessWidget {
-  final Widget child;
-
-  const _AmbientBackground({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: Container(
-            color: isDark ? AppTheme.gray950 : AppTheme.gray50,
-          ),
-        ),
-        Positioned(
-          top: -size.height * 0.15,
-          left: -size.width * 0.2,
-          width: size.width * 0.7,
-          height: size.width * 0.7,
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  (isDark ? Colors.white : AppTheme.primary).withValues(alpha: 0.08),
-                  Colors.transparent,
-                ],
-              ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppTextField(
+              controller: _nameController,
+              labelText: 'your_name'.tr(),
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+              prefixIcon: Icons.person_outline_rounded,
+              autofillHints: const [AutofillHints.name],
+              validator: (v) => Validators.required(v, 'your_name'.tr()),
             ),
-          ),
-        ),
-        Positioned(
-          top: size.height * 0.35,
-          right: -size.width * 0.25,
-          width: size.width * 0.8,
-          height: size.width * 0.8,
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  (isDark ? AppTheme.accentDark : AppTheme.accent).withValues(alpha: 0.15),
-                  Colors.transparent,
-                ],
-              ),
+            const SizedBox(height: AppTheme.spaceLg),
+            AppTextField(
+              controller: _emailController,
+              labelText: 'email'.tr(),
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              prefixIcon: Icons.mail_outline_rounded,
+              autofillHints: const [AutofillHints.email],
+              validator: Validators.email,
             ),
-          ),
-        ),
-        Positioned.fill(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 70, sigmaY: 70),
-            child: const SizedBox.shrink(),
-          ),
-        ),
-        Positioned.fill(child: child),
-      ],
-    );
-  }
-}
-
-class _AnimatedLogo extends StatefulWidget {
-  const _AnimatedLogo();
-
-  @override
-  State<_AnimatedLogo> createState() => _AnimatedLogoState();
-}
-
-class _AnimatedLogoState extends State<_AnimatedLogo> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _scaleAnimation = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween<double>(
-          begin: 0.0,
-          end: 1.05,
-        ).chain(CurveTween(curve: Curves.easeOutBack)),
-        weight: 70,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(
-          begin: 1.05,
-          end: 1.0,
-        ).chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 30,
-      ),
-    ]).animate(_controller);
-    _fadeAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _scaleAnimation,
-      child: FadeTransition(
-        opacity: _fadeAnimation,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: SizedBox(
-            width: 80,
-            height: 80,
-            child: Image.asset(
-              'assets/images/app_logo_foreground.png',
-              fit: BoxFit.contain,
+            const SizedBox(height: AppTheme.spaceLg),
+            AppTextField(
+              controller: _phoneController,
+              labelText: 'mobile_optional'.tr(),
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.next,
+              prefixIcon: Icons.phone_outlined,
+              autofillHints: const [AutofillHints.telephoneNumber],
+              validator: Validators.phone,
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GlassmorphicCard extends StatelessWidget {
-  final Widget child;
-
-  const _GlassmorphicCard({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark
-            ? AppTheme.surfaceDark.withValues(alpha: 0.45)
-            : Colors.white.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        border: Border.all(
-          color: isDark ? AppTheme.glassBorderDark : AppTheme.glassBorderLight,
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
-            blurRadius: 32,
-            offset: const Offset(0, 16),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Padding(padding: const EdgeInsets.all(24), child: child),
+            const SizedBox(height: AppTheme.spaceLg),
+            AppTextField(
+              controller: _passwordController,
+              labelText: 'password'.tr(),
+              helperText: 'password_rule'.tr(),
+              isPassword: true,
+              textInputAction: TextInputAction.done,
+              prefixIcon: Icons.lock_outline_rounded,
+              autofillHints: const [AutofillHints.newPassword],
+              onFieldSubmitted: (_) => _submit(),
+              validator: Validators.password,
+            ),
+            const SizedBox(height: AppTheme.space2xl),
+            AppButton(text: 'create_account'.tr(), isLoading: _busy, onPressed: _submit),
+          ],
         ),
       ),
     );

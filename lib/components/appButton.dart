@@ -1,126 +1,91 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:vyaparsetu/global/themes.dart';
-import 'package:vyaparsetu/components/loadingIndicator.dart';
+
+enum AppButtonVariant {
+  /// The main action on a screen.
+  primary,
+
+  /// A softer action next to a primary one.
+  secondary,
+  outline,
+
+  /// Cancel, delete, sign out.
+  danger,
+  text,
+}
 
 class AppButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;
   final bool isLoading;
-  final bool isSecondary;
-  final bool isOutlined;
   final IconData? icon;
+  final AppButtonVariant variant;
+
+  /// Fill the available width.
+  final bool expand;
+
+  /// 40 pt tall instead of 52, for buttons inside cards and rows.
+  final bool compact;
 
   const AppButton({
     super.key,
     required this.text,
     this.onPressed,
     this.isLoading = false,
-    this.isSecondary = false,
-    this.isOutlined = false,
     this.icon,
+    this.variant = AppButtonVariant.primary,
+    this.expand = true,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final colors = context.colors;
+    final (Color background, Color foreground, BorderSide side) = switch (variant) {
+      AppButtonVariant.primary => (colors.primary, colors.onPrimary, BorderSide.none),
+      AppButtonVariant.secondary => (colors.primarySoft, colors.primary, BorderSide.none),
+      AppButtonVariant.outline => (Colors.transparent, colors.ink, BorderSide(color: colors.border)),
+      AppButtonVariant.danger => (colors.danger, Colors.white, BorderSide.none),
+      AppButtonVariant.text => (Colors.transparent, colors.primary, BorderSide.none),
+    };
 
-    if (isSecondary) {
-      return SizedBox(
-        width: double.infinity,
-        height: 48,
-        child: TextButton(
-          onPressed: isLoading ? null : onPressed,
-          style: TextButton.styleFrom(
-            foregroundColor: AppTheme.error,
-            textStyle: GoogleFonts.outfit(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-            ),
-          ),
-          child: _buildChild(isDark),
-        ),
-      );
-    }
+    final content = isLoading
+        ? SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2.2, color: foreground),
+          )
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: compact ? 18 : 20),
+                const SizedBox(width: AppTheme.spaceSm),
+              ],
+              Flexible(child: Text(text, overflow: TextOverflow.ellipsis)),
+            ],
+          );
 
-    if (isOutlined) {
-      return SizedBox(
-        width: double.infinity,
-        height: 48,
-        child: OutlinedButton(
-          onPressed: isLoading ? null : onPressed,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: isDark ? AppTheme.primaryDark : AppTheme.primary,
-            side: BorderSide(
-              color: isDark ? AppTheme.primaryDark : AppTheme.primary,
-            ),
-            textStyle: GoogleFonts.outfit(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-            ),
-          ),
-          child: _buildChild(isDark),
+    final button = TextButton(
+      onPressed: isLoading ? null : onPressed,
+      style: TextButton.styleFrom(
+        backgroundColor: background,
+        foregroundColor: foreground,
+        disabledBackgroundColor: isLoading || background == Colors.transparent
+            ? background
+            : background.withValues(alpha: 0.45),
+        disabledForegroundColor: isLoading ? foreground : foreground.withValues(alpha: 0.6),
+        minimumSize: Size(0, compact ? 40 : 52),
+        padding: EdgeInsets.symmetric(horizontal: compact ? 14 : 20),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+          side: side,
         ),
-      );
-    }
-
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isDark ? AppTheme.primaryDark : AppTheme.primary,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shadowColor: (isDark ? AppTheme.primaryDark : AppTheme.primary)
-              .withValues(alpha: 0.3),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-          ),
-          textStyle: GoogleFonts.outfit(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        child: _buildChild(isDark),
+        textStyle: context.text.labelLarge?.copyWith(fontSize: compact ? 14 : 15),
       ),
+      child: content,
     );
-  }
 
-  Widget _buildChild(bool isDark) {
-    if (isLoading) {
-      final Color spinnerColor;
-      if (isSecondary) {
-        spinnerColor = AppTheme.error;
-      } else if (isOutlined) {
-        spinnerColor = isDark ? AppTheme.primaryDark : AppTheme.primary;
-      } else {
-        spinnerColor = Colors.white;
-      }
-      return SizedBox(
-        height: 20,
-        width: 20,
-        child: AppSpinner(
-          size: 20,
-          color: spinnerColor,
-        ),
-      );
-    }
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: 8)],
-        Text(text),
-      ],
-    );
+    return expand ? SizedBox(width: double.infinity, child: button) : button;
   }
 }

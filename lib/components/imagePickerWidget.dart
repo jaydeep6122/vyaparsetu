@@ -1,12 +1,14 @@
-import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
-import 'package:vyaparsetu/global/themes.dart';
 
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:vyaparsetu/components/avatar.dart';
+import 'package:vyaparsetu/global/themes.dart';
+import 'package:vyaparsetu/helpers/toastNotifications.dart';
+
+/// Picks a square image (logo) from the gallery or camera, with cropping.
 class ImagePickerWidget extends StatefulWidget {
   final String label;
   final String? initialImageUrl;
@@ -29,281 +31,157 @@ class ImagePickerWidget extends StatefulWidget {
 
 class _ImagePickerWidgetState extends State<ImagePickerWidget> {
   final ImagePicker _picker = ImagePicker();
-  Uint8List? _decodedBytes;
-  String? _lastLoadedUrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _decodeInitialImage();
-  }
-
-  @override
-  void didUpdateWidget(covariant ImagePickerWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.initialImageUrl != oldWidget.initialImageUrl) {
-      _decodeInitialImage();
-    }
-  }
-
-  void _decodeInitialImage() {
-    final url = widget.initialImageUrl;
-    if (url != null && url.isNotEmpty && url.startsWith('data:image')) {
-      if (url != _lastLoadedUrl) {
-        try {
-          final base64String = url.split(',')[1];
-          setState(() {
-            _decodedBytes = base64Decode(base64String);
-            _lastLoadedUrl = url;
-          });
-        } catch (e) {
-          debugPrint('Error decoding base64 image: $e');
-          setState(() {
-            _decodedBytes = null;
-            _lastLoadedUrl = null;
-          });
-        }
-      }
-    } else {
-      setState(() {
-        _decodedBytes = null;
-        _lastLoadedUrl = null;
-      });
-    }
-  }
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final XFile? pickedFile = await _picker.pickImage(
+      final picked = await _picker.pickImage(
         source: source,
         maxWidth: 800,
         maxHeight: 800,
         imageQuality: 85,
       );
+      if (picked == null) return;
 
-      if (pickedFile != null) {
-        try {
-          final croppedFile = await ImageCropper().cropImage(
-            sourcePath: pickedFile.path,
-            compressFormat: ImageCompressFormat.jpg,
-            compressQuality: 70,
-            uiSettings: [
-              AndroidUiSettings(
-                toolbarTitle: 'Crop Logo',
-                toolbarColor: const Color(0xFF37474F),
-                toolbarWidgetColor: Colors.white,
-                statusBarLight: false,
-                aspectRatioPresets: const [CropAspectRatioPreset.square],
-                initAspectRatio: CropAspectRatioPreset.square,
-                lockAspectRatio: true,
-              ),
-              IOSUiSettings(
-                aspectRatioPresets: const [CropAspectRatioPreset.square],
-                aspectRatioLockEnabled: true,
-              ),
-            ],
-          );
-          if (croppedFile != null) {
-            widget.onImageSelected(File(croppedFile.path));
-            return;
-          }
-        } catch (e) {
-          debugPrint('Error cropping image: $e');
-        }
-        widget.onImageSelected(File(pickedFile.path));
-      }
-    } catch (e) {
-      debugPrint('Error picking image: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to pick image: $e')),
+      try {
+        final cropped = await ImageCropper().cropImage(
+          sourcePath: picked.path,
+          compressFormat: ImageCompressFormat.jpg,
+          compressQuality: 70,
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: 'image_crop_title'.tr(),
+              toolbarColor: AppTheme.primary,
+              toolbarWidgetColor: Colors.white,
+              statusBarLight: false,
+              aspectRatioPresets: const [CropAspectRatioPreset.square],
+              initAspectRatio: CropAspectRatioPreset.square,
+              lockAspectRatio: true,
+            ),
+            IOSUiSettings(
+              title: 'image_crop_title'.tr(),
+              aspectRatioPresets: const [CropAspectRatioPreset.square],
+              aspectRatioLockEnabled: true,
+            ),
+          ],
         );
+        if (cropped != null) {
+          widget.onImageSelected(File(cropped.path));
+          return;
+        }
+      } catch (_) {
+        // Cropping is optional; fall back to the picked image.
       }
+      widget.onImageSelected(File(picked.path));
+    } catch (_) {
+      showErrorToast('image_pick_failed'.tr());
     }
   }
 
-  void _showPickerOptions(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    showModalBottomSheet(
+  void _showSourceSheet() {
+    showModalBottomSheet<void>(
       context: context,
-      showDragHandle: false,
-      backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.spaceLg,
+                0,
+                AppTheme.spaceLg,
+                AppTheme.spaceSm,
+              ),
+              child: Text(widget.label, style: sheetContext.text.titleLarge),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: Text('image_gallery'.tr()),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: Text('image_camera'.tr()),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            const SizedBox(height: AppTheme.spaceSm),
+          ],
+        ),
       ),
-      builder: (BuildContext bc) {
-        return SafeArea(
-          child: Wrap(
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                child: Column(
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 20),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      'Select source for ${widget.label}',
-                      style: GoogleFonts.outfit(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: Text('Gallery', style: GoogleFonts.outfit()),
-                onTap: () {
-                  _pickImage(ImageSource.gallery);
-                  Navigator.of(context).pop();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_camera),
-                title: Text('Camera', style: GoogleFonts.outfit()),
-                onTap: () {
-                  _pickImage(ImageSource.camera);
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final colors = context.colors;
+    final hasImage = widget.selectedImageFile != null ||
+        (widget.initialImageUrl != null && widget.initialImageUrl!.isNotEmpty);
 
-    Widget imageContent = Center(
-      child: Column(
+    Widget preview;
+    if (widget.selectedImageFile != null) {
+      preview = Image.file(widget.selectedImageFile!, fit: BoxFit.contain);
+    } else if (decodeImageDataUri(widget.initialImageUrl) case final bytes?) {
+      preview = Image.memory(bytes, fit: BoxFit.contain, gaplessPlayback: true);
+    } else if (hasImage) {
+      preview = Image.network(
+        widget.initialImageUrl!,
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) =>
+            Icon(Icons.broken_image_outlined, size: 36, color: colors.danger),
+      );
+    } else {
+      preview = Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.add_photo_alternate_outlined,
-            size: 36,
-            color: theme.colorScheme.primary.withValues(alpha: 0.8),
-          ),
-          const SizedBox(height: 8),
+          Icon(Icons.add_photo_alternate_outlined, size: 32, color: colors.primary),
+          const SizedBox(height: AppTheme.spaceSm),
           Text(
-            'Add ${widget.label}',
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: theme.colorScheme.primary.withValues(alpha: 0.8),
-            ),
+            'image_add'.tr(namedArgs: {'label': widget.label}),
+            style: context.text.labelLarge?.copyWith(color: colors.primary),
           ),
         ],
-      ),
-    );
-
-    if (widget.selectedImageFile != null) {
-      imageContent = Padding(
-        padding: const EdgeInsets.all(12),
-        child: Image.file(
-          widget.selectedImageFile!,
-          fit: BoxFit.contain,
-          width: double.infinity,
-          height: double.infinity,
-        ),
-      );
-    } else if (_decodedBytes != null) {
-      imageContent = Padding(
-        padding: const EdgeInsets.all(12),
-        child: Image.memory(
-          _decodedBytes!,
-          fit: BoxFit.contain,
-          width: double.infinity,
-          height: double.infinity,
-        ),
-      );
-    } else if (widget.initialImageUrl != null &&
-        widget.initialImageUrl!.isNotEmpty) {
-      imageContent = Padding(
-        padding: const EdgeInsets.all(12),
-        child: Image.network(
-          widget.initialImageUrl!,
-          fit: BoxFit.contain,
-          width: double.infinity,
-          height: double.infinity,
-          errorBuilder: (context, error, stackTrace) {
-            return Center(
-              child: Icon(
-                Icons.broken_image_outlined,
-                size: 36,
-                color: theme.colorScheme.error,
-              ),
-            );
-          },
-        ),
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          widget.label,
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.7),
+        Text(widget.label, style: context.text.labelMedium),
+        const SizedBox(height: AppTheme.spaceSm),
+        Material(
+          color: colors.surfaceAlt,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            side: BorderSide(color: colors.border),
           ),
-        ),
-        const SizedBox(height: 6),
-        InkWell(
-          onTap: () => _showPickerOptions(context),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            height: 140,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: isDark ? AppTheme.primaryDark : AppTheme.gray50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color:
-                    isDark ? AppTheme.gray700 : AppTheme.gray200,
-                width: 1,
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: _showSourceSheet,
+            child: SizedBox(
+              height: 140,
+              width: double.infinity,
               child: Stack(
                 children: [
-                  imageContent,
-                  if (widget.selectedImageFile != null ||
-                      (widget.initialImageUrl != null &&
-                          widget.initialImageUrl!.isNotEmpty))
+                  Positioned.fill(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppTheme.spaceMd),
+                      child: preview,
+                    ),
+                  ),
+                  if (hasImage && widget.onImageRemoved != null)
                     Positioned(
-                      top: 8,
-                      right: 8,
-                      child: GestureDetector(
-                        onTap: widget.onImageRemoved,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.black54,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.close,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                        ),
+                      top: AppTheme.spaceSm,
+                      right: AppTheme.spaceSm,
+                      child: IconButton.filledTonal(
+                        tooltip: 'remove'.tr(),
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                        onPressed: widget.onImageRemoved,
                       ),
                     ),
                 ],

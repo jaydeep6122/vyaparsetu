@@ -1,107 +1,58 @@
-import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:vyaparsetu/global/themes.dart';
 
 class LoadingIndicator extends StatelessWidget {
   final String? message;
+
+  /// Placeholder rows shaped like list items instead of a spinner.
   final bool isShimmer;
 
   const LoadingIndicator({super.key, this.message, this.isShimmer = false});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    if (isShimmer) {
-      return _buildShimmerList(isDark);
-    }
+    if (isShimmer) return const SkeletonList();
 
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const AppSpinner(size: 44),
+          const SizedBox(
+            width: 32,
+            height: 32,
+            child: CircularProgressIndicator(strokeWidth: 3),
+          ),
           if (message != null) ...[
-            const SizedBox(height: 16),
-            Text(
-              message!,
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: theme.textTheme.bodyMedium?.color?.withValues(
-                  alpha: 0.8,
-                ),
-              ),
-            ),
+            const SizedBox(height: AppTheme.spaceLg),
+            Text(message!, style: context.text.bodyMedium),
           ],
         ],
       ),
     );
   }
-
-  Widget _buildShimmerList(bool isDark) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: 6,
-      itemBuilder: (context, index) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDark
-                ? AppTheme.shimmerBaseDark
-                : AppTheme.shimmerBaseLight,
-            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-            border: Border.all(
-              color: isDark ? AppTheme.gray800 : AppTheme.gray100,
-              width: 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const ShimmerContainer(
-                width: double.infinity,
-                height: 14,
-                borderRadius: 4,
-              ),
-              const SizedBox(height: 12),
-              const ShimmerContainer(width: 150, height: 12, borderRadius: 4),
-              const SizedBox(height: 10),
-              const ShimmerContainer(width: 90, height: 12, borderRadius: 4),
-            ],
-          ),
-        );
-      },
-    );
-  }
 }
 
-class AppSpinner extends StatefulWidget {
-  final double size;
-  final Color? color;
+/// Pulsing placeholder rows while a list loads.
+class SkeletonList extends StatefulWidget {
+  final int itemCount;
+  final EdgeInsetsGeometry padding;
 
-  const AppSpinner({super.key, this.size = 44, this.color});
+  const SkeletonList({
+    super.key,
+    this.itemCount = 6,
+    this.padding = const EdgeInsets.all(AppTheme.spaceLg),
+  });
 
   @override
-  State<AppSpinner> createState() => _AppSpinnerState();
+  State<SkeletonList> createState() => _SkeletonListState();
 }
 
-class _AppSpinnerState extends State<AppSpinner>
+class _SkeletonListState extends State<SkeletonList>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..repeat();
-  }
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
 
   @override
   void dispose() {
@@ -111,130 +62,66 @@ class _AppSpinnerState extends State<AppSpinner>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final spinnerColor =
-        widget.color ?? (isDark ? AppTheme.primaryDark : AppTheme.primary);
+    final colors = context.colors;
 
-    return RotationTransition(
-      turns: _controller,
-      child: SizedBox(
-        width: widget.size,
-        height: widget.size,
-        child: CustomPaint(painter: _SpinnerPainter(color: spinnerColor)),
+    return FadeTransition(
+      opacity: Tween(begin: 0.45, end: 1.0).animate(_controller),
+      child: ListView.separated(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: widget.padding,
+        itemCount: widget.itemCount,
+        separatorBuilder: (_, _) => const SizedBox(height: AppTheme.spaceMd),
+        itemBuilder: (context, index) => Container(
+          padding: const EdgeInsets.all(AppTheme.spaceLg),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            border: Border.all(color: colors.border),
+          ),
+          child: const Row(
+            children: [
+              SkeletonBox(width: 40, height: 40, radius: 20),
+              SizedBox(width: AppTheme.spaceMd),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SkeletonBox(width: 160, height: 14),
+                    SizedBox(height: AppTheme.spaceSm),
+                    SkeletonBox(width: 100, height: 12),
+                  ],
+                ),
+              ),
+              SkeletonBox(width: 64, height: 14),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-class _SpinnerPainter extends CustomPainter {
-  final Color color;
-
-  _SpinnerPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..strokeWidth = 3.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
-
-    final gradient = SweepGradient(
-      colors: [color.withValues(alpha: 0.0), color],
-      stops: const [0.0, 1.0],
-    );
-    paint.shader = gradient.createShader(rect);
-
-    canvas.drawArc(rect, -math.pi / 2, math.pi * 1.5, false, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SpinnerPainter oldDelegate) {
-    return oldDelegate.color != color;
-  }
-}
-
-class ShimmerContainer extends StatefulWidget {
+class SkeletonBox extends StatelessWidget {
   final double width;
   final double height;
-  final double borderRadius;
+  final double radius;
 
-  const ShimmerContainer({
+  const SkeletonBox({
     super.key,
     required this.width,
     required this.height,
-    this.borderRadius = 8,
+    this.radius = AppTheme.radiusXs,
   });
 
   @override
-  State<ShimmerContainer> createState() => _ShimmerContainerState();
-}
-
-class _ShimmerContainerState extends State<ShimmerContainer>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseColor = isDark
-        ? AppTheme.shimmerBaseDark
-        : AppTheme.shimmerBaseLight;
-    final highlightColor = isDark
-        ? AppTheme.shimmerHighlightDark
-        : AppTheme.shimmerHighlightLight;
-
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Container(
-          width: widget.width,
-          height: widget.height,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(widget.borderRadius),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [baseColor, highlightColor, baseColor],
-              stops: const [0.3, 0.5, 0.7],
-              transform: _SlidingGradientTransform(
-                slidePercent: _controller.value,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SlidingGradientTransform extends GradientTransform {
-  final double slidePercent;
-
-  const _SlidingGradientTransform({required this.slidePercent});
-
-  @override
-  Matrix4? transform(Rect bounds, {ui.TextDirection? textDirection}) {
-    return Matrix4.translationValues(
-      bounds.width * (slidePercent - 0.5) * 2,
-      0.0,
-      0.0,
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: context.colors.surfaceAlt,
+        borderRadius: BorderRadius.circular(radius),
+      ),
     );
   }
 }

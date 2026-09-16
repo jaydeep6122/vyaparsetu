@@ -54,6 +54,12 @@ const Map<String, String> _gstStateCodes = {
   '97': 'Other Territory',
 };
 
+/// GST states and union territories for pickers, sorted by name. Retired
+/// codes (25 Daman and Diu, 28 old Andhra Pradesh) are left out.
+final List<MapEntry<String, String>> gstStates =
+    _gstStateCodes.entries.where((e) => e.key != '25' && e.key != '28').toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+
 /// Alternate spellings seen in free-text state fields.
 ///
 /// Keys must already be in normalised form (lower case, `&` spelled "and",

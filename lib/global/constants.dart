@@ -1,280 +1,345 @@
 import 'package:easy_localization/easy_localization.dart';
 
-enum BusinessType {
-  retailer,
-  wholesaler,
-  service;
+// API enums. `value` is the wire string, `fromString` falls back to a safe
+// default for unknown values, `displayName` is the translated label.
 
-  String get value => name;
+enum GstRegistrationType {
+  regular('regular'),
+  composition('composition'),
+  unregistered('unregistered');
 
-  static BusinessType fromString(String val) {
-    return BusinessType.values.firstWhere(
-      (e) => e.name.toLowerCase() == val.toLowerCase(),
-      orElse: () => BusinessType.retailer,
-    );
-  }
+  const GstRegistrationType(this.value);
+  final String value;
 
-  String get displayName {
-    switch (this) {
-      case BusinessType.retailer:
-        return 'retailer'.tr();
-      case BusinessType.wholesaler:
-        return 'wholesaler'.tr();
-      case BusinessType.service:
-        return 'service_business'.tr();
-    }
-  }
+  static GstRegistrationType fromString(String? value) => GstRegistrationType
+      .values
+      .firstWhere((e) => e.value == value, orElse: () => unregistered);
+
+  String get displayName => 'gst_reg_$value'.tr();
 }
 
 enum PartyType {
-  customer,
-  supplier,
-  both;
+  customer('customer'),
+  supplier('supplier'),
+  both('both'),
+  transporter('transporter');
 
-  String get value => name;
+  const PartyType(this.value);
+  final String value;
 
-  static PartyType fromString(String val) {
-    return PartyType.values.firstWhere(
-      (e) => e.name.toLowerCase() == val.toLowerCase(),
-      orElse: () => PartyType.customer,
-    );
-  }
+  static PartyType fromString(String? value) =>
+      PartyType.values.firstWhere((e) => e.value == value, orElse: () => customer);
 
-  String get displayName {
-    switch (this) {
-      case PartyType.customer:
-        return 'customer'.tr();
-      case PartyType.supplier:
-        return 'supplier'.tr();
-      case PartyType.both:
-        return 'both'.tr();
-    }
-  }
+  String get displayName => 'party_type_$value'.tr();
+
+  bool get canSell => this == customer || this == both;
+  bool get canBuy => this == supplier || this == both;
 }
 
-enum OpeningBalanceType {
-  receive,
-  pay;
+enum PartyGstType {
+  registered('registered'),
+  unregistered('unregistered'),
+  composition('composition'),
+  consumer('consumer'),
+  overseas('overseas');
 
-  String get value => name;
+  const PartyGstType(this.value);
+  final String value;
 
-  static OpeningBalanceType fromString(String val) {
-    return OpeningBalanceType.values.firstWhere(
-      (e) => e.name.toLowerCase() == val.toLowerCase(),
-      orElse: () => OpeningBalanceType.receive,
-    );
-  }
+  static PartyGstType fromString(String? value) => PartyGstType.values
+      .firstWhere((e) => e.value == value, orElse: () => unregistered);
+
+  String get displayName => 'party_gst_$value'.tr();
+
+  bool get needsGstin => this == registered || this == composition;
+}
+
+/// Receivable: the party owes the business. Payable: the business owes them.
+enum BalanceType {
+  receivable('receivable'),
+  payable('payable');
+
+  const BalanceType(this.value);
+  final String value;
+
+  static BalanceType fromString(String? value) =>
+      BalanceType.values.firstWhere((e) => e.value == value, orElse: () => receivable);
+
+  String get displayName => 'balance_$value'.tr();
 }
 
 enum ItemType {
-  product,
-  service;
+  goods('goods'),
+  service('service');
 
-  String get value => name;
+  const ItemType(this.value);
+  final String value;
 
-  static ItemType fromString(String val) {
-    return ItemType.values.firstWhere(
-      (e) => e.name.toLowerCase() == val.toLowerCase(),
-      orElse: () => ItemType.product,
-    );
-  }
+  static ItemType fromString(String? value) =>
+      ItemType.values.firstWhere((e) => e.value == value, orElse: () => goods);
 
-  String get displayName {
-    switch (this) {
-      case ItemType.product:
-        return 'product'.tr();
-      case ItemType.service:
-        return 'service'.tr();
-    }
-  }
+  String get displayName => 'item_type_$value'.tr();
 }
 
 enum InvoiceType {
-  sale,
-  purchase;
+  sale('sale'),
+  purchase('purchase'),
+  saleReturn('sale_return'),
+  purchaseReturn('purchase_return');
 
-  String get value => name;
+  const InvoiceType(this.value);
+  final String value;
 
-  static InvoiceType fromString(String val) {
-    final normalized = val.toLowerCase().replaceAll('-', '_');
-    return InvoiceType.values.firstWhere(
-      (e) => e.name.toLowerCase() == normalized,
-      orElse: () => InvoiceType.sale,
-    );
-  }
+  static InvoiceType fromString(String? value) =>
+      InvoiceType.values.firstWhere((e) => e.value == value, orElse: () => sale);
 
-  String get displayName {
-    switch (this) {
-      case InvoiceType.sale:
-        return 'sale'.tr();
-      case InvoiceType.purchase:
-        return 'purchase'.tr();
-    }
-  }
+  String get displayName => 'invoice_type_$value'.tr();
+
+  bool get isSaleSide => this == sale || this == saleReturn;
+  bool get isReturn => this == saleReturn || this == purchaseReturn;
+
+  /// The invoice a return is raised against.
+  InvoiceType? get returnOf => switch (this) {
+    saleReturn => sale,
+    purchaseReturn => purchase,
+    _ => null,
+  };
+
+  /// Money for this invoice flows in (sale, purchase return) or out.
+  PaymentDirection get paymentDirection =>
+      this == sale || this == purchaseReturn ? PaymentDirection.paymentIn : PaymentDirection.paymentOut;
+}
+
+enum TaxMode {
+  gst('gst'),
+  nonGst('non_gst');
+
+  const TaxMode(this.value);
+  final String value;
+
+  static TaxMode fromString(String? value) =>
+      TaxMode.values.firstWhere((e) => e.value == value, orElse: () => gst);
+
+  String get displayName => 'tax_mode_$value'.tr();
+}
+
+enum InvoiceStatus {
+  draft('draft'),
+  finalized('final'),
+  cancelled('cancelled');
+
+  const InvoiceStatus(this.value);
+  final String value;
+
+  static InvoiceStatus fromString(String? value) =>
+      InvoiceStatus.values.firstWhere((e) => e.value == value, orElse: () => finalized);
+
+  String get displayName => 'invoice_status_$value'.tr();
 }
 
 enum PaymentStatus {
-  paid,
-  unpaid,
-  partially_paid;
+  paid('paid'),
+  partiallyPaid('partially_paid'),
+  unpaid('unpaid');
 
-  String get value => name;
+  const PaymentStatus(this.value);
+  final String value;
 
-  static PaymentStatus fromString(String val) {
-    final normalized = val.toLowerCase().replaceAll('-', '_');
-    return PaymentStatus.values.firstWhere(
-      (e) => e.name.toLowerCase() == normalized,
-      orElse: () => PaymentStatus.unpaid,
-    );
-  }
+  static PaymentStatus fromString(String? value) =>
+      PaymentStatus.values.firstWhere((e) => e.value == value, orElse: () => unpaid);
 
-  String get displayName {
-    switch (this) {
-      case PaymentStatus.paid:
-        return 'paid'.tr();
-      case PaymentStatus.unpaid:
-        return 'unpaid'.tr();
-      case PaymentStatus.partially_paid:
-        return 'partially_paid'.tr();
-    }
-  }
+  String get displayName => 'payment_status_$value'.tr();
+}
+
+/// Money received (in) or paid (out).
+enum PaymentDirection {
+  paymentIn('in'),
+  paymentOut('out');
+
+  const PaymentDirection(this.value);
+  final String value;
+
+  static PaymentDirection fromString(String? value) => PaymentDirection.values
+      .firstWhere((e) => e.value == value, orElse: () => paymentIn);
+
+  String get displayName => 'payment_direction_$value'.tr();
 }
 
 enum PaymentMode {
-  cash,
-  bank,
-  upi,
-  credit,
-  multiple;
+  cash('cash'),
+  upi('upi'),
+  bankTransfer('bank_transfer'),
+  cheque('cheque'),
+  card('card'),
+  other('other');
 
-  String get value => name;
+  const PaymentMode(this.value);
+  final String value;
 
-  static PaymentMode fromString(String val) {
-    return PaymentMode.values.firstWhere(
-      (e) => e.name.toLowerCase() == val.toLowerCase(),
-      orElse: () => PaymentMode.cash,
-    );
-  }
+  static PaymentMode fromString(String? value) =>
+      PaymentMode.values.firstWhere((e) => e.value == value, orElse: () => cash);
 
-  String get displayName {
-    switch (this) {
-      case PaymentMode.cash:
-        return 'cash'.tr();
-      case PaymentMode.bank:
-        return 'bank'.tr();
-      case PaymentMode.upi:
-        return 'upi'.tr();
-      case PaymentMode.credit:
-        return 'credit'.tr();
-      case PaymentMode.multiple:
-        return 'multiple_modes'.tr();
-    }
-  }
+  String get displayName => 'payment_mode_$value'.tr();
 }
 
-enum PaymentType {
-  payment_in,
-  payment_out;
+/// Status of payments, expenses, transfers and stock adjustments.
+enum RecordStatus {
+  active('active'),
+  cancelled('cancelled');
 
-  String get value => name;
+  const RecordStatus(this.value);
+  final String value;
 
-  static PaymentType fromString(String val) {
-    final normalized = val.toLowerCase().replaceAll('-', '_');
-    return PaymentType.values.firstWhere(
-      (e) => e.name.toLowerCase() == normalized,
-      orElse: () => PaymentType.payment_in,
-    );
-  }
+  static RecordStatus fromString(String? value) =>
+      RecordStatus.values.firstWhere((e) => e.value == value, orElse: () => active);
 
-  String get displayName {
-    switch (this) {
-      case PaymentType.payment_in:
-        return 'payment_in'.tr();
-      case PaymentType.payment_out:
-        return 'payment_out'.tr();
-    }
-  }
+  String get displayName => 'record_status_$value'.tr();
 }
 
-enum SupportedLocale {
-  en,
-  hi,
-  gu;
+enum AccountType {
+  cash('cash'),
+  bank('bank');
 
-  String get code => name;
+  const AccountType(this.value);
+  final String value;
+
+  static AccountType fromString(String? value) =>
+      AccountType.values.firstWhere((e) => e.value == value, orElse: () => cash);
+
+  String get displayName => 'account_type_$value'.tr();
 }
 
-enum BillType {
-  gst,
-  normal;
+enum ChargeType {
+  transport('transport'),
+  loading('loading'),
+  unloading('unloading'),
+  packing('packing'),
+  other('other');
 
-  String get value => name;
+  const ChargeType(this.value);
+  final String value;
 
-  static BillType fromString(String val) {
-    return BillType.values.firstWhere(
-      (e) => e.name.toLowerCase() == val.toLowerCase(),
-      orElse: () => BillType.gst,
-    );
-  }
+  static ChargeType fromString(String? value) =>
+      ChargeType.values.firstWhere((e) => e.value == value, orElse: () => other);
 
-  String get displayName {
-    switch (this) {
-      case BillType.gst:
-        return 'gst_invoice'.tr();
-      case BillType.normal:
-        return 'normal_invoice'.tr();
-    }
-  }
+  String get displayName => 'charge_type_$value'.tr();
 }
 
+/// Who a charge is owed by: added to the invoice party's bill, or owed only
+/// to a payee such as a transporter.
+enum ChargeBillTo {
+  invoiceParty('invoice_party'),
+  payeeOnly('payee_only');
+
+  const ChargeBillTo(this.value);
+  final String value;
+
+  static ChargeBillTo fromString(String? value) => ChargeBillTo.values
+      .firstWhere((e) => e.value == value, orElse: () => invoiceParty);
+
+  String get displayName => 'charge_bill_to_$value'.tr();
+}
+
+enum TransportMode {
+  road('road'),
+  rail('rail'),
+  air('air'),
+  ship('ship'),
+  self('self');
+
+  const TransportMode(this.value);
+  final String value;
+
+  static TransportMode? fromString(String? value) =>
+      TransportMode.values.where((e) => e.value == value).firstOrNull;
+
+  String get displayName => 'transport_mode_$value'.tr();
+}
+
+/// owner > admin > accountant > staff
+enum MemberRole {
+  staff('staff', 1),
+  accountant('accountant', 2),
+  admin('admin', 3),
+  owner('owner', 4);
+
+  const MemberRole(this.value, this.rank);
+  final String value;
+  final int rank;
+
+  static MemberRole fromString(String? value) =>
+      MemberRole.values.firstWhere((e) => e.value == value, orElse: () => staff);
+
+  String get displayName => 'role_$value'.tr();
+  String get description => 'role_${value}_description'.tr();
+
+  bool atLeast(MemberRole other) => rank >= other.rank;
+}
+
+enum AdjustmentReason {
+  damage('damage'),
+  count('count'),
+  opening('opening'),
+  other('other');
+
+  const AdjustmentReason(this.value);
+  final String value;
+
+  static AdjustmentReason fromString(String? value) => AdjustmentReason.values
+      .firstWhere((e) => e.value == value, orElse: () => other);
+
+  String get displayName => 'adjustment_reason_$value'.tr();
+}
+
+/// What produced a ledger or account-book entry.
+enum LedgerSource {
+  opening('opening'),
+  invoice('invoice'),
+  invoiceCharge('invoice_charge'),
+  payment('payment'),
+  expense('expense'),
+  transfer('transfer'),
+  adjustment('adjustment');
+
+  const LedgerSource(this.value);
+  final String value;
+
+  static LedgerSource fromString(String? value) =>
+      LedgerSource.values.firstWhere((e) => e.value == value, orElse: () => adjustment);
+
+  String get displayName => 'ledger_source_$value'.tr();
+}
+
+enum CategoryKind {
+  item('item-categories'),
+  expense('expense-categories');
+
+  const CategoryKind(this.path);
+  final String path;
+}
+
+enum OutstandingType {
+  receivable('receivable'),
+  payable('payable');
+
+  const OutstandingType(this.value);
+  final String value;
+}
+
+/// Invoice PDF layouts: one for tax invoices, one for bills of supply.
 enum BillDesign {
   gstClassic,
-  gstModern1,
-  gstModern2,
-  normalSimple,
-  normalDetailed;
+  nonGstSimple;
 
-  String get value => name;
-
-  static BillDesign fromString(String val) {
-    return BillDesign.values.firstWhere(
-      (e) => e.name.toLowerCase() == val.toLowerCase(),
-      orElse: () => BillDesign.gstClassic,
-    );
-  }
-
-  String get displayName {
-    switch (this) {
-      case BillDesign.gstClassic:
-        return 'classic'.tr();
-      case BillDesign.gstModern1:
-        return 'modern_minimal'.tr();
-      case BillDesign.gstModern2:
-        return 'professional_slate'.tr();
-      case BillDesign.normalSimple:
-        return 'simple_receipt'.tr();
-      case BillDesign.normalDetailed:
-        return 'detailed_retail'.tr();
-    }
-  }
-
-  bool get isGst =>
-      this == BillDesign.gstClassic ||
-      this == BillDesign.gstModern1 ||
-      this == BillDesign.gstModern2;
+  static BillDesign forTaxMode(TaxMode taxMode) =>
+      taxMode == TaxMode.gst ? gstClassic : nonGstSimple;
 }
 
 class AppConstants {
   static const String appName = 'Vyapar Setu';
 
-  // Default base URL for local development.
-  // In iOS simulator / Web: localhost
-  // In Android Emulator: 10.0.2.2
-  // old
-  // static const String apiBaseUrl = 'https://vyaparsetubackend.onrender.com/v1/';
+  static const String apiBaseUrl = 'https://vyaparsetubackend.onrender.com/v1/';
 
-  // new
-
-  static const String apiBaseUrl =
-      'https://vyaparsetubackendsingapore.onrender.com/v1/';
+  /// Page size for lists that load more as you scroll.
+  static const int pageSize = 50;
 }

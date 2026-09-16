@@ -1,271 +1,365 @@
-import 'dart:convert';
 import 'package:vyaparsetu/global/constants.dart';
-import 'package:vyaparsetu/types/invoiceItem.dart';
+import 'package:vyaparsetu/helpers/json.dart';
+import 'package:vyaparsetu/types/address.dart';
+
+class InvoiceLine {
+  final String? id;
+  final int lineNo;
+  final String? itemId;
+  final String description;
+  final String? hsnSac;
+  final double quantity;
+  final String? unitCode;
+  final double unitPrice;
+  final double discountPct;
+  final double discountAmount;
+  final double taxableValue;
+  final double taxRate;
+  final double cessRate;
+  final double cgstAmount;
+  final double sgstAmount;
+  final double igstAmount;
+  final double cessAmount;
+  final double lineTotal;
+
+  const InvoiceLine({
+    this.id,
+    required this.lineNo,
+    this.itemId,
+    required this.description,
+    this.hsnSac,
+    required this.quantity,
+    this.unitCode,
+    required this.unitPrice,
+    required this.discountPct,
+    required this.discountAmount,
+    required this.taxableValue,
+    required this.taxRate,
+    required this.cessRate,
+    required this.cgstAmount,
+    required this.sgstAmount,
+    required this.igstAmount,
+    required this.cessAmount,
+    required this.lineTotal,
+  });
+
+  factory InvoiceLine.fromJson(Map<String, dynamic> json) {
+    return InvoiceLine(
+      id: json['id'] as String?,
+      lineNo: asInt(json['line_no'], 1),
+      itemId: json['item_id'] as String?,
+      description: asString(json['description']),
+      hsnSac: json['hsn_sac'] as String?,
+      quantity: asDouble(json['quantity']),
+      unitCode: json['unit_code'] as String?,
+      unitPrice: asDouble(json['unit_price']),
+      discountPct: asDouble(json['discount_pct']),
+      discountAmount: asDouble(json['discount_amount']),
+      taxableValue: asDouble(json['taxable_value']),
+      taxRate: asDouble(json['tax_rate']),
+      cessRate: asDouble(json['cess_rate']),
+      cgstAmount: asDouble(json['cgst_amount']),
+      sgstAmount: asDouble(json['sgst_amount']),
+      igstAmount: asDouble(json['igst_amount']),
+      cessAmount: asDouble(json['cess_amount']),
+      lineTotal: asDouble(json['line_total']),
+    );
+  }
+
+  double get taxAmount => cgstAmount + sgstAmount + igstAmount + cessAmount;
+}
+
+class InvoiceCharge {
+  final String? id;
+  final ChargeType chargeType;
+  final String? description;
+  final ChargeBillTo billTo;
+  final String? payeePartyId;
+  final String? payeeName;
+  final String? vehicleNo;
+  final double? qty;
+  final double? rate;
+  final double amount;
+  final double taxRate;
+  final double taxAmount;
+
+  /// Paid so far to the payee.
+  final double amountSettled;
+  final double outstanding;
+
+  const InvoiceCharge({
+    this.id,
+    required this.chargeType,
+    this.description,
+    required this.billTo,
+    this.payeePartyId,
+    this.payeeName,
+    this.vehicleNo,
+    this.qty,
+    this.rate,
+    required this.amount,
+    required this.taxRate,
+    required this.taxAmount,
+    required this.amountSettled,
+    required this.outstanding,
+  });
+
+  factory InvoiceCharge.fromJson(Map<String, dynamic> json) {
+    return InvoiceCharge(
+      id: json['id'] as String?,
+      chargeType: ChargeType.fromString(json['charge_type'] as String?),
+      description: json['description'] as String?,
+      billTo: ChargeBillTo.fromString(json['bill_to'] as String?),
+      payeePartyId: json['payee_party_id'] as String?,
+      payeeName: json['payee_name'] as String?,
+      vehicleNo: json['vehicle_no'] as String?,
+      qty: asDoubleOrNull(json['qty']),
+      rate: asDoubleOrNull(json['rate']),
+      amount: asDouble(json['amount']),
+      taxRate: asDouble(json['tax_rate']),
+      taxAmount: asDouble(json['tax_amount']),
+      amountSettled: asDouble(json['amount_settled']),
+      outstanding: asDouble(json['outstanding']),
+    );
+  }
+
+  double get total => amount + taxAmount;
+}
+
+/// A payment (or the part of one) applied to an invoice or one of its charges.
+class InvoicePaymentLink {
+  final String allocationId;
+  final double amount;
+
+  /// Set when the payment settles a charge (e.g. freight) instead of the bill.
+  final String? invoiceChargeId;
+  final String paymentId;
+  final PaymentDirection paymentType;
+  final String paymentNumber;
+  final DateTime? paymentDate;
+  final PaymentMode mode;
+
+  const InvoicePaymentLink({
+    required this.allocationId,
+    required this.amount,
+    this.invoiceChargeId,
+    required this.paymentId,
+    required this.paymentType,
+    required this.paymentNumber,
+    this.paymentDate,
+    required this.mode,
+  });
+
+  factory InvoicePaymentLink.fromJson(Map<String, dynamic> json) {
+    return InvoicePaymentLink(
+      allocationId: asString(json['allocation_id']),
+      amount: asDouble(json['amount']),
+      invoiceChargeId: json['invoice_charge_id'] as String?,
+      paymentId: asString(json['payment_id']),
+      paymentType: PaymentDirection.fromString(json['payment_type'] as String?),
+      paymentNumber: asString(json['payment_number']),
+      paymentDate: asDate(json['payment_date']),
+      mode: PaymentMode.fromString(json['mode'] as String?),
+    );
+  }
+}
 
 class Invoice {
   final String id;
-  final String businessId;
-  final String? partyId;
-  final String? partyName;
-  final String invoiceNumber;
   final InvoiceType invoiceType;
-
-  /// Whether this is a GST or a plain bill.
-  ///
-  /// This used to be smuggled into [notes] as a `[bill_type:...]` marker and
-  /// recovered with a string search, which meant a customer typing that text
-  /// into their own notes silently changed the invoice's tax treatment. It is
-  /// a real field now; [_billTypeFromNotes] stays only to read rows written
-  /// before the column existed.
-  final BillType billType;
-  final String? chalanNo;
-  final double transportCost;
+  final TaxMode taxMode;
+  final InvoiceStatus status;
+  final String invoiceNumber;
   final DateTime invoiceDate;
   final DateTime? dueDate;
-  final DateTime? deliveryDate;
-  final double subTotal;
-  final double taxAmount;
-  final double discountAmount;
-  final double totalAmount;
-  final double paidAmount;
-  final PaymentStatus paymentStatus;
-  final PaymentMode paymentMode;
-  final String? notes;
-  final String? billingAddress;
-  final String? shippingAddress;
-  final List<InvoiceItem>? items;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final String? supplierInvoiceNumber;
+  final DateTime? supplierInvoiceDate;
+  final String? partyId;
+  final String partyName;
+  final String? partyGstin;
+  final String? partyStateCode;
+  final Address? billingAddress;
+  final Address? shippingAddress;
+  final String? placeOfSupply;
 
-  Invoice({
+  /// 'intra' (CGST + SGST) or 'inter' (IGST); null on non-GST bills.
+  final String? supplyType;
+  final bool isReverseCharge;
+  final String? originalInvoiceId;
+  final bool priceIncludesTax;
+
+  final double taxableTotal;
+  final double discountTotal;
+  final double cgstTotal;
+  final double sgstTotal;
+  final double igstTotal;
+  final double cessTotal;
+  final double chargesTotal;
+  final double roundOff;
+  final double totalAmount;
+  final double amountSettled;
+  final PaymentStatus paymentStatus;
+  final double outstanding;
+
+  final String? vehicleNo;
+  final String? driverName;
+  final String? driverPhone;
+  final TransportMode? transportMode;
+  final String? lrNo;
+  final DateTime? lrDate;
+  final String? ewayBillNo;
+  final DateTime? ewayBillDate;
+  final String? chalanNo;
+  final DateTime? deliveryDate;
+  final Address? dispatchFrom;
+  final Address? shipTo;
+
+  final String? notes;
+  final String? terms;
+  final DateTime? cancelledAt;
+  final String? cancelReason;
+  final DateTime? createdAt;
+
+  /// Empty in list responses; filled when loading one invoice.
+  final List<InvoiceLine> lines;
+  final List<InvoiceCharge> charges;
+  final List<InvoicePaymentLink> payments;
+
+  const Invoice({
     required this.id,
-    required this.businessId,
-    this.partyId,
-    this.partyName,
-    required this.invoiceNumber,
     required this.invoiceType,
-    required this.billType,
-    this.chalanNo,
-    required this.transportCost,
+    required this.taxMode,
+    required this.status,
+    required this.invoiceNumber,
     required this.invoiceDate,
     this.dueDate,
-    this.deliveryDate,
-    required this.subTotal,
-    required this.taxAmount,
-    required this.discountAmount,
-    required this.totalAmount,
-    required this.paidAmount,
-    required this.paymentStatus,
-    required this.paymentMode,
-    this.notes,
+    this.supplierInvoiceNumber,
+    this.supplierInvoiceDate,
+    this.partyId,
+    required this.partyName,
+    this.partyGstin,
+    this.partyStateCode,
     this.billingAddress,
     this.shippingAddress,
-    this.items,
-    required this.createdAt,
-    required this.updatedAt,
+    this.placeOfSupply,
+    this.supplyType,
+    required this.isReverseCharge,
+    this.originalInvoiceId,
+    required this.priceIncludesTax,
+    required this.taxableTotal,
+    required this.discountTotal,
+    required this.cgstTotal,
+    required this.sgstTotal,
+    required this.igstTotal,
+    required this.cessTotal,
+    required this.chargesTotal,
+    required this.roundOff,
+    required this.totalAmount,
+    required this.amountSettled,
+    required this.paymentStatus,
+    required this.outstanding,
+    this.vehicleNo,
+    this.driverName,
+    this.driverPhone,
+    this.transportMode,
+    this.lrNo,
+    this.lrDate,
+    this.ewayBillNo,
+    this.ewayBillDate,
+    this.chalanNo,
+    this.deliveryDate,
+    this.dispatchFrom,
+    this.shipTo,
+    this.notes,
+    this.terms,
+    this.cancelledAt,
+    this.cancelReason,
+    this.createdAt,
+    this.lines = const [],
+    this.charges = const [],
+    this.payments = const [],
   });
 
   factory Invoice.fromJson(Map<String, dynamic> json) {
+    final total = asDouble(json['total_amount']);
+    final settled = asDouble(json['amount_settled']);
     return Invoice(
       id: json['id'] as String,
-      businessId: json['business_id'] as String? ?? '',
+      invoiceType: InvoiceType.fromString(json['invoice_type'] as String?),
+      taxMode: TaxMode.fromString(json['tax_mode'] as String?),
+      status: InvoiceStatus.fromString(json['status'] as String?),
+      invoiceNumber: asString(json['invoice_number']),
+      invoiceDate: asDate(json['invoice_date']) ?? DateTime.now(),
+      dueDate: asDate(json['due_date']),
+      supplierInvoiceNumber: json['supplier_invoice_number'] as String?,
+      supplierInvoiceDate: asDate(json['supplier_invoice_date']),
       partyId: json['party_id'] as String?,
-      partyName: json['party_name'] as String?,
-      invoiceNumber: json['invoice_number'] as String? ?? '',
-      invoiceType: InvoiceType.fromString(
-        json['invoice_type'] as String? ?? 'sale',
-      ),
-      // Prefer the real column; fall back to the legacy notes marker for rows
-      // written before it existed.
-      billType: json['bill_type'] != null
-          ? BillType.fromString(json['bill_type'] as String)
-          : _billTypeFromNotes(json['notes'] as String?),
+      partyName: asString(json['party_name']),
+      partyGstin: json['party_gstin'] as String?,
+      partyStateCode: json['party_state_code'] as String?,
+      billingAddress: Address.fromJson(json['billing_address']),
+      shippingAddress: Address.fromJson(json['shipping_address']),
+      placeOfSupply: json['place_of_supply'] as String?,
+      supplyType: json['supply_type'] as String?,
+      isReverseCharge: asBool(json['is_reverse_charge']),
+      originalInvoiceId: json['original_invoice_id'] as String?,
+      priceIncludesTax: asBool(json['price_includes_tax']),
+      taxableTotal: asDouble(json['taxable_total']),
+      discountTotal: asDouble(json['discount_total']),
+      cgstTotal: asDouble(json['cgst_total']),
+      sgstTotal: asDouble(json['sgst_total']),
+      igstTotal: asDouble(json['igst_total']),
+      cessTotal: asDouble(json['cess_total']),
+      chargesTotal: asDouble(json['charges_total']),
+      roundOff: asDouble(json['round_off']),
+      totalAmount: total,
+      amountSettled: settled,
+      paymentStatus: PaymentStatus.fromString(json['payment_status'] as String?),
+      outstanding: asDouble(json['outstanding'], total - settled),
+      vehicleNo: json['vehicle_no'] as String?,
+      driverName: json['driver_name'] as String?,
+      driverPhone: json['driver_phone'] as String?,
+      transportMode: TransportMode.fromString(json['transport_mode'] as String?),
+      lrNo: json['lr_no'] as String?,
+      lrDate: asDate(json['lr_date']),
+      ewayBillNo: json['eway_bill_no'] as String?,
+      ewayBillDate: asDate(json['eway_bill_date']),
       chalanNo: json['chalan_no'] as String?,
-      transportCost:
-          double.tryParse(json['transport_cost']?.toString() ?? '0') ?? 0.0,
-      invoiceDate:
-          json['invoice_date'] != null
-              ? DateTime.parse(json['invoice_date'] as String).toLocal()
-              : DateTime.now(),
-      dueDate:
-          json['due_date'] != null
-              ? DateTime.parse(json['due_date'] as String).toLocal()
-              : null,
-      deliveryDate:
-          json['delivery_date'] != null
-              ? DateTime.parse(json['delivery_date'] as String).toLocal()
-              : null,
-      subTotal: double.tryParse(json['sub_total']?.toString() ?? '0') ?? 0.0,
-      taxAmount: double.tryParse(json['tax_amount']?.toString() ?? '0') ?? 0.0,
-      discountAmount:
-          double.tryParse(json['discount_amount']?.toString() ?? '0') ?? 0.0,
-      totalAmount:
-          double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0,
-      paidAmount:
-          double.tryParse(json['paid_amount']?.toString() ?? '0') ?? 0.0,
-      paymentStatus: PaymentStatus.fromString(
-        json['payment_status'] as String? ?? 'unpaid',
-      ),
-      paymentMode: PaymentMode.fromString(
-        json['payment_mode'] as String? ?? 'cash',
-      ),
+      deliveryDate: asDate(json['delivery_date']),
+      dispatchFrom: Address.fromJson(json['dispatch_from']),
+      shipTo: Address.fromJson(json['ship_to']),
       notes: json['notes'] as String?,
-      billingAddress:
-          json['billing_address'] as String? ??
-          _parseAddressFromNotes(json['notes'] as String?, 'billing'),
-      shippingAddress:
-          json['shipping_address'] as String? ??
-          _parseAddressFromNotes(json['notes'] as String?, 'shipping'),
-      items:
-          json['items'] != null
-              ? (json['items'] as List)
-                  .map(
-                    (e) => InvoiceItem.fromJson(Map<String, dynamic>.from(e)),
-                  )
-                  .toList()
-              : null,
-      createdAt:
-          json['created_at'] != null
-              ? DateTime.parse(json['created_at'] as String).toLocal()
-              : DateTime.now(),
-      updatedAt:
-          json['updated_at'] != null
-              ? DateTime.parse(json['updated_at'] as String).toLocal()
-              : DateTime.now(),
+      terms: json['terms'] as String?,
+      cancelledAt: asDate(json['cancelled_at']),
+      cancelReason: json['cancel_reason'] as String?,
+      createdAt: asDate(json['created_at']),
+      lines: asMapList(json['lines']).map(InvoiceLine.fromJson).toList(),
+      charges: asMapList(json['charges']).map(InvoiceCharge.fromJson).toList(),
+      payments: asMapList(json['payments'])
+          .map(InvoicePaymentLink.fromJson)
+          .toList(),
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'business_id': businessId,
-      if (partyId != null) 'party_id': partyId,
-      if (partyName != null) 'party_name': partyName,
-      'invoice_number': invoiceNumber,
-      'invoice_type': invoiceType.value,
-      'bill_type': billType.value,
-      'chalan_no': chalanNo,
-      'transport_cost': transportCost,
-      'invoice_date': invoiceDate.toUtc().toIso8601String(),
-      if (dueDate != null) 'due_date': dueDate?.toUtc().toIso8601String(),
-      if (deliveryDate != null) 'delivery_date': deliveryDate?.toUtc().toIso8601String(),
-      'sub_total': subTotal,
-      'tax_amount': taxAmount,
-      'discount_amount': discountAmount,
-      'total_amount': totalAmount,
-      'paid_amount': paidAmount,
-      'payment_status': paymentStatus.value,
-      'payment_mode': paymentMode.value,
-      'notes': notes,
-      'billing_address': billingAddress,
-      'shipping_address': shippingAddress,
-      if (items != null) 'items': items!.map((e) => e.toJson()).toList(),
-      'created_at': createdAt.toUtc().toIso8601String(),
-      'updated_at': updatedAt.toUtc().toIso8601String(),
-    };
+  bool get isGst => taxMode == TaxMode.gst;
+  bool get isInterState => supplyType == 'inter';
+  bool get isDraft => status == InvoiceStatus.draft;
+  bool get isCancelled => status == InvoiceStatus.cancelled;
+  bool get isWalkIn => partyId == null;
+
+  bool get isOverdue {
+    if (status != InvoiceStatus.finalized || outstanding < 0.005 || dueDate == null) {
+      return false;
+    }
+    final now = DateTime.now();
+    return dueDate!.isBefore(DateTime(now.year, now.month, now.day));
   }
 
-  Invoice copyWith({
-    String? id,
-    String? businessId,
-    String? partyId,
-    String? partyName,
-    String? invoiceNumber,
-    InvoiceType? invoiceType,
-    BillType? billType,
-    String? chalanNo,
-    double? transportCost,
-    DateTime? invoiceDate,
-    DateTime? dueDate,
-    DateTime? deliveryDate,
-    double? subTotal,
-    double? taxAmount,
-    double? discountAmount,
-    double? totalAmount,
-    double? paidAmount,
-    PaymentStatus? paymentStatus,
-    PaymentMode? paymentMode,
-    String? notes,
-    String? billingAddress,
-    String? shippingAddress,
-    List<InvoiceItem>? items,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return Invoice(
-      id: id ?? this.id,
-      businessId: businessId ?? this.businessId,
-      partyId: partyId ?? this.partyId,
-      partyName: partyName ?? this.partyName,
-      invoiceNumber: invoiceNumber ?? this.invoiceNumber,
-      invoiceType: invoiceType ?? this.invoiceType,
-      billType: billType ?? this.billType,
-      chalanNo: chalanNo ?? this.chalanNo,
-      transportCost: transportCost ?? this.transportCost,
-      invoiceDate: invoiceDate ?? this.invoiceDate,
-      dueDate: dueDate ?? this.dueDate,
-      deliveryDate: deliveryDate ?? this.deliveryDate,
-      subTotal: subTotal ?? this.subTotal,
-      taxAmount: taxAmount ?? this.taxAmount,
-      discountAmount: discountAmount ?? this.discountAmount,
-      totalAmount: totalAmount ?? this.totalAmount,
-      paidAmount: paidAmount ?? this.paidAmount,
-      paymentStatus: paymentStatus ?? this.paymentStatus,
-      paymentMode: paymentMode ?? this.paymentMode,
-      notes: notes ?? this.notes,
-      billingAddress: billingAddress ?? this.billingAddress,
-      shippingAddress: shippingAddress ?? this.shippingAddress,
-      items: items ?? this.items,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
+  double get taxTotal => cgstTotal + sgstTotal + igstTotal + cessTotal;
 
-  static String? _parseAddressFromNotes(String? notes, String key) {
-    if (notes == null) return null;
-    final index = notes.indexOf('\n[Addresses:');
-    if (index != -1) {
-      try {
-        final rawJson = notes.substring(index + 12, notes.length - 1);
-        final data = jsonDecode(rawJson);
-        return data[key] as String?;
-      } catch (_) {}
-    }
-    final index2 = notes.indexOf('[Addresses:');
-    if (index2 != -1) {
-      try {
-        final rawJson = notes.substring(index2 + 11, notes.length - 1);
-        final data = jsonDecode(rawJson);
-        return data[key] as String?;
-      } catch (_) {}
-    }
-    return null;
-  }
-
-  String? get visibleNotes {
-    if (notes == null) return null;
-    String cleaned = notes!;
-    // Strip bill_type marker
-    cleaned = cleaned.replaceAll(RegExp(r'\[bill_type:\w+\]\s*'), '').trim();
-    // Strip Addresses suffix
-    final index = cleaned.indexOf('\n[Addresses:');
-    if (index != -1) {
-      return cleaned.substring(0, index).trim();
-    }
-    final index2 = cleaned.indexOf('[Addresses:');
-    if (index2 != -1) {
-      return cleaned.substring(0, index2).trim();
-    }
-    return cleaned;
-  }
-
-  /// Reads the legacy `[bill_type:...]` marker out of [notes].
-  ///
-  /// Only for invoices created before `bill_type` became a column. New
-  /// invoices never write this marker.
-  static BillType _billTypeFromNotes(String? notes) {
-    if (notes == null) return BillType.gst;
-    if (notes.contains('[bill_type:normal]')) return BillType.normal;
-    return BillType.gst;
-  }
+  bool get hasTransportDetails =>
+      [vehicleNo, driverName, lrNo, ewayBillNo, chalanNo]
+          .any((value) => value != null && value.isNotEmpty) ||
+      deliveryDate != null ||
+      transportMode != null;
 }

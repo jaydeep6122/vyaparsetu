@@ -1,100 +1,128 @@
+import 'package:easy_localization/easy_localization.dart';
+
+/// Form validators. Each returns an error message, or null when valid.
+/// Optional fields pass when empty.
 class Validators {
-  static String? validateEmail(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Email is required';
+  Validators._();
+
+  static bool _isEmpty(String? value) => value == null || value.trim().isEmpty;
+
+  static String? required(String? value, String fieldLabel) => _isEmpty(value)
+      ? 'validation_required'.tr(namedArgs: {'field': fieldLabel})
+      : null;
+
+  static String? email(String? value, {bool isRequired = true}) {
+    if (_isEmpty(value)) return isRequired ? 'validation_email_required'.tr() : null;
+    final valid = RegExp(r'^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$').hasMatch(value!.trim());
+    return valid ? null : 'validation_email_invalid'.tr();
+  }
+
+  static String? password(String? value) {
+    if (value == null || value.isEmpty) return 'validation_password_required'.tr();
+    if (value.length < 8) return 'validation_password_short'.tr();
+    return null;
+  }
+
+  static String? confirmPassword(String? value, String password) {
+    if (value == null || value.isEmpty) return 'validation_confirm_password_required'.tr();
+    return value == password ? null : 'validation_passwords_mismatch'.tr();
+  }
+
+  /// 10-digit Indian mobile number, optionally with +91 or a leading 0.
+  static String? phone(String? value, {bool isRequired = false}) {
+    if (_isEmpty(value)) return isRequired ? 'validation_phone_required'.tr() : null;
+    final digits = value!.replaceAll(RegExp(r'[\s-]'), '');
+    final valid = RegExp(r'^(\+91|0)?[6-9]\d{9}$').hasMatch(digits);
+    return valid ? null : 'validation_phone_invalid'.tr();
+  }
+
+  static String? gstin(String? value, {bool isRequired = false}) {
+    if (_isEmpty(value)) return isRequired ? 'validation_gstin_required'.tr() : null;
+    final valid = RegExp(
+      r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$',
+    ).hasMatch(value!.trim().toUpperCase());
+    return valid ? null : 'validation_gstin_invalid'.tr();
+  }
+
+  static String? pan(String? value) {
+    if (_isEmpty(value)) return null;
+    final valid = RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$').hasMatch(value!.trim().toUpperCase());
+    return valid ? null : 'validation_pan_invalid'.tr();
+  }
+
+  static String? ifsc(String? value) {
+    if (_isEmpty(value)) return null;
+    final valid = RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(value!.trim().toUpperCase());
+    return valid ? null : 'validation_ifsc_invalid'.tr();
+  }
+
+  static String? pincode(String? value) {
+    if (_isEmpty(value)) return null;
+    return RegExp(r'^\d{6}$').hasMatch(value!.trim()) ? null : 'validation_pincode_invalid'.tr();
+  }
+
+  static String? hsnSac(String? value) {
+    if (_isEmpty(value)) return null;
+    return RegExp(r'^\d{4,8}$').hasMatch(value!.trim()) ? null : 'validation_hsn_invalid'.tr();
+  }
+
+  static String? upiId(String? value) {
+    if (_isEmpty(value)) return null;
+    return RegExp(r'^[\w.\-]{2,}@[A-Za-z]{2,}$').hasMatch(value!.trim())
+        ? null
+        : 'validation_upi_invalid'.tr();
+  }
+
+  static String? unitCode(String? value) {
+    if (_isEmpty(value)) return 'validation_unit_required'.tr();
+    return RegExp(r'^[A-Za-z]{2,10}$').hasMatch(value!.trim()) ? null : 'validation_unit_invalid'.tr();
+  }
+
+  static String? otp(String? value) {
+    if (_isEmpty(value)) return 'validation_otp_required'.tr();
+    return RegExp(r'^\d{6}$').hasMatch(value!.trim()) ? null : 'validation_otp_invalid'.tr();
+  }
+
+  /// A rupee amount with at most 2 decimals.
+  static String? amount(
+    String? value, {
+    required String fieldLabel,
+    bool isRequired = true,
+    bool allowZero = true,
+    bool allowNegative = false,
+    double? max,
+  }) {
+    if (_isEmpty(value)) {
+      return isRequired ? 'validation_required'.tr(namedArgs: {'field': fieldLabel}) : null;
     }
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    if (!emailRegex.hasMatch(value.trim())) {
-      return 'Please enter a valid email address';
+    final text = value!.trim().replaceAll(',', '');
+    final number = double.tryParse(text);
+    if (number == null || !RegExp(r'^-?\d*\.?\d{0,2}$').hasMatch(text)) {
+      return 'validation_amount_invalid'.tr();
+    }
+    if (!allowNegative && number < 0) return 'validation_amount_negative'.tr();
+    if (!allowZero && number == 0) return 'validation_amount_zero'.tr();
+    if (max != null && number > max + 0.0001) {
+      return 'validation_amount_max'.tr(namedArgs: {'max': max.toStringAsFixed(2)});
     }
     return null;
   }
 
-  static String? validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Password is required';
+  /// A quantity greater than zero with at most 3 decimals.
+  static String? quantity(String? value, {bool isRequired = true}) {
+    if (_isEmpty(value)) return isRequired ? 'validation_quantity_required'.tr() : null;
+    final text = value!.trim();
+    final number = double.tryParse(text);
+    if (number == null || !RegExp(r'^\d*\.?\d{0,3}$').hasMatch(text)) {
+      return 'validation_quantity_invalid'.tr();
     }
-    if (value.length < 6) {
-      return 'Password must be at least 6 characters';
-    }
-    return null;
+    return number > 0 ? null : 'validation_quantity_zero'.tr();
   }
 
-  static String? validateConfirmPassword(String? value, String password) {
-    if (value == null || value.isEmpty) {
-      return 'Confirm password is required';
-    }
-    if (value != password) {
-      return 'Passwords do not match';
-    }
-    return null;
-  }
-
-  static String? validateGSTIN(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return null; // GSTIN is optional in the database
-    }
-    final gstinRegex = RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$');
-    if (!gstinRegex.hasMatch(value.trim().toUpperCase())) {
-      return 'Invalid GSTIN format (e.g. 22AAAAA1111A1Z1)';
-    }
-    return null;
-  }
-
-  static String? validatePAN(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return null;
-    }
-    final panRegex = RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$');
-    if (!panRegex.hasMatch(value.trim().toUpperCase())) {
-      return 'Invalid PAN format (e.g. ABCDE1234F)';
-    }
-    return null;
-  }
-
-  static String? validateRequired(String? value, String fieldName) {
-    if (value == null || value.trim().isEmpty) {
-      return '$fieldName is required';
-    }
-    return null;
-  }
-
-  static String? validateAmount(String? value, String fieldName) {
-    if (value == null || value.trim().isEmpty) {
-      return '$fieldName is required';
-    }
-    final numValue = double.tryParse(value);
-    if (numValue == null) {
-      return 'Please enter a valid number';
-    }
-    if (numValue < 0) {
-      return 'Amount cannot be negative';
-    }
-    return null;
-  }
-
-  static String? validatePositiveAmount(String? value, String fieldName) {
-    if (value == null || value.trim().isEmpty) {
-      return '$fieldName is required';
-    }
-    final numValue = double.tryParse(value);
-    if (numValue == null) {
-      return 'Please enter a valid number';
-    }
-    if (numValue <= 0) {
-      return 'Amount must be greater than zero';
-    }
-    return null;
-  }
-
-  static String? validatePhone(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return null; // Phone is optional in db
-    }
-    final phoneRegex = RegExp(r'^[0-9]{10}$');
-    if (!phoneRegex.hasMatch(value.trim())) {
-      return 'Please enter a valid 10-digit mobile number';
-    }
+  static String? percent(String? value) {
+    if (_isEmpty(value)) return null;
+    final number = double.tryParse(value!.trim());
+    if (number == null || number < 0 || number > 100) return 'validation_percent_invalid'.tr();
     return null;
   }
 }

@@ -32,10 +32,14 @@ void main() {
     core.settings.load();
 
     runApp(
+      // English only for now; strings still go through translation keys so
+      // more languages can be added later.
       EasyLocalization(
-        supportedLocales: const [Locale('en'), Locale('hi'), Locale('gu')],
+        supportedLocales: const [Locale('en')],
         path: 'assets/translations',
         fallbackLocale: const Locale('en'),
+        startLocale: const Locale('en'),
+        saveLocale: false,
         child: ChangeNotifierProvider.value(
           value: core,
           child: const VyaparSetuApp(),
@@ -57,11 +61,16 @@ class _VyaparSetuAppState extends State<VyaparSetuApp> {
   void initState() {
     super.initState();
     DioInstance.onSessionExpired = () {
+      if (!mounted) return;
       context.read<Core>().auth.handleSessionExpired();
-      navigatorKey.currentState?.pushAndRemoveUntil(
-        getPageRoute(const LoginScreen()),
-        (route) => false,
-      );
+      // Clearing state rebuilds the screens that are open; navigating in the
+      // same breath would run while Navigator is still busy with that frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        navigatorKey.currentState?.pushAndRemoveUntil(
+          getPageRoute(const LoginScreen()),
+          (route) => false,
+        );
+      });
     };
   }
 
@@ -70,7 +79,6 @@ class _VyaparSetuAppState extends State<VyaparSetuApp> {
     final themeMode = context.select<Core, ThemeMode>(
       (c) => c.settings.themeMode,
     );
-    final locale = context.select<Core, Locale>((c) => c.settings.locale);
 
     return MaterialApp(
       navigatorKey: navigatorKey,
@@ -81,7 +89,7 @@ class _VyaparSetuAppState extends State<VyaparSetuApp> {
       themeMode: themeMode,
       localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,
-      locale: locale,
+      locale: context.locale,
       home: const SplashScreen(),
     );
   }

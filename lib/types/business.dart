@@ -1,171 +1,114 @@
 import 'package:vyaparsetu/global/constants.dart';
+import 'package:vyaparsetu/helpers/json.dart';
+import 'package:vyaparsetu/types/address.dart';
+
+class BusinessSettings {
+  final bool roundOffInvoices;
+  final String? invoiceTerms;
+
+  const BusinessSettings({this.roundOffInvoices = true, this.invoiceTerms});
+
+  factory BusinessSettings.fromJson(Map<String, dynamic> json) {
+    return BusinessSettings(
+      roundOffInvoices: asBool(json['round_off_invoices'], true),
+      invoiceTerms: json['invoice_terms'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'round_off_invoices': roundOffInvoices,
+    'invoice_terms': invoiceTerms,
+  };
+}
 
 class Business {
   final String id;
-  final String userId;
   final String name;
-  final String? email;
-  final String? phone;
-  final String address;
-  final String city;
-  final String state;
-  final String pincode;
+  final String? legalName;
+  final GstRegistrationType gstRegistrationType;
   final String? gstin;
-  final String? panNumber;
-  final BusinessType businessType;
-  final String invoicePrefix;
-  final int invoiceCounter;
-  final String financialYear;
+  final String? pan;
+
+  /// 2-digit GST state code, e.g. '24' for Gujarat.
+  final String stateCode;
+  final Address? address;
+  final String? phone;
+  final String? email;
+
+  /// Web URL or inline `data:image/...;base64,` image.
   final String? logoUrl;
   final String? signatureUrl;
-  final String? bankName;
-  final String? accountNumber;
-  final String? ifscCode;
-  final String? upiId;
-  final bool isActive;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final int fyStartMonth;
+  final BusinessSettings settings;
 
-  Business({
+  /// The signed-in user's role in this business.
+  final MemberRole role;
+  final DateTime? createdAt;
+
+  const Business({
     required this.id,
-    required this.userId,
     required this.name,
-    this.email,
-    this.phone,
-    required this.address,
-    required this.city,
-    required this.state,
-    required this.pincode,
+    this.legalName,
+    required this.gstRegistrationType,
     this.gstin,
-    this.panNumber,
-    required this.businessType,
-    required this.invoicePrefix,
-    required this.invoiceCounter,
-    required this.financialYear,
+    this.pan,
+    required this.stateCode,
+    this.address,
+    this.phone,
+    this.email,
     this.logoUrl,
     this.signatureUrl,
-    this.bankName,
-    this.accountNumber,
-    this.ifscCode,
-    this.upiId,
-    required this.isActive,
-    required this.createdAt,
-    required this.updatedAt,
+    required this.fyStartMonth,
+    required this.settings,
+    required this.role,
+    this.createdAt,
   });
 
   factory Business.fromJson(Map<String, dynamic> json) {
     return Business(
       id: json['id'] as String,
-      userId: json['user_id'] as String? ?? '',
-      name: json['name'] as String,
-      email: json['email'] as String?,
-      phone: json['phone'] as String?,
-      address: json['address'] as String? ?? '',
-      city: json['city'] as String? ?? '',
-      state: json['state'] as String? ?? '',
-      pincode: json['pincode'] as String? ?? '',
+      name: asString(json['name']),
+      legalName: json['legal_name'] as String?,
+      gstRegistrationType: GstRegistrationType.fromString(
+        json['gst_registration_type'] as String?,
+      ),
       gstin: json['gstin'] as String?,
-      panNumber: json['pan_number'] as String?,
-      businessType: BusinessType.fromString(json['business_type'] as String? ?? 'retailer'),
-      invoicePrefix: json['invoice_prefix'] as String? ?? 'INV',
-      invoiceCounter: (json['invoice_counter'] as num? ?? 1).toInt(),
-      financialYear: json['financial_year'] as String? ?? '2026-2027',
+      pan: json['pan'] as String?,
+      stateCode: asString(json['state_code']),
+      address: Address.fromJson(json['address']),
+      phone: json['phone'] as String?,
+      email: json['email'] as String?,
       logoUrl: json['logo_url'] as String?,
       signatureUrl: json['signature_url'] as String?,
-      bankName: json['bank_name'] as String?,
-      accountNumber: json['account_number'] as String?,
-      ifscCode: json['ifsc_code'] as String?,
-      upiId: json['upi_id'] as String?,
-      isActive: json['is_active'] as bool? ?? true,
-      createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at'] as String).toLocal()
-          : DateTime.now(),
-      updatedAt: json['updated_at'] != null 
-          ? DateTime.parse(json['updated_at'] as String).toLocal()
-          : DateTime.now(),
+      fyStartMonth: asInt(json['fy_start_month'], 4),
+      settings: BusinessSettings.fromJson(asMap(json['settings'])),
+      role: MemberRole.fromString(json['role'] as String?),
+      createdAt: asDate(json['created_at']),
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'user_id': userId,
-      'name': name,
-      'email': email,
-      'phone': phone,
-      'address': address,
-      'city': city,
-      'state': state,
-      'pincode': pincode,
-      'gstin': gstin,
-      'pan_number': panNumber,
-      'business_type': businessType.value,
-      'invoice_prefix': invoicePrefix,
-      'invoice_counter': invoiceCounter,
-      'financial_year': financialYear,
-      'logo_url': logoUrl,
-      'signature_url': signatureUrl,
-      'bank_name': bankName,
-      'account_number': accountNumber,
-      'ifsc_code': ifscCode,
-      'upi_id': upiId,
-      'is_active': isActive,
-      'created_at': createdAt.toUtc().toIso8601String(),
-      'updated_at': updatedAt.toUtc().toIso8601String(),
-    };
-  }
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'legal_name': legalName,
+    'gst_registration_type': gstRegistrationType.value,
+    'gstin': gstin,
+    'pan': pan,
+    'state_code': stateCode,
+    'address': address?.toJson(),
+    'phone': phone,
+    'email': email,
+    'logo_url': logoUrl,
+    'signature_url': signatureUrl,
+    'fy_start_month': fyStartMonth,
+    'settings': settings.toJson(),
+    'role': role.value,
+    'created_at': createdAt?.toUtc().toIso8601String(),
+  };
 
-  Business copyWith({
-    String? id,
-    String? userId,
-    String? name,
-    String? email,
-    String? phone,
-    String? address,
-    String? city,
-    String? state,
-    String? pincode,
-    String? gstin,
-    String? panNumber,
-    BusinessType? businessType,
-    String? invoicePrefix,
-    int? invoiceCounter,
-    String? financialYear,
-    String? logoUrl,
-    String? signatureUrl,
-    String? bankName,
-    String? accountNumber,
-    String? ifscCode,
-    String? upiId,
-    bool? isActive,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return Business(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      name: name ?? this.name,
-      email: email ?? this.email,
-      phone: phone ?? this.phone,
-      address: address ?? this.address,
-      city: city ?? this.city,
-      state: state ?? this.state,
-      pincode: pincode ?? this.pincode,
-      gstin: gstin ?? this.gstin,
-      panNumber: panNumber ?? this.panNumber,
-      businessType: businessType ?? this.businessType,
-      invoicePrefix: invoicePrefix ?? this.invoicePrefix,
-      invoiceCounter: invoiceCounter ?? this.invoiceCounter,
-      financialYear: financialYear ?? this.financialYear,
-      logoUrl: logoUrl ?? this.logoUrl,
-      signatureUrl: signatureUrl ?? this.signatureUrl,
-      bankName: bankName ?? this.bankName,
-      accountNumber: accountNumber ?? this.accountNumber,
-      ifscCode: ifscCode ?? this.ifscCode,
-      upiId: upiId ?? this.upiId,
-      isActive: isActive ?? this.isActive,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
+  /// Only regular GST registrations issue tax invoices.
+  bool get canIssueGstInvoices =>
+      gstRegistrationType == GstRegistrationType.regular;
+
+  TaxMode get defaultTaxMode => canIssueGstInvoices ? TaxMode.gst : TaxMode.nonGst;
 }

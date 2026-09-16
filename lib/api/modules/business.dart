@@ -1,30 +1,49 @@
 import 'package:dio/dio.dart';
+import 'package:vyaparsetu/api/response.dart';
 
 class BusinessApi {
   final Dio _dio;
 
   BusinessApi(this._dio);
 
-  Future<void> create(Map<String, dynamic> data) async {
-    await _dio.post('/businesses', data: data);
-  }
-
   Future<List<Map<String, dynamic>>> list() async {
-    final response = await _dio.get('/businesses');
-    final List<dynamic> list = response.data;
-    return list.map((e) => Map<String, dynamic>.from(e)).toList();
+    return listOf(await _dio.get('/businesses'));
   }
 
-  Future<Map<String, dynamic>> getById(String businessId) async {
-    final response = await _dio.get('/businesses/$businessId');
-    return response.data;
+  Future<Map<String, dynamic>> get(String businessId) async {
+    return dataOf(await _dio.get(businessPath(businessId)));
   }
 
-  Future<void> update(String businessId, Map<String, dynamic> data) async {
-    await _dio.put('/businesses/$businessId', data: data);
+  Future<Map<String, dynamic>> create(Map<String, dynamic> data) async {
+    return dataOf(await _dio.post('/businesses', data: data));
   }
 
-  Future<void> delete(String businessId) async {
-    await _dio.delete('/businesses/$businessId');
+  /// Only the fields sent are changed; null clears a field.
+  Future<Map<String, dynamic>> update(
+    String businessId,
+    Map<String, dynamic> data,
+  ) async {
+    return dataOf(await _dio.patch(businessPath(businessId), data: data));
+  }
+
+  /// Owner only. The business and its books are kept, just hidden.
+  Future<void> archive(String businessId) async {
+    await _dio.delete(businessPath(businessId));
+  }
+
+  Future<List<Map<String, dynamic>>> documentSeries(String businessId) async {
+    return listOf(await _dio.get('${businessPath(businessId)}/document-series'));
+  }
+
+  Future<Map<String, dynamic>> updateDocumentSeries(
+    String businessId,
+    String seriesId,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _dio.patch(
+      '${businessPath(businessId)}/document-series/$seriesId',
+      data: data,
+    );
+    return dataOf(response);
   }
 }

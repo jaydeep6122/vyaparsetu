@@ -1,59 +1,46 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:vyaparsetu/components/appButton.dart';
 import 'package:vyaparsetu/global/themes.dart';
 
 class AppErrorWidget extends StatelessWidget {
   final String errorMessage;
   final VoidCallback? onRetry;
 
-  const AppErrorWidget({
-    super.key,
-    required this.errorMessage,
-    this.onRetry,
-  });
+  const AppErrorWidget({super.key, required this.errorMessage, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colors = context.colors;
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(AppTheme.space3xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 72,
               height: 72,
-              decoration: BoxDecoration(
-                color: AppTheme.error.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-              ),
-              child: const Icon(
-                Icons.error_outline_rounded,
-                size: 32,
-                color: AppTheme.error,
-              ),
+              decoration: BoxDecoration(color: colors.dangerSoft, shape: BoxShape.circle),
+              child: Icon(Icons.cloud_off_rounded, size: 32, color: colors.danger),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppTheme.spaceLg),
             Text(
-              errorMessage,
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                color: theme.textTheme.bodyLarge?.color,
-              ),
+              'error_title'.tr(),
+              style: context.text.titleMedium,
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: AppTheme.spaceXs + 2),
+            Text(errorMessage, style: context.text.bodyMedium, textAlign: TextAlign.center),
             if (onRetry != null) ...[
-              const SizedBox(height: 20),
-              SizedBox(
-                height: 44,
-                child: OutlinedButton.icon(
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: Text('retry'.tr()),
-                ),
+              const SizedBox(height: AppTheme.spaceXl),
+              AppButton(
+                text: 'retry'.tr(),
+                icon: Icons.refresh_rounded,
+                variant: AppButtonVariant.outline,
+                onPressed: onRetry,
+                expand: false,
               ),
             ],
           ],

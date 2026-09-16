@@ -1,44 +1,64 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:vyaparsetu/global/themes.dart';
 
 class AppTextField extends StatefulWidget {
   final TextEditingController? controller;
   final String labelText;
   final String? hintText;
+  final String? helperText;
+  final String? initialValue;
   final String? Function(String?)? validator;
   final TextInputType keyboardType;
+  final TextInputAction? textInputAction;
+  final TextCapitalization textCapitalization;
   final bool isPassword;
   final IconData? prefixIcon;
   final Widget? suffixIcon;
+  final String? prefixText;
+  final String? suffixText;
   final int? maxLines;
-  final void Function(String)? onChanged;
-  final void Function(String?)? onSaved;
-  final String? initialValue;
-  final bool readOnly;
-  final VoidCallback? onTap;
+  final int? minLines;
   final int? maxLength;
+  final void Function(String)? onChanged;
+  final void Function(String)? onFieldSubmitted;
+  final void Function(String?)? onSaved;
+  final bool readOnly;
+  final bool enabled;
+  final bool autofocus;
+  final VoidCallback? onTap;
+  final FocusNode? focusNode;
   final List<TextInputFormatter>? inputFormatters;
+  final Iterable<String>? autofillHints;
 
   const AppTextField({
     super.key,
     this.controller,
     required this.labelText,
     this.hintText,
+    this.helperText,
+    this.initialValue,
     this.validator,
     this.keyboardType = TextInputType.text,
+    this.textInputAction,
+    this.textCapitalization = TextCapitalization.none,
     this.isPassword = false,
     this.prefixIcon,
     this.suffixIcon,
+    this.prefixText,
+    this.suffixText,
     this.maxLines = 1,
-    this.onChanged,
-    this.onSaved,
-    this.initialValue,
-    this.readOnly = false,
-    this.onTap,
+    this.minLines,
     this.maxLength,
+    this.onChanged,
+    this.onFieldSubmitted,
+    this.onSaved,
+    this.readOnly = false,
+    this.enabled = true,
+    this.autofocus = false,
+    this.onTap,
+    this.focusNode,
     this.inputFormatters,
+    this.autofillHints,
   });
 
   @override
@@ -46,87 +66,51 @@ class AppTextField extends StatefulWidget {
 }
 
 class _AppTextFieldState extends State<AppTextField> {
-  bool _obscureText = true;
-  bool _isFocused = false;
-  final _focusNode = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    _obscureText = widget.isPassword;
-    _focusNode.addListener(() {
-      setState(() => _isFocused = _focusNode.hasFocus);
-    });
-  }
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
+  late bool _obscureText = widget.isPassword;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final accent = isDark ? AppTheme.primaryDark : AppTheme.primary;
-
     return TextFormField(
       controller: widget.controller,
-      focusNode: _focusNode,
-      initialValue: widget.initialValue,
-      obscureText: widget.isPassword ? _obscureText : false,
+      initialValue: widget.controller == null ? widget.initialValue : null,
+      focusNode: widget.focusNode,
+      obscureText: widget.isPassword && _obscureText,
       keyboardType: widget.keyboardType,
+      textInputAction: widget.textInputAction,
+      textCapitalization: widget.textCapitalization,
       maxLines: widget.isPassword ? 1 : widget.maxLines,
+      minLines: widget.minLines,
+      maxLength: widget.maxLength,
       onChanged: widget.onChanged,
+      onFieldSubmitted: widget.onFieldSubmitted,
       onSaved: widget.onSaved,
       readOnly: widget.readOnly,
+      enabled: widget.enabled,
+      autofocus: widget.autofocus,
       onTap: widget.onTap,
-      maxLength: widget.maxLength,
       inputFormatters: widget.inputFormatters,
+      autofillHints: widget.autofillHints,
+      validator: widget.validator,
       buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
-      style: GoogleFonts.outfit(
-        fontSize: 15,
-        color: theme.textTheme.bodyLarge?.color,
-      ),
+      style: Theme.of(context).textTheme.bodyLarge,
       decoration: InputDecoration(
         labelText: widget.labelText.isEmpty ? null : widget.labelText,
         hintText: widget.hintText,
-        prefixIcon: widget.prefixIcon != null
-            ? Padding(
-                padding: const EdgeInsets.only(left: 12, right: 8),
-                child: Icon(
-                  widget.prefixIcon,
-                  color: _isFocused ? accent : theme.iconTheme.color?.withValues(alpha: 0.4),
+        helperText: widget.helperText,
+        prefixText: widget.prefixText,
+        suffixText: widget.suffixText,
+        prefixIcon: widget.prefixIcon == null ? null : Icon(widget.prefixIcon, size: 20),
+        suffixIcon: widget.isPassword
+            ? IconButton(
+                tooltip: _obscureText ? 'Show password' : 'Hide password',
+                icon: Icon(
+                  _obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                   size: 20,
                 ),
-              )
-            : null,
-        prefixIconConstraints: const BoxConstraints(
-          minWidth: 40,
-          minHeight: 0,
-        ),
-        suffixIcon: widget.isPassword
-            ? Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  icon: Icon(
-                    _obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                    color: theme.iconTheme.color?.withValues(alpha: 0.4),
-                    size: 20,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _obscureText = !_obscureText;
-                    });
-                  },
-                ),
+                onPressed: () => setState(() => _obscureText = !_obscureText),
               )
             : widget.suffixIcon,
       ),
-      validator: widget.validator,
     );
   }
 }

@@ -1,166 +1,113 @@
 import 'package:vyaparsetu/api/api.dart';
+import 'package:vyaparsetu/core/components/getters.dart';
+import 'package:vyaparsetu/core/components/moduleBase.dart';
+import 'package:vyaparsetu/global/constants.dart';
 import 'package:vyaparsetu/types/expense.dart';
-import 'package:vyaparsetu/core/Core.dart';
-import 'package:vyaparsetu/helpers/errorHandler.dart';
 
-class ExpenseModule {
-  final Core core;
-  ExpenseModule(this.core);
+class ExpenseModule extends CoreModule {
+  ExpenseModule(super.core);
 
-  List<Expense> _expenses = [];
-  bool _isLoading = false;
-  String? _error;
-  bool _hasFetched = false;
+  final PagedState<Expense> list = PagedState();
+  String _search = '';
+  String? _categoryId;
 
-  List<Expense> get expenses => _expenses;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
+  String get search => _search;
+  String? get categoryId => _categoryId;
 
-  Future<List<Expense>> fetchExpenses(
-    String businessId, {
-    String? expenseCategory,
-    String? fromDate,
-    String? toDate,
+  final Map<String, LoadState<Expense>> _details = {};
+
+  LoadState<Expense> detail(String expenseId) =>
+      _details.putIfAbsent(expenseId, LoadState.new);
+
+  Future<void> fetchExpenses({bool refresh = false, bool more = false}) {
+    final businessId = core.businessId;
+    return loadPage(
+      list,
+      fetch: (offset) => Api.instance.expense.list(
+        businessId,
+        search: _search,
+        categoryId: _categoryId,
+        limit: AppConstants.pageSize,
+        offset: offset,
+      ),
+      parse: Expense.fromJson,
+      refresh: refresh,
+      more: more,
+    );
+  }
+
+  Future<void> loadMore() => fetchExpenses(more: true);
+
+  Future<void> setFilters({
     String? search,
-    bool forceRefresh = false,
-  }) async {
-    final isFiltered =
-        expenseCategory != null ||
-        fromDate != null ||
-        toDate != null ||
-        search != null;
-
-    if (!isFiltered) {
-      if (_hasFetched && !forceRefresh) {
-        return _expenses;
-      }
-
-      _isLoading = true;
-      _error = null;
-      core.notify();
-
-      try {
-        final list = await Api.instance.expense.list(businessId);
-        _expenses = list.map((e) => Expense.fromJson(e)).toList();
-        _hasFetched = true;
-      } catch (e) {
-        _error = extractErrorMessage(e);
-      }
-
-      _isLoading = false;
-      core.notify();
-      return _expenses;
-    } else {
-      _isLoading = true;
-      _error = null;
-      core.notify();
-
-      List<Expense> results = [];
-      try {
-        final list = await Api.instance.expense.list(
-          businessId,
-          expenseCategory: expenseCategory,
-          fromDate: fromDate,
-          toDate: toDate,
-          search: search,
-        );
-        results = list.map((e) => Expense.fromJson(e)).toList();
-      } catch (e) {
-        _error = extractErrorMessage(e);
-      }
-
-      _isLoading = false;
-      core.notify();
-      return results;
-    }
+    String? categoryId,
+    bool clearCategory = false,
+  }) {
+    _search = search ?? _search;
+    _categoryId = clearCategory ? null : (categoryId ?? _categoryId);
+    return fetchExpenses(refresh: true);
   }
 
-  Future<bool> createExpense(
-    String businessId,
-    Map<String, dynamic> data,
-  ) async {
-    _isLoading = true;
-    _error = null;
-    core.notify();
-
-    try {
-      final response = await Api.instance.expense.create(businessId, data);
-      final newExpense = Expense.fromJson(response);
-      _expenses.insert(0, newExpense);
-      _expenses = List.from(_expenses);
-      _isLoading = false;
-      core.notify();
-      return true;
-    } catch (e) {
-      _error = extractErrorMessage(e);
-    }
-
-    _isLoading = false;
-    core.notify();
-    return false;
+  Future<Expense?> getExpense(String expenseId, {bool refresh = false}) {
+    final businessId = core.businessId;
+    return loadValue(
+      detail(expenseId),
+      () async => Expense.fromJson(
+        await Api.instance.expense.get(businessId, expenseId),
+      ),
+      refresh: refresh,
+    );
   }
 
-  Future<bool> updateExpense(
-    String businessId,
+  Future<Expense?> createExpense(Map<String, dynamic> data) async {
+    final json = await runSave(
+      () => Api.instance.expense.create(core.businessId, data),
+    );
+    return json == null ? null : _saved(Expense.fromJson(json));
+  }
+
+  /// Replaces the whole expense.
+  Future<Expense?> updateExpense(
     String expenseId,
     Map<String, dynamic> data,
   ) async {
-    _isLoading = true;
-    _error = null;
-    core.notify();
-
-    try {
-      await Api.instance.expense.update(businessId, expenseId, data);
-
-      final idx = _expenses.indexWhere((e) => e.id == expenseId);
-      if (idx != -1) {
-        final oldExpense = _expenses[idx];
-        final existingMap = oldExpense.toJson();
-        data.forEach((key, value) {
-          existingMap[key] = value;
-        });
-        _expenses[idx] = Expense.fromJson(existingMap);
-        _expenses = List.from(_expenses);
-      }
-
-      _isLoading = false;
-      core.notify();
-      return true;
-    } catch (e) {
-      _error = extractErrorMessage(e);
-    }
-
-    _isLoading = false;
-    core.notify();
-    return false;
+    final json = await runSave(
+      () => Api.instance.expense.update(core.businessId, expenseId, data),
+    );
+    return json == null ? null : _saved(Expense.fromJson(json));
   }
 
-  Future<bool> deleteExpense(String businessId, String expenseId) async {
-    _isLoading = true;
-    _error = null;
-    core.notify();
-
-    try {
-      await Api.instance.expense.delete(businessId, expenseId);
-      _expenses.removeWhere((e) => e.id == expenseId);
-      _expenses = List.from(_expenses);
-      _isLoading = false;
-      core.notify();
-      return true;
-    } catch (e) {
-      _error = extractErrorMessage(e);
-    }
-
-    _isLoading = false;
-    core.notify();
-    return false;
+  Future<Expense?> cancelExpense(String expenseId, {String? reason}) async {
+    final json = await runSave(
+      () => Api.instance.expense.cancel(
+        core.businessId,
+        expenseId,
+        reason: reason,
+      ),
+    );
+    return json == null ? null : _saved(Expense.fromJson(json));
   }
 
-  void clearAll() {
-    _expenses = [];
-    _isLoading = false;
-    _error = null;
-    _hasFetched = false;
-    core.notify();
+  Expense _saved(Expense expense) {
+    core.markBooksChanged();
+    detail(expense.id)
+      ..value = expense
+      ..stale = false;
+    fetchExpenses(refresh: true);
+    return expense;
+  }
+
+  void markStale() {
+    list.stale = true;
+    for (final state in _details.values) {
+      state.stale = true;
+    }
+  }
+
+  void clear() {
+    list.reset();
+    _details.clear();
+    _search = '';
+    _categoryId = null;
   }
 }
