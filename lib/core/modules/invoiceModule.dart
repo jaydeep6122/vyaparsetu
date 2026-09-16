@@ -1,346 +1,208 @@
 import 'package:vyaparsetu/api/api.dart';
-import 'package:vyaparsetu/types/invoice.dart';
-import 'package:vyaparsetu/core/Core.dart';
-import 'package:vyaparsetu/helpers/errorHandler.dart';
+import 'package:vyaparsetu/core/components/getters.dart';
+import 'package:vyaparsetu/core/components/moduleBase.dart';
 import 'package:vyaparsetu/global/constants.dart';
+import 'package:vyaparsetu/types/invoice.dart';
 
-class InvoiceModule {
-  final Core core;
-  InvoiceModule(this.core);
+/// Filters of the invoice list.
+class InvoiceFilter {
+  final InvoiceType? type;
+  final PaymentStatus? paymentStatus;
+  final InvoiceStatus? status;
+  final bool overdueOnly;
+  final String search;
 
-  List<Invoice> _invoices = [];
-  bool _isLoading = false;
-  String? _error;
-  bool _hasFetched = false;
+  const InvoiceFilter({
+    this.type,
+    this.paymentStatus,
+    this.status,
+    this.overdueOnly = false,
+    this.search = '',
+  });
 
-  final Map<String, List<Invoice>> _partyInvoicesMap = {};
-  bool _isLoadingPartyInvoices = false;
-  List<Invoice> _partyInvoices = [];
-
-  List<Invoice> get invoices => _invoices;
-  List<Invoice> get partyInvoices => _partyInvoices;
-  bool get isLoading => _isLoading;
-  bool get isLoadingPartyInvoices => _isLoadingPartyInvoices;
-  String? get error => _error;
-
-  List<Invoice> getPartyInvoicesFor(String partyId) => _partyInvoicesMap[partyId] ?? [];
-
-  Future<List<Invoice>> fetchInvoices(
-    String businessId, {
-    String? type,
-    String? partyId,
-    String? fromDate,
-    String? toDate,
+  InvoiceFilter copyWith({
+    InvoiceType? type,
+    bool clearType = false,
+    PaymentStatus? paymentStatus,
+    bool clearPaymentStatus = false,
+    InvoiceStatus? status,
+    bool clearStatus = false,
+    bool? overdueOnly,
     String? search,
-    bool forceRefresh = false,
+  }) {
+    return InvoiceFilter(
+      type: clearType ? null : (type ?? this.type),
+      paymentStatus: clearPaymentStatus
+          ? null
+          : (paymentStatus ?? this.paymentStatus),
+      status: clearStatus ? null : (status ?? this.status),
+      overdueOnly: overdueOnly ?? this.overdueOnly,
+      search: search ?? this.search,
+    );
+  }
+
+  bool get isActive =>
+      type != null || paymentStatus != null || status != null || overdueOnly;
+}
+
+class InvoiceModule extends CoreModule {
+  InvoiceModule(super.core);
+
+  final PagedState<Invoice> list = PagedState();
+  InvoiceFilter _filter = const InvoiceFilter();
+  InvoiceFilter get filter => _filter;
+
+  final Map<String, LoadState<Invoice>> _details = {};
+
+  LoadState<Invoice> detail(String invoiceId) =>
+      _details.putIfAbsent(invoiceId, LoadState.new);
+
+  Future<void> fetchInvoices({bool refresh = false, bool more = false}) {
+    final businessId = core.businessId;
+    final filter = _filter;
+    return loadPage(
+      list,
+      fetch: (offset) => Api.instance.invoice.list(
+        businessId,
+        invoiceType: filter.type?.value,
+        paymentStatus: filter.paymentStatus?.value,
+        status: filter.status?.value,
+        overdue: filter.overdueOnly,
+        search: filter.search,
+        limit: AppConstants.pageSize,
+        offset: offset,
+      ),
+      parse: Invoice.fromJson,
+      refresh: refresh,
+      more: more,
+    );
+  }
+
+  Future<void> loadMore() => fetchInvoices(more: true);
+
+  Future<void> setFilter(InvoiceFilter filter) {
+    _filter = filter;
+    return fetchInvoices(refresh: true);
+  }
+
+  Future<Invoice?> getInvoice(String invoiceId, {bool refresh = false}) {
+    final businessId = core.businessId;
+    return loadValue(
+      detail(invoiceId),
+      () async => Invoice.fromJson(
+        await Api.instance.invoice.get(businessId, invoiceId),
+      ),
+      refresh: refresh,
+    );
+  }
+
+  /// Invoices of one party, e.g. for its detail screen or to pick bills a
+  /// payment settles. Newest first.
+  Future<List<Invoice>> invoicesForParty(
+    String partyId, {
+    InvoiceType? type,
+    bool unpaidOnly = false,
   }) async {
-    final isFiltered = type != null || partyId != null || fromDate != null || toDate != null || search != null;
-
-    if (!isFiltered) {
-      if (_hasFetched && !forceRefresh) {
-        return _invoices;
-      }
-
-      _isLoading = true;
-      _error = null;
-      core.notify();
-
-      try {
-        final list = await Api.instance.invoice.list(businessId);
-        _invoices = list.map((e) => Invoice.fromJson(e)).toList();
-        _hasFetched = true;
-      } catch (e) {
-        _error = extractErrorMessage(e);
-      }
-
-      _isLoading = false;
-      core.notify();
-      return _invoices;
-    } else {
-      _isLoading = true;
-      _error = null;
-      core.notify();
-
-      List<Invoice> results = [];
-      try {
-        final list = await Api.instance.invoice.list(
-          businessId,
-          type: type,
-          partyId: partyId,
-          fromDate: fromDate,
-          toDate: toDate,
-          search: search,
-        );
-        results = list.map((e) => Invoice.fromJson(e)).toList();
-      } catch (e) {
-        _error = extractErrorMessage(e);
-      }
-
-      _isLoading = false;
-      core.notify();
-      return results;
-    }
-  }
-
-  Future<Invoice?> fetchInvoiceDetail(String businessId, String invoiceId) async {
-    // Check if we already have it in the list
-    final cached = _invoices.where((i) => i.id == invoiceId).firstOrNull;
-    if (cached != null && cached.items != null) {
-      return cached;
-    }
-
-    _isLoading = true;
-    _error = null;
-    core.notify();
-
+    final businessId = core.businessId;
     try {
-      final data = await Api.instance.invoice.getById(businessId, invoiceId);
-      final invoice = Invoice.fromJson(data);
-      
-      // Update in local list if present
-      final idx = _invoices.indexWhere((i) => i.id == invoiceId);
-      if (idx != -1) {
-        _invoices[idx] = invoice;
-      }
-
-      _isLoading = false;
-      core.notify();
-      return invoice;
-    } catch (e) {
-      _error = extractErrorMessage(e);
+      final pages = await Future.wait([
+        if (unpaidOnly) ...[
+          Api.instance.invoice.list(
+            businessId,
+            partyId: partyId,
+            invoiceType: type?.value,
+            status: InvoiceStatus.finalized.value,
+            paymentStatus: PaymentStatus.unpaid.value,
+            limit: 100,
+          ),
+          Api.instance.invoice.list(
+            businessId,
+            partyId: partyId,
+            invoiceType: type?.value,
+            status: InvoiceStatus.finalized.value,
+            paymentStatus: PaymentStatus.partiallyPaid.value,
+            limit: 100,
+          ),
+        ] else
+          Api.instance.invoice.list(
+            businessId,
+            partyId: partyId,
+            invoiceType: type?.value,
+            limit: 100,
+          ),
+      ]);
+      final invoices = pages
+          .expand((page) => page.items)
+          .map(Invoice.fromJson)
+          .toList();
+      invoices.sort((a, b) => b.invoiceDate.compareTo(a.invoiceDate));
+      return invoices;
+    } catch (_) {
+      return [];
     }
-
-    _isLoading = false;
-    core.notify();
-    return null;
   }
 
-  Future<bool> createInvoice(String businessId, Map<String, dynamic> data) async {
-    _isLoading = true;
-    _error = null;
-    core.notify();
-
-    try {
-      final response = await Api.instance.invoice.create(businessId, data);
-      final newInv = Invoice.fromJson(response);
-      _invoices.insert(0, newInv);
-      _invoices = List.from(_invoices);
-
-      // Cache under party invoices map if partyId matches
-      if (newInv.partyId != null) {
-        final partyId = newInv.partyId!;
-        if (_partyInvoicesMap.containsKey(partyId)) {
-          _partyInvoicesMap[partyId]!.insert(0, newInv);
-          _partyInvoicesMap[partyId] = List.from(_partyInvoicesMap[partyId]!);
-        } else {
-          _partyInvoicesMap[partyId] = [newInv];
-        }
-
-        // Adjust party balance locally
-        final change = newInv.invoiceType == InvoiceType.sale
-            ? (newInv.totalAmount - newInv.paidAmount)
-            : -(newInv.totalAmount - newInv.paidAmount);
-        core.party.adjustPartyBalance(partyId, change);
-      }
-
-      _isLoading = false;
-      core.notify();
-      return true;
-    } catch (e) {
-      _error = extractErrorMessage(e);
-    }
-
-    _isLoading = false;
-    core.notify();
-    return false;
+  Future<Invoice?> createInvoice(Map<String, dynamic> data) async {
+    final json = await runSave(
+      () => Api.instance.invoice.create(core.businessId, data),
+    );
+    return json == null ? null : _saved(Invoice.fromJson(json));
   }
 
-  Future<bool> updateInvoice(String businessId, String invoiceId, Map<String, dynamic> data) async {
-    _isLoading = true;
-    _error = null;
-    core.notify();
-
-    try {
-      final response = await Api.instance.invoice.update(businessId, invoiceId, data);
-      final updatedInv = Invoice.fromJson(response);
-      
-      final idx = _invoices.indexWhere((i) => i.id == invoiceId);
-      double oldPending = 0.0;
-      if (idx != -1) {
-        final oldInv = _invoices[idx];
-        oldPending = oldInv.invoiceType == InvoiceType.sale
-            ? (oldInv.totalAmount - oldInv.paidAmount)
-            : -(oldInv.totalAmount - oldInv.paidAmount);
-        _invoices[idx] = updatedInv;
-        _invoices = List.from(_invoices);
-      }
-
-      if (updatedInv.partyId != null) {
-        // Update in party invoices map
-        final list = _partyInvoicesMap[updatedInv.partyId];
-        if (list != null) {
-          final pIdx = list.indexWhere((i) => i.id == invoiceId);
-          if (pIdx != -1) {
-            list[pIdx] = updatedInv;
-            _partyInvoicesMap[updatedInv.partyId!] = List.from(list);
-          }
-        }
-
-        // Adjust party balance locally
-        final newPending = updatedInv.invoiceType == InvoiceType.sale
-            ? (updatedInv.totalAmount - updatedInv.paidAmount)
-            : -(updatedInv.totalAmount - updatedInv.paidAmount);
-        final change = newPending - oldPending;
-        core.party.adjustPartyBalance(updatedInv.partyId!, change);
-      }
-
-      _isLoading = false;
-      core.notify();
-      return true;
-    } catch (e) {
-      _error = extractErrorMessage(e);
-    }
-
-    _isLoading = false;
-    core.notify();
-    return false;
+  /// Replaces the whole invoice.
+  Future<Invoice?> updateInvoice(
+    String invoiceId,
+    Map<String, dynamic> data,
+  ) async {
+    final json = await runSave(
+      () => Api.instance.invoice.update(core.businessId, invoiceId, data),
+    );
+    return json == null ? null : _saved(Invoice.fromJson(json));
   }
 
-  Future<bool> deleteInvoice(String businessId, String invoiceId) async {
-    _isLoading = true;
-    _error = null;
-    core.notify();
-
-    try {
-      // Find old details for balance adjustment
-      final idx = _invoices.indexWhere((i) => i.id == invoiceId);
-      Invoice? oldInv;
-      if (idx != -1) {
-        oldInv = _invoices[idx];
-      }
-
-      await Api.instance.invoice.delete(businessId, invoiceId);
-      _invoices.removeWhere((i) => i.id == invoiceId);
-      _invoices = List.from(_invoices);
-
-      if (oldInv != null && oldInv.partyId != null) {
-        // Remove from party invoices map
-        final list = _partyInvoicesMap[oldInv.partyId];
-        if (list != null) {
-          list.removeWhere((i) => i.id == invoiceId);
-          _partyInvoicesMap[oldInv.partyId!] = List.from(list);
-        }
-
-        // Revert party balance adjustment
-        final oldPending = oldInv.invoiceType == InvoiceType.sale
-            ? (oldInv.totalAmount - oldInv.paidAmount)
-            : -(oldInv.totalAmount - oldInv.paidAmount);
-        core.party.adjustPartyBalance(oldInv.partyId!, -oldPending);
-      }
-
-      _isLoading = false;
-      core.notify();
-      return true;
-    } catch (e) {
-      _error = extractErrorMessage(e);
-    }
-
-    _isLoading = false;
-    core.notify();
-    return false;
+  Future<Invoice?> cancelInvoice(String invoiceId, {String? reason}) async {
+    final json = await runSave(
+      () => Api.instance.invoice.cancel(
+        core.businessId,
+        invoiceId,
+        reason: reason,
+      ),
+    );
+    return json == null ? null : _saved(Invoice.fromJson(json));
   }
 
-  Future<void> fetchPartyInvoices(String businessId, String partyId, {bool forceRefresh = false}) async {
-    // Return cached list if available
-    _partyInvoices = _partyInvoicesMap[partyId] ?? [];
-    
-    if (_partyInvoices.isNotEmpty && !forceRefresh) {
-      return;
-    }
-
-    _isLoadingPartyInvoices = true;
-    core.notify();
-
-    try {
-      final list = await Api.instance.invoice.list(businessId, partyId: partyId);
-      final parsed = list.map((e) => Invoice.fromJson(e)).toList();
-      _partyInvoicesMap[partyId] = parsed;
-      _partyInvoices = parsed;
-    } catch (e) {
-      _partyInvoices = [];
-    }
-
-    _isLoadingPartyInvoices = false;
-    core.notify();
+  Future<bool> deleteDraft(String invoiceId) async {
+    final done = await runSave(
+      () => Api.instance.invoice
+          .deleteDraft(core.businessId, invoiceId)
+          .then((_) => true),
+    );
+    if (done != true) return false;
+    _details.remove(invoiceId);
+    fetchInvoices(refresh: true);
+    return true;
   }
 
-  void clearPartyInvoices() {
-    // No-op to preserve cache
+  Invoice _saved(Invoice invoice) {
+    // Balances, stock, cash and reports all move with an invoice.
+    core.markBooksChanged();
+    detail(invoice.id)
+      ..value = invoice
+      ..stale = false;
+    fetchInvoices(refresh: true);
+    return invoice;
   }
 
-  void adjustInvoicePayment(String invoiceId, double amountChange) {
-    String? partyId;
-
-    final idx = _invoices.indexWhere((i) => i.id == invoiceId);
-    if (idx != -1) {
-      final oldInv = _invoices[idx];
-      partyId = oldInv.partyId;
-      final newPaidAmount = (oldInv.paidAmount + amountChange).clamp(0.0, oldInv.totalAmount);
-      PaymentStatus newStatus = PaymentStatus.unpaid;
-      if (newPaidAmount >= oldInv.totalAmount) {
-        newStatus = PaymentStatus.paid;
-      } else if (newPaidAmount > 0) {
-        newStatus = PaymentStatus.partially_paid;
-      }
-      _invoices[idx] = oldInv.copyWith(
-        paidAmount: newPaidAmount,
-        paymentStatus: newStatus,
-      );
-      _invoices = List.from(_invoices);
+  void markStale() {
+    list.stale = true;
+    for (final state in _details.values) {
+      state.stale = true;
     }
-
-    if (partyId == null) {
-      for (final entry in _partyInvoicesMap.entries) {
-        final pIdx = entry.value.indexWhere((i) => i.id == invoiceId);
-        if (pIdx != -1) {
-          partyId = entry.key;
-          break;
-        }
-      }
-    }
-
-    if (partyId != null && _partyInvoicesMap.containsKey(partyId)) {
-      final list = _partyInvoicesMap[partyId]!;
-      final pIdx = list.indexWhere((i) => i.id == invoiceId);
-      if (pIdx != -1) {
-        final oldInv = list[pIdx];
-        final newPaidAmount = (oldInv.paidAmount + amountChange).clamp(0.0, oldInv.totalAmount);
-        PaymentStatus newStatus = PaymentStatus.unpaid;
-        if (newPaidAmount >= oldInv.totalAmount) {
-          newStatus = PaymentStatus.paid;
-        } else if (newPaidAmount > 0) {
-          newStatus = PaymentStatus.partially_paid;
-        }
-        list[pIdx] = oldInv.copyWith(
-          paidAmount: newPaidAmount,
-          paymentStatus: newStatus,
-        );
-        _partyInvoicesMap[partyId] = List.from(list);
-        _partyInvoices = _partyInvoicesMap[partyId]!;
-      }
-    }
-
-    core.notify();
   }
 
-  void clearAll() {
-    _invoices = [];
-    _partyInvoices = [];
-    _isLoading = false;
-    _isLoadingPartyInvoices = false;
-    _error = null;
-    _partyInvoicesMap.clear();
-    _hasFetched = false;
-    core.notify();
+  void clear() {
+    list.reset();
+    _details.clear();
+    _filter = const InvoiceFilter();
   }
 }

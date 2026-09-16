@@ -1,174 +1,153 @@
 import 'package:vyaparsetu/api/api.dart';
-import 'package:vyaparsetu/types/business.dart';
-import 'package:vyaparsetu/storage/hive/cache.dart';
-import 'package:vyaparsetu/core/Core.dart';
+import 'package:vyaparsetu/core/components/moduleBase.dart';
 import 'package:vyaparsetu/helpers/errorHandler.dart';
+import 'package:vyaparsetu/storage/hive/cache.dart';
+import 'package:vyaparsetu/types/business.dart';
+import 'package:vyaparsetu/types/member.dart';
 
-class BusinessModule {
-  final Core core;
-  BusinessModule(this.core);
+class BusinessModule extends CoreModule {
+  BusinessModule(super.core);
 
   List<Business> _businesses = [];
   Business? _selectedBusiness;
   bool _isLoading = false;
-  String? _error;
+  String? _loadError;
 
   List<Business> get businesses => _businesses;
   Business? get selectedBusiness => _selectedBusiness;
   bool get isLoading => _isLoading;
-  String? get error => _error;
+  String? get loadError => _loadError;
+
+  final LoadState<List<DocumentSeries>> documentSeries = LoadState();
+
+  Future<void> _cacheBusinesses() => CacheBox.setBusinesses(
+    _businesses.map((business) => business.toJson()).toList(),
+  );
 
   Future<void> fetchBusinesses() async {
     _isLoading = true;
-    _error = null;
+    _loadError = null;
     core.notify();
 
     try {
       final list = await Api.instance.business.list();
-      _businesses = list.map((e) => Business.fromJson(e)).toList();
-      await CacheBox.setBusinesses(list);
-
-      if (_selectedBusiness == null) {
-        restoreSelectedBusiness();
-      } else {
-        final index = _businesses.indexWhere((b) => b.id == _selectedBusiness!.id);
-        if (index != -1) {
-          _selectedBusiness = _businesses[index];
-        } else {
-          _selectedBusiness = null;
-        }
-      }
+      _businesses = list.map(Business.fromJson).toList();
+      await _cacheBusinesses();
     } catch (e) {
-      _error = extractErrorMessage(e);
-      final cachedList = CacheBox.getBusinesses();
-      if (cachedList.isNotEmpty) {
-        _businesses = cachedList.map((e) => Business.fromJson(e)).toList();
-        restoreSelectedBusiness();
+      _loadError = extractErrorMessage(e);
+      if (_businesses.isEmpty) {
+        _businesses = CacheBox.getBusinesses().map(Business.fromJson).toList();
       }
+    }
+
+    // Keep the selection pointing at the fresh copy (role and settings may
+    // have changed), or restore it after a cold start.
+    final selectedId = _selectedBusiness?.id ?? CacheBox.getSelectedBusinessId();
+    final match = _businesses.where((b) => b.id == selectedId).firstOrNull;
+    if (match != null) {
+      _selectedBusiness = match;
+    } else if (_businesses.length == 1) {
+      await selectBusiness(_businesses.first);
+    } else {
+      _selectedBusiness = null;
     }
 
     _isLoading = false;
     core.notify();
-  }
-
-  void restoreSelectedBusiness() {
-    final selectedId = CacheBox.getSelectedBusinessId();
-    if (selectedId != null && _businesses.isNotEmpty) {
-      final matched = _businesses.where((b) => b.id == selectedId);
-      if (matched.isNotEmpty) {
-        _selectedBusiness = matched.first;
-      } else {
-        if (_businesses.length == 1) {
-          selectBusiness(_businesses.first);
-        }
-      }
-    } else if (_businesses.length == 1) {
-      selectBusiness(_businesses.first);
-    }
   }
 
   Future<void> selectBusiness(Business business) async {
+    final changed = _selectedBusiness?.id != business.id;
     _selectedBusiness = business;
     await CacheBox.setSelectedBusinessId(business.id);
-    core.dashboard.loadCachedSummary(business.id);
-    core.invoice.clearAll();
-    core.item.clearAll();
-    core.party.clearAll();
-    core.payment.clearAll();
-    core.expense.clearAll();
-    core.notify();
-  }
-
-  Future<bool> createBusiness(Map<String, dynamic> data) async {
-    _isLoading = true;
-    _error = null;
-    core.notify();
-
-    try {
-      await Api.instance.business.create(data);
-      await fetchBusinesses();
-      _isLoading = false;
-      core.notify();
-      return true;
-    } catch (e) {
-      _error = extractErrorMessage(e);
+    if (changed) {
+      documentSeries.reset();
+      core.resetBusinessData();
     }
-
-    _isLoading = false;
     core.notify();
-    return false;
   }
 
-  Future<bool> updateBusiness(String id, Map<String, dynamic> data) async {
-    _isLoading = true;
-    _error = null;
-    core.notify();
-
-    try {
-      await Api.instance.business.update(id, data);
-      await fetchBusinesses();
-
-      if (_selectedBusiness?.id == id) {
-        final matched = _businesses.where((b) => b.id == id);
-        if (matched.isNotEmpty) {
-          _selectedBusiness = matched.first;
-        }
-      }
-
-      _isLoading = false;
-      core.notify();
-      return true;
-    } catch (e) {
-      _error = extractErrorMessage(e);
-    }
-
-    _isLoading = false;
-    core.notify();
-    return false;
+  Future<Business?> createBusiness(Map<String, dynamic> data) async {
+    final json = await runSave(() => Api.instance.business.create(data));
+    if (json == null) return null;
+    final business = Business.fromJson(json);
+    _businesses = [..._businesses, business];
+    await _cacheBusinesses();
+    await selectBusiness(business);
+    return business;
   }
 
-  Future<bool> deleteBusiness(String id) async {
-    _isLoading = true;
-    _error = null;
+  /// Updates the selected business. Only the fields sent are changed.
+  Future<Business?> updateBusiness(Map<String, dynamic> data) async {
+    final current = _selectedBusiness;
+    if (current == null) return null;
+
+    final json = await runSave(
+      () => Api.instance.business.update(current.id, data),
+    );
+    if (json == null) return null;
+    final business = Business.fromJson(json);
+    _businesses = [
+      for (final b in _businesses) b.id == business.id ? business : b,
+    ];
+    _selectedBusiness = business;
+    await _cacheBusinesses();
     core.notify();
-
-    try {
-      await Api.instance.business.delete(id);
-      await fetchBusinesses();
-
-      if (_selectedBusiness?.id == id) {
-        _selectedBusiness = null;
-        await CacheBox.setSelectedBusinessId(null);
-        if (_businesses.isNotEmpty) {
-          if (_businesses.length == 1) {
-            selectBusiness(_businesses.first);
-          }
-        }
-      }
-
-      _isLoading = false;
-      core.notify();
-      return true;
-    } catch (e) {
-      _error = extractErrorMessage(e);
-    }
-
-    _isLoading = false;
-    core.notify();
-    return false;
+    return business;
   }
 
-  Future<void> clearSelectedBusiness() async {
+  /// Owner only. Hides the business; its books are kept.
+  Future<bool> archiveBusiness() async {
+    final current = _selectedBusiness;
+    if (current == null) return false;
+
+    final done = await runSave(
+      () => Api.instance.business.archive(current.id).then((_) => true),
+    );
+    if (done != true) return false;
+    _businesses = _businesses.where((b) => b.id != current.id).toList();
     _selectedBusiness = null;
     await CacheBox.setSelectedBusinessId(null);
-    core.notify();
+    await _cacheBusinesses();
+    core.resetBusinessData();
+    return true;
+  }
+
+  Future<List<DocumentSeries>?> fetchDocumentSeries({bool refresh = false}) {
+    final id = _selectedBusiness!.id;
+    return loadValue(
+      documentSeries,
+      () async => (await Api.instance.business.documentSeries(id))
+          .map(DocumentSeries.fromJson)
+          .toList(),
+      refresh: refresh,
+    );
+  }
+
+  Future<bool> updateDocumentSeries(
+    String seriesId, {
+    String? prefix,
+    int? nextNumber,
+    int? padding,
+  }) async {
+    final id = _selectedBusiness!.id;
+    final json = await runSave(
+      () => Api.instance.business.updateDocumentSeries(id, seriesId, {
+        'prefix': ?prefix,
+        'next_number': ?nextNumber,
+        'padding': ?padding,
+      }),
+    );
+    if (json == null) return false;
+    await fetchDocumentSeries(refresh: true);
+    return true;
   }
 
   void clearAll() {
     _businesses = [];
     _selectedBusiness = null;
     _isLoading = false;
-    _error = null;
+    _loadError = null;
+    documentSeries.reset();
   }
-
 }

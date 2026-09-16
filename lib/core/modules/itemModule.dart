@@ -1,176 +1,129 @@
 import 'package:vyaparsetu/api/api.dart';
+import 'package:vyaparsetu/core/components/getters.dart';
+import 'package:vyaparsetu/core/components/moduleBase.dart';
+import 'package:vyaparsetu/global/constants.dart';
 import 'package:vyaparsetu/types/item.dart';
-import 'package:vyaparsetu/types/itemQuantitySummary.dart';
-import 'package:vyaparsetu/core/Core.dart';
-import 'package:vyaparsetu/helpers/errorHandler.dart';
 
-class ItemModule {
-  final Core core;
-  ItemModule(this.core);
-  List<Item> _items = [];
-  bool _isLoading = false;
-  String? _error;
-  bool _hasFetched = false;
+class ItemModule extends CoreModule {
+  ItemModule(super.core);
 
-  final Map<String, ItemQuantitySummary> _quantitySummaries = {};
+  final PagedState<Item> list = PagedState();
+  String _search = '';
+  bool _lowStockOnly = false;
+  String? _categoryId;
 
-  ItemQuantitySummary? _quantitySummary;
-  bool _isLoadingQuantitySummary = false;
-  String? _quantitySummaryError;
+  String get search => _search;
+  bool get lowStockOnly => _lowStockOnly;
+  String? get categoryId => _categoryId;
 
-  List<Item> get items => _items;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
+  final Map<String, LoadState<Item>> _details = {};
 
-  ItemQuantitySummary? get quantitySummary => _quantitySummary;
-  bool get isLoadingQuantitySummary => _isLoadingQuantitySummary;
-  String? get quantitySummaryError => _quantitySummaryError;
+  LoadState<Item> detail(String itemId) =>
+      _details.putIfAbsent(itemId, LoadState.new);
 
-  ItemQuantitySummary? getQuantitySummaryFor(String itemId) =>
-      _quantitySummaries[itemId];
-
-  Future<void> fetchItems(
-    String businessId, {
-    bool forceRefresh = false,
-  }) async {
-    if (_hasFetched && !forceRefresh) {
-      return;
-    }
-
-    _isLoading = true;
-    _error = null;
-    core.notify();
-
-    try {
-      final list = await Api.instance.item.list(businessId);
-      _items = list.map((e) => Item.fromJson(e)).toList();
-      _hasFetched = true;
-    } catch (e) {
-      _error = extractErrorMessage(e);
-    }
-
-    _isLoading = false;
-    core.notify();
-  }
-
-  Future<Item?> createItem(String businessId, Map<String, dynamic> data) async {
-    _isLoading = true;
-    _error = null;
-    core.notify();
-
-    try {
-      final response = await Api.instance.item.create(businessId, data);
-      final newItem = Item.fromJson(response);
-      _items.insert(0, newItem);
-      _items = List.from(_items);
-      _isLoading = false;
-      core.notify();
-      return newItem;
-    } catch (e) {
-      _error = extractErrorMessage(e);
-    }
-
-    _isLoading = false;
-    core.notify();
-    return null;
-  }
-
-  Future<bool> updateItem(
-    String businessId,
-    String itemId,
-    Map<String, dynamic> data,
-  ) async {
-    _isLoading = true;
-    _error = null;
-    core.notify();
-
-    try {
-      await Api.instance.item.update(businessId, itemId, data);
-      final idx = _items.indexWhere((i) => i.id == itemId);
-      if (idx != -1) {
-        final existing = _items[idx];
-        final existingMap = existing.toJson();
-        data.forEach((key, value) {
-          existingMap[key] = value;
-        });
-        _items[idx] = Item.fromJson(existingMap);
-        _items = List.from(_items);
-      }
-      _isLoading = false;
-      core.notify();
-      return true;
-    } catch (e) {
-      _error = extractErrorMessage(e);
-    }
-
-    _isLoading = false;
-    core.notify();
-    return false;
-  }
-
-  Future<bool> deleteItem(String businessId, String itemId) async {
-    _isLoading = true;
-    _error = null;
-    core.notify();
-
-    try {
-      await Api.instance.item.delete(businessId, itemId);
-      _items.removeWhere((i) => i.id == itemId);
-      _items = List.from(_items);
-      _isLoading = false;
-      core.notify();
-      return true;
-    } catch (e) {
-      _error = extractErrorMessage(e);
-    }
-
-    _isLoading = false;
-    core.notify();
-    return false;
-  }
-
-  Future<void> fetchQuantitySummary(
-    String businessId,
-    String itemId, {
-    bool forceRefresh = false,
-  }) async {
-    _quantitySummary = _quantitySummaries[itemId];
-    _quantitySummaryError = null;
-
-    final hasCache = _quantitySummary != null;
-    if (!hasCache || forceRefresh) {
-      _isLoadingQuantitySummary = true;
-      core.notify();
-    }
-
-    try {
-      final data = await Api.instance.item.getQuantitySummary(
+  Future<void> fetchItems({bool refresh = false, bool more = false}) {
+    final businessId = core.businessId;
+    return loadPage(
+      list,
+      fetch: (offset) => Api.instance.item.list(
         businessId,
-        itemId,
+        search: _search,
+        categoryId: _categoryId,
+        lowStock: _lowStockOnly,
+        limit: AppConstants.pageSize,
+        offset: offset,
+      ),
+      parse: Item.fromJson,
+      refresh: refresh,
+      more: more,
+    );
+  }
+
+  Future<void> loadMore() => fetchItems(more: true);
+
+  Future<void> setFilters({
+    String? search,
+    bool? lowStockOnly,
+    String? categoryId,
+    bool clearCategory = false,
+  }) {
+    _search = search ?? _search;
+    _lowStockOnly = lowStockOnly ?? _lowStockOnly;
+    _categoryId = clearCategory ? null : (categoryId ?? _categoryId);
+    return fetchItems(refresh: true);
+  }
+
+  Future<Item?> getItem(String itemId, {bool refresh = false}) {
+    final businessId = core.businessId;
+    return loadValue(
+      detail(itemId),
+      () async => Item.fromJson(await Api.instance.item.get(businessId, itemId)),
+      refresh: refresh,
+    );
+  }
+
+  /// Quick lookup for pickers, without touching the main list.
+  Future<List<Item>> searchItems(String query) async {
+    try {
+      final page = await Api.instance.item.list(
+        core.businessId,
+        search: query,
+        limit: 30,
       );
-      final summary = ItemQuantitySummary.fromJson(data);
-      _quantitySummaries[itemId] = summary;
-      _quantitySummary = summary;
-    } catch (e) {
-      _quantitySummaryError = extractErrorMessage(e);
+      return page.items.map(Item.fromJson).toList();
+    } catch (_) {
+      return [];
     }
-
-    _isLoadingQuantitySummary = false;
-    core.notify();
   }
 
-  void clearQuantitySummary() {
-    // No-op to preserve cache
+  Future<Item?> createItem(Map<String, dynamic> data) async {
+    final json = await runSave(
+      () => Api.instance.item.create(core.businessId, data),
+    );
+    return json == null ? null : _saved(Item.fromJson(json));
   }
-  void clearAll() {
-    _items = [];
-    _isLoading = false;
-    _error = null;
-    _quantitySummary = null;
-    _isLoadingQuantitySummary = false;
-    _quantitySummaryError = null;
-    _quantitySummaries.clear();
-    _hasFetched = false;
-    core.notify();
+
+  /// Only the fields sent are changed; null clears a field.
+  Future<Item?> updateItem(String itemId, Map<String, dynamic> data) async {
+    final json = await runSave(
+      () => Api.instance.item.update(core.businessId, itemId, data),
+    );
+    return json == null ? null : _saved(Item.fromJson(json));
+  }
+
+  Future<Item?> setArchived(String itemId, {required bool archived}) async {
+    final json = await runSave(
+      () => Api.instance.item.setArchived(
+        core.businessId,
+        itemId,
+        archived: archived,
+      ),
+    );
+    return json == null ? null : _saved(Item.fromJson(json));
+  }
+
+  Item _saved(Item item) {
+    detail(item.id)
+      ..value = item
+      ..stale = false;
+    list.stale = true;
+    fetchItems();
+    core.report.markStale();
+    return item;
+  }
+
+  void markStale() {
+    list.stale = true;
+    for (final state in _details.values) {
+      state.stale = true;
+    }
+  }
+
+  void clear() {
+    list.reset();
+    _details.clear();
+    _search = '';
+    _lowStockOnly = false;
+    _categoryId = null;
   }
 }

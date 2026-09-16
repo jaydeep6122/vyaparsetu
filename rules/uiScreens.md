@@ -1,106 +1,92 @@
 # UI Screens
 
 ## Rule
-Every screen is a `StatefulWidget` that loads data in `initState` via a post-frame callback. State is read through `context.select<Core, T>()` or `Selector<Core, T>`.
+Screens are `StatefulWidget`s that load in a post-frame callback, read state
+from `Core`, and show `LoadStateBody` / `PagedListView` instead of hand-rolled
+loading and empty states.
 
-## Screen Structure
+## List screen
 
 ```dart
-class InvoiceListScreen extends StatefulWidget {
-  const InvoiceListScreen({super.key});
+class PartyListScreen extends StatefulWidget {
+  const PartyListScreen({super.key});
   @override
-  State<InvoiceListScreen> createState() => _InvoiceListScreenState();
+  State<PartyListScreen> createState() => _PartyListScreenState();
 }
 
-class _InvoiceListScreenState extends State<InvoiceListScreen> {
+class _PartyListScreenState extends State<PartyListScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
-  }
-
-  void _loadData() {
-    final businessId = context.read<Core>().business.selectedBusiness?.id;
-    if (businessId != null) {
-      context.read<Core>().invoice.fetchInvoices(businessId);
-    }
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => context.read<Core>().party.fetchParties(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final businessId = context.select<Core, String?>(
-      (c) => c.business.selectedBusiness?.id,
-    );
+    final core = context.watch<Core>();
+    final parties = core.party;
+    scheduleReload(parties.list.needsReload, () => parties.fetchParties(refresh: true));
 
     return Scaffold(
-      body: Selector<Core, List<Invoice>>(
-        selector: (context, core) => core.invoice.invoices,
-        builder: (context, invoices, child) {
-          if (invoices.isEmpty) {
-            return const LoadingIndicator();
-          }
-          return RefreshIndicator(
-            onRefresh: () async {
-              if (businessId != null) {
-                await context.read<Core>().invoice.fetchInvoices(businessId);
-              }
-            },
-            child: ListView.builder(
-              itemCount: invoices.length,
-              itemBuilder: (context, index) => Text(invoices[index].name),
-            ),
-          );
-        },
+      appBar: AppBar(title: Text('tab_parties'.tr())),
+      floatingActionButton: FloatingActionButton.extended(...),
+      body: PagedListView<Party>(
+        items: parties.list.items,
+        isLoading: parties.list.isLoading,
+        isLoadingMore: parties.list.isLoadingMore,
+        hasMore: parties.list.data.hasMore,
+        error: parties.list.error,
+        onRefresh: () => parties.fetchParties(refresh: true),
+        onLoadMore: parties.loadMore,
+        itemBuilder: (context, party) => PartyTile(party: party),
+        emptyState: EmptyState(...),
       ),
     );
   }
 }
 ```
 
-## Data Loading Patterns
+## Detail screen
 
-| When | How |
-|---|---|
-| Screen opens | `initState` → `addPostFrameCallback` → `context.read<Core>()` |
-| Pull-to-refresh | `RefreshIndicator.onRefresh` → `context.read<Core>()` (or `Selector` builder) |
-| After mutation (navigate back) | `.then((_) { if (mounted) _loadData(); })` after `Navigator.push` |
-| Button tap / event | Direct `context.read<Core>().module.method()` |
+Load with `getX(id, refresh: true)`, render with
+`LoadStateBody<T>(state: …, onRetry: …, builder: …)`, and keep the `AppBar`
+outside it so actions show while loading. Call
+`scheduleReload(state.needsReload, _refresh)` in `build` so a change made
+elsewhere (a payment, a cancellation) refreshes the screen.
+
+## Form screen
+
+- `Form` + `GlobalKey<FormState>`, controllers created with `late final`.
+- `FormSection` groups fields; `SelectField` / `DateField` / `SwitchRow` /
+  `ChoiceChipsField` for anything that is not free text.
+- Validate with `Validators.*`; restrict typing with `DecimalInputFormatter`
+  and `UpperCaseTextFormatter`.
+- Build a snake_case map, call the module, and on `null` show
+  `showErrorToast(module.error ?? 'error_generic'.tr())`.
+- Save button sits in `bottomNavigationBar` with `isSaving` from
+  `context.select`.
+- Pop the saved object so the caller can use it (pickers rely on this).
 
 ## Navigation
 
 ```dart
-// Push new screen
-Navigator.of(context).push(getPageRoute(const InvoiceDetailScreen(invoice: inv)));
-
-// Push and reload on return
-Navigator.of(context).push(getPageRoute(const InvoiceFormScreen())).then((_) {
-  if (mounted) _loadData();
-});
-
-// Replace current screen
-Navigator.of(context).pushReplacement(getPageRoute(const HomeScreen()));
-
-// Clear stack and push (after login/logout)
-navigatorKey.currentState?.pushAndRemoveUntil(
-  getPageRoute(const LoginScreen()),
-  (route) => false,
-);
+Navigator.of(context).push(getPageRoute(PartyDetailScreen(partyId: id)));
+Navigator.of(context).pushAndRemoveUntil(getPageRoute(const HomeScreen()), (_) => false);
 ```
 
+`openAfterSignIn(context)` decides between onboarding, the business list and
+the home shell after sign-in. Tabs are switched with
+`HomeScreenState.of(context)?.setTab(1)`.
+
 ## DO
-- Use `context.read<Core>()` in `initState`, callbacks, and event handlers
-- Use `context.select<Core, T>()` in `build()` for granular rebuilds
-- Use `Selector<Core, T>(selector:builder:)` when the build method watches a specific Core value
-- Check `mounted` before `setState` or `Navigator` calls after `async` operations
-- Use `try/catch` around `context.read<Core>().module.method()` calls in event handlers
-- Use `getPageRoute()` from `helpers/navigation.dart` for consistent transitions
+- Grab `Navigator` / module references before an `await`, and check `mounted`
+  after it
+- Gate destructive or restricted actions with `core.can(MemberRole.x)`
+- Confirm cancellations with `showReasonDialog` (the reason goes to the server)
 
 ## DON'T
-- Use `context.watch<Core>()` — always use `context.select` or `Selector`
-- Use `Consumer<Core>()` — use `Selector<Core, T>()` or `context.select<Core, T>()` instead
-- Call `Api.instance` directly from screens
-- Use named routes — always use imperative `Navigator.push(getPageRoute(...))`
-- Use `Provider.of<XxxProvider>` — always go through `Core`
-- Forget to check `mounted` after async work
+- Rebuild loading, empty or error UI by hand
+- Keep server-derived numbers in `setState` — read them from the module
+- Use named routes or `Provider.of`

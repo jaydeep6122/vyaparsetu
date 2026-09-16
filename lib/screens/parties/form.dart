@@ -1,21 +1,30 @@
-import 'dart:convert';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:easy_localization/easy_localization.dart';
-import 'package:vyaparsetu/types/party.dart';
-import 'package:vyaparsetu/global/constants.dart';
-import 'package:vyaparsetu/components/appTextField.dart';
 import 'package:vyaparsetu/components/appButton.dart';
-import 'package:vyaparsetu/helpers/validators.dart';
-import 'package:vyaparsetu/helpers/toastNotifications.dart';
+import 'package:vyaparsetu/components/appTextField.dart';
+import 'package:vyaparsetu/components/formFields.dart';
+import 'package:vyaparsetu/components/statePicker.dart';
 import 'package:vyaparsetu/core/Core.dart';
+import 'package:vyaparsetu/global/constants.dart';
+import 'package:vyaparsetu/global/themes.dart';
+import 'package:vyaparsetu/helpers/formatters.dart';
+import 'package:vyaparsetu/helpers/gst.dart';
+import 'package:vyaparsetu/helpers/inputFormatters.dart';
+import 'package:vyaparsetu/helpers/json.dart';
+import 'package:vyaparsetu/helpers/toastNotifications.dart';
+import 'package:vyaparsetu/helpers/validators.dart';
+import 'package:vyaparsetu/types/address.dart';
+import 'package:vyaparsetu/types/party.dart';
 
+/// Adds or edits a customer, supplier or transporter. Pops with the saved
+/// party.
 class PartyFormScreen extends StatefulWidget {
-  final Party? existingParty;
-  final PartyType? initialPartyType;
-  const PartyFormScreen({super.key, this.existingParty, this.initialPartyType});
+  final Party? party;
+  final PartyType initialType;
+
+  const PartyFormScreen({super.key, this.party, this.initialType = PartyType.customer});
 
   @override
   State<PartyFormScreen> createState() => _PartyFormScreenState();
@@ -23,403 +32,385 @@ class PartyFormScreen extends StatefulWidget {
 
 class _PartyFormScreenState extends State<PartyFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  late final Party? _party = widget.party;
 
-  Party? _existingParty;
-  bool _isEdit = false;
-  bool _isInitialized = false;
+  late final _name = TextEditingController(text: _party?.name);
+  late final _phone = TextEditingController(text: _party?.phone);
+  late final _email = TextEditingController(text: _party?.email);
+  late final _gstin = TextEditingController(text: _party?.gstin);
+  late final _billLine1 = TextEditingController(text: _party?.billingAddress?.line1);
+  late final _billLine2 = TextEditingController(text: _party?.billingAddress?.line2);
+  late final _billCity = TextEditingController(text: _party?.billingAddress?.city);
+  late final _billPincode = TextEditingController(text: _party?.billingAddress?.pincode);
+  late final _shipLine1 = TextEditingController(text: _party?.shippingAddress?.line1);
+  late final _shipLine2 = TextEditingController(text: _party?.shippingAddress?.line2);
+  late final _shipCity = TextEditingController(text: _party?.shippingAddress?.city);
+  late final _shipPincode = TextEditingController(text: _party?.shippingAddress?.pincode);
+  late final _creditDays = TextEditingController(text: _party?.creditDays?.toString());
+  late final _creditLimit = TextEditingController(
+    text: _party?.creditLimit == null ? null : Formatters.formatNumber(_party!.creditLimit!, maxDecimals: 2),
+  );
+  late final _opening = TextEditingController(
+    text: (_party?.openingBalance ?? 0) > 0
+        ? Formatters.formatNumber(_party!.openingBalance, maxDecimals: 2)
+        : null,
+  );
+  late final _notes = TextEditingController(text: _party?.notes);
 
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _gstinController = TextEditingController();
-  final _stateController = TextEditingController();
-  final List<TextEditingController> _billingAddressControllers = [];
-  final List<TextEditingController> _shippingAddressControllers = [];
-  final _openingBalanceController = TextEditingController();
+  late PartyType _type = _party?.partyType ?? widget.initialType;
+  late PartyGstType _gstType = _party?.gstType ?? PartyGstType.unregistered;
+  late String? _stateCode = _party?.stateCode;
+  late bool _sameShipping = _party?.shippingAddress?.isEmpty ?? true;
+  late BalanceType _openingType = _party?.openingBalanceType ??
+      (widget.initialType.canSell ? BalanceType.receivable : BalanceType.payable);
+  late DateTime? _openingDate = _party?.openingBalanceDate;
+  late bool _showMore = _party != null;
 
-  PartyType _partyType = PartyType.customer;
-  OpeningBalanceType _balanceType = OpeningBalanceType.receive;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_isInitialized) {
-      _isInitialized = true;
-      final args = widget.existingParty;
-      if (args is Party) {
-        _existingParty = args;
-        _isEdit = true;
-        _initForm();
-      } else {
-        if (widget.initialPartyType != null) {
-          _partyType = widget.initialPartyType!;
-        }
-        _billingAddressControllers.add(TextEditingController());
-        _shippingAddressControllers.add(TextEditingController());
-      }
-    }
-  }
-
-  void _initForm() {
-    if (_existingParty == null) return;
-    final p = _existingParty!;
-    _nameController.text = p.name;
-    _phoneController.text = p.phone ?? '';
-    _emailController.text = p.email ?? '';
-    _gstinController.text = p.gstin ?? '';
-    _stateController.text = p.state ?? '';
-    
-    _billingAddressControllers.clear();
-    for (final addr in p.billingAddresses) {
-      _billingAddressControllers.add(TextEditingController(text: addr));
-    }
-    if (_billingAddressControllers.isEmpty) {
-      _billingAddressControllers.add(TextEditingController());
-    }
-
-    _shippingAddressControllers.clear();
-    for (final addr in p.shippingAddresses) {
-      _shippingAddressControllers.add(TextEditingController(text: addr));
-    }
-    if (_shippingAddressControllers.isEmpty) {
-      _shippingAddressControllers.add(TextEditingController());
-    }
-
-    _openingBalanceController.text = p.openingBalance.toString();
-    _partyType = p.partyType;
-    _balanceType = p.openingBalanceType;
-  }
+  bool get _isEdit => _party != null;
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
-    _emailController.dispose();
-    _gstinController.dispose();
-    _stateController.dispose();
-    for (final c in _billingAddressControllers) {
-      c.dispose();
+    for (final controller in [
+      _name, _phone, _email, _gstin, _billLine1, _billLine2, _billCity,
+      _billPincode, _shipLine1, _shipLine2, _shipCity, _shipPincode,
+      _creditDays, _creditLimit, _opening, _notes,
+    ]) {
+      controller.dispose();
     }
-    for (final c in _shippingAddressControllers) {
-      c.dispose();
-    }
-    _openingBalanceController.dispose();
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  void _onGstinChanged(String value) {
+    final code = stateCodeFromGstin(value.trim().toUpperCase());
+    if (code != null && code != _stateCode) setState(() => _stateCode = code);
+  }
+
+  String? _text(TextEditingController controller) {
+    final value = controller.text.trim();
+    return value.isEmpty ? null : value;
+  }
+
+  Map<String, dynamic>? _address(
+    TextEditingController line1,
+    TextEditingController line2,
+    TextEditingController city,
+    TextEditingController pincode,
+  ) {
+    final address = Address(
+      line1: line1.text,
+      line2: line2.text,
+      city: city.text,
+      pincode: pincode.text,
+    );
+    if (address.isEmpty) return null;
+    return Address(
+      line1: line1.text,
+      line2: line2.text,
+      city: city.text,
+      state: stateNameFromCode(_stateCode),
+      pincode: pincode.text,
+    ).toJson();
+  }
+
+  Future<void> _save() async {
     FocusScope.of(context).unfocus();
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _showMore = true);
+      showErrorToast('form_fix_errors'.tr());
+      return;
+    }
 
-    final businessId = context.read<Core>().business.selectedBusiness?.id;
-    if (businessId == null) return;
-
-    final partyProvider = context.read<Core>().party;
-
-    final billingAddressesList = _billingAddressControllers
-        .map((c) => c.text.trim())
-        .where((text) => text.isNotEmpty)
-        .toList();
-
-    final shippingAddressesList = _shippingAddressControllers
-        .map((c) => c.text.trim())
-        .where((text) => text.isNotEmpty)
-        .toList();
-
-    final data = {
-      'name': _nameController.text.trim(),
-      'phone': _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-      'email': _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
-      'gstin': _gstinController.text.trim().isEmpty ? null : _gstinController.text.trim().toUpperCase(),
-      'state': _stateController.text.trim().isEmpty ? null : _stateController.text.trim(),
-      'billing_address': billingAddressesList.isEmpty ? null : jsonEncode(billingAddressesList),
-      'shipping_address': shippingAddressesList.isEmpty ? null : jsonEncode(shippingAddressesList),
-      'party_type': _partyType.value,
-      'opening_balance': _openingBalanceController.text.trim().isEmpty 
-          ? 0.0 
-          : double.parse(_openingBalanceController.text.trim()),
-      'opening_balance_type': _balanceType.value,
+    final core = context.read<Core>();
+    final opening = apiAmount(_opening.text);
+    final data = <String, dynamic>{
+      'name': _name.text.trim(),
+      'party_type': _type.value,
+      'phone': _text(_phone),
+      'email': _text(_email)?.toLowerCase(),
+      'gst_type': _gstType.value,
+      'gstin': _gstType.needsGstin ? _text(_gstin)?.toUpperCase() : null,
+      'state_code': _stateCode,
+      'billing_address': _address(_billLine1, _billLine2, _billCity, _billPincode),
+      'shipping_address': _sameShipping
+          ? null
+          : _address(_shipLine1, _shipLine2, _shipCity, _shipPincode),
+      'credit_limit': apiAmount(_creditLimit.text),
+      'credit_days': int.tryParse(_creditDays.text.trim()),
+      'notes': _text(_notes),
+      if (_isEdit || opening != null) ...{
+        'opening_balance': opening ?? '0',
+        'opening_balance_type': _openingType.value,
+        'opening_balance_date': ?(_openingDate == null ? null : apiDate(_openingDate!)),
+      },
     };
 
-    bool success;
-    Party? createdParty;
-    if (_isEdit) {
-      success = await partyProvider.updateParty(businessId, _existingParty!.id, data);
-    } else {
-      createdParty = await partyProvider.createParty(businessId, data);
-      success = createdParty != null;
+    final navigator = Navigator.of(context);
+    final saved = _isEdit
+        ? await core.party.updateParty(_party!.id, data)
+        : await core.party.createParty(data);
+    if (!mounted) return;
+    if (saved == null) {
+      showErrorToast(core.party.error ?? 'error_generic'.tr());
+      return;
     }
+    showSuccessToast(_isEdit ? 'party_saved'.tr() : 'party_added'.tr(namedArgs: {'name': saved.name}));
+    navigator.pop(saved);
+  }
 
-    if (success && mounted) {
-      Navigator.of(context).pop(createdParty);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) showSuccessToast(_isEdit ? 'party_updated'.tr() : 'party_added'.tr());
-      });
-    } else if (mounted) {
-      showErrorToast(partyProvider.error ?? 'failed_save_party'.tr());
-    }
+  List<Widget> _addressFields(
+    TextEditingController line1,
+    TextEditingController line2,
+    TextEditingController city,
+    TextEditingController pincode,
+  ) {
+    return [
+      AppTextField(
+        controller: line1,
+        labelText: 'address_line1'.tr(),
+        textCapitalization: TextCapitalization.words,
+      ),
+      AppTextField(
+        controller: line2,
+        labelText: 'address_line2'.tr(),
+        textCapitalization: TextCapitalization.words,
+      ),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: AppTextField(
+              controller: city,
+              labelText: 'city'.tr(),
+              textCapitalization: TextCapitalization.words,
+            ),
+          ),
+          const SizedBox(width: AppTheme.spaceMd),
+          Expanded(
+            child: AppTextField(
+              controller: pincode,
+              labelText: 'pincode'.tr(),
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(6),
+              ],
+              validator: Validators.pincode,
+            ),
+          ),
+        ],
+      ),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isSaving = context.select<Core, bool>((c) => c.party.isSaving);
+    const gap = SizedBox(height: AppTheme.spaceLg);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _isEdit ? 'edit_party'.tr() : 'add_party'.tr(),
-          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      appBar: AppBar(title: Text(_isEdit ? 'edit_party'.tr() : 'add_party'.tr())),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.spaceLg,
+            AppTheme.spaceSm,
+            AppTheme.spaceLg,
+            AppTheme.space3xl,
+          ),
+          children: [
+            FormSection(
+              title: 'party_details'.tr(),
               children: [
-                // Name & Contact
                 AppTextField(
-                  controller: _nameController,
+                  controller: _name,
                   labelText: 'party_name'.tr(),
-                  hintText: 'enter_party_name'.tr(),
+                  textCapitalization: TextCapitalization.words,
                   prefixIcon: Icons.person_outline_rounded,
-                  validator: (val) => Validators.validateRequired(val, 'Party name'),
+                  autofocus: !_isEdit,
+                  validator: (v) => Validators.required(v, 'party_name'.tr()),
                 ),
-                const SizedBox(height: 16),
-
+                ChoiceChipsField<PartyType>(
+                  label: 'party_type'.tr(),
+                  options: PartyType.values,
+                  value: _type,
+                  labelOf: (type) => type.displayName,
+                  onChanged: (type) => setState(() => _type = type),
+                ),
                 AppTextField(
-                  controller: _phoneController,
-                  labelText: 'phone'.tr(),
-                  hintText: 'mobile_hint'.tr(),
+                  controller: _phone,
+                  labelText: 'phone_optional'.tr(),
                   keyboardType: TextInputType.phone,
                   prefixIcon: Icons.phone_outlined,
-                  maxLength: 10,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
-                  validator: Validators.validatePhone,
-                ),
-                const SizedBox(height: 16),
-                AppTextField(
-                  controller: _emailController,
-                  labelText: 'email'.tr(),
-                  hintText: 'email_hint'.tr(),
-                  keyboardType: TextInputType.emailAddress,
-                  prefixIcon: Icons.email_outlined,
-                  validator: (val) {
-                    if (val == null || val.trim().isEmpty) return null;
-                    return Validators.validateEmail(val);
-                  },
-                ),
-                const SizedBox(height: 16),
-
-
-
-                // GSTIN
-                AppTextField(
-                  controller: _gstinController,
-                  labelText: 'gstin'.tr(),
-                  hintText: 'gstin_hint'.tr(),
-                  validator: Validators.validateGSTIN,
-                ),
-                const SizedBox(height: 16),
-
-                // State - decides CGST+SGST vs IGST on GST invoices.
-                AppTextField(
-                  controller: _stateController,
-                  labelText: 'state'.tr(),
-                  hintText: 'state_hint'.tr(),
-                ),
-                const SizedBox(height: 16),
-
-                // Opening Balance (Only for creation)
-                if (!_isEdit) ...[
-                  AppTextField(
-                    controller: _openingBalanceController,
-                    labelText: 'opening_balance'.tr(),
-                    hintText: 'e.g. 5000',
-                    keyboardType: TextInputType.number,
-                    validator: (val) {
-                      if (val == null || val.trim().isEmpty) return null;
-                      return Validators.validateAmount(val, 'Opening Balance');
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'opening_balance_type'.tr(),
-                        style: GoogleFonts.outfit(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.6),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<OpeningBalanceType>(
-                        value: _balanceType,
-                        decoration: const InputDecoration(
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        ),
-                        items: [
-                          DropdownMenuItem(
-                            value: OpeningBalanceType.receive,
-                            child: Text('receive'.tr()),
-                          ),
-                          DropdownMenuItem(
-                            value: OpeningBalanceType.pay,
-                            child: Text('pay'.tr()),
-                          ),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _balanceType = val;
-                            });
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // Addresses
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'billing_addresses'.tr(),
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.7),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _billingAddressControllers.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          key: ValueKey('billing_addr_$index'),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: AppTextField(
-                                  controller: _billingAddressControllers[index],
-                                  labelText: 'billing_address'.tr() + ' ${index + 1}',
-                                  hintText: 'billing_address_hint'.tr(),
-                                  maxLines: null,
-                                  keyboardType: TextInputType.multiline,
-                                  prefixIcon: Icons.receipt_outlined,
-                                ),
-                              ),
-                              if (_billingAddressControllers.length > 1) ...[
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                                  onPressed: () {
-                                    setState(() {
-                                      _billingAddressControllers[index].dispose();
-                                      _billingAddressControllers.removeAt(index);
-                                    });
-                                  },
-                                ),
-                              ],
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                    TextButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _billingAddressControllers.add(TextEditingController());
-                        });
-                      },
-                      icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-                      label: Text('add_billing_address'.tr(), style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'shipping_addresses'.tr(),
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.7),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _shippingAddressControllers.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          key: ValueKey('shipping_addr_$index'),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: AppTextField(
-                                  controller: _shippingAddressControllers[index],
-                                  labelText: 'shipping_address'.tr() + ' ${index + 1}',
-                                  hintText: 'shipping_address_hint'.tr(),
-                                  maxLines: null,
-                                  keyboardType: TextInputType.multiline,
-                                  prefixIcon: Icons.local_shipping_outlined,
-                                ),
-                              ),
-                              if (_shippingAddressControllers.length > 1) ...[
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
-                                  onPressed: () {
-                                    setState(() {
-                                      _shippingAddressControllers[index].dispose();
-                                      _shippingAddressControllers.removeAt(index);
-                                    });
-                                  },
-                                ),
-                              ],
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                    TextButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _shippingAddressControllers.add(TextEditingController());
-                        });
-                      },
-                      icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-                      label: Text('add_shipping_address'.tr(), style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-
-                // Submit Button
-                AppButton(
-                  text: 'save'.tr(),
-                  isLoading: context.select<Core, bool>((c) => c.party.isLoading),
-                  onPressed: _submit,
+                  validator: Validators.phone,
                 ),
               ],
             ),
+            gap,
+            FormSection(
+              title: 'gst_details'.tr(),
+              children: [
+                ChoiceChipsField<PartyGstType>(
+                  options: PartyGstType.values,
+                  value: _gstType,
+                  labelOf: (type) => type.displayName,
+                  onChanged: (type) => setState(() => _gstType = type),
+                ),
+                if (_gstType.needsGstin)
+                  AppTextField(
+                    controller: _gstin,
+                    labelText: 'gstin'.tr(),
+                    textCapitalization: TextCapitalization.characters,
+                    inputFormatters: [
+                      UpperCaseTextFormatter(),
+                      LengthLimitingTextInputFormatter(15),
+                    ],
+                    onChanged: _onGstinChanged,
+                    validator: (v) => Validators.gstin(v, isRequired: true),
+                  ),
+                StateSelectField(
+                  value: _stateCode,
+                  isRequired: false,
+                  clearable: true,
+                  label: 'state_optional'.tr(),
+                  helperText: 'party_state_hint'.tr(),
+                  onChanged: (code) => setState(() => _stateCode = code),
+                  validator: (code) {
+                    final fromGstin = stateCodeFromGstin(_gstin.text.trim());
+                    return _gstType.needsGstin && fromGstin != null && fromGstin != code
+                        ? 'validation_state_gstin_mismatch'.tr()
+                        : null;
+                  },
+                ),
+              ],
+            ),
+            gap,
+            FormSection(
+              title: 'opening_balance'.tr(),
+              subtitle: 'party_opening_hint'.tr(),
+              children: [
+                AppTextField(
+                  controller: _opening,
+                  labelText: 'amount'.tr(),
+                  prefixText: '₹ ',
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [DecimalInputFormatter()],
+                  validator: (v) => Validators.amount(v, fieldLabel: 'amount'.tr(), isRequired: false),
+                  onChanged: (_) => setState(() {}),
+                ),
+                if (_opening.text.trim().isNotEmpty) ...[
+                  ChoiceChipsField<BalanceType>(
+                    options: BalanceType.values,
+                    value: _openingType,
+                    labelOf: (type) => 'opening_${type.value}'.tr(),
+                    onChanged: (type) => setState(() => _openingType = type),
+                  ),
+                  DateField(
+                    label: 'as_of_date'.tr(),
+                    value: _openingDate,
+                    clearable: true,
+                    helperText: 'as_of_date_hint'.tr(),
+                    onChanged: (date) => setState(() => _openingDate = date),
+                  ),
+                ],
+              ],
+            ),
+            gap,
+            if (!_showMore)
+              AppButton(
+                text: 'more_details'.tr(),
+                icon: Icons.expand_more_rounded,
+                variant: AppButtonVariant.text,
+                onPressed: () => setState(() => _showMore = true),
+              )
+            else ...[
+              FormSection(
+                title: 'contact_and_credit'.tr(),
+                children: [
+                  AppTextField(
+                    controller: _email,
+                    labelText: 'email_optional'.tr(),
+                    keyboardType: TextInputType.emailAddress,
+                    prefixIcon: Icons.mail_outline_rounded,
+                    validator: (v) => Validators.email(v, isRequired: false),
+                  ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: AppTextField(
+                          controller: _creditDays,
+                          labelText: 'credit_days'.tr(),
+                          helperText: 'credit_days_hint'.tr(),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(4),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.spaceMd),
+                      Expanded(
+                        child: AppTextField(
+                          controller: _creditLimit,
+                          labelText: 'credit_limit'.tr(),
+                          prefixText: '₹ ',
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          inputFormatters: [DecimalInputFormatter()],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              gap,
+              FormSection(
+                title: 'billing_address'.tr(),
+                children: _addressFields(_billLine1, _billLine2, _billCity, _billPincode),
+              ),
+              gap,
+              FormSection(
+                title: 'shipping_address'.tr(),
+                children: [
+                  SwitchRow(
+                    title: 'same_as_billing'.tr(),
+                    value: _sameShipping,
+                    onChanged: (value) => setState(() => _sameShipping = value),
+                  ),
+                  if (!_sameShipping)
+                    ..._addressFields(_shipLine1, _shipLine2, _shipCity, _shipPincode),
+                ],
+              ),
+              gap,
+              FormSection(
+                title: 'notes'.tr(),
+                children: [
+                  AppTextField(
+                    controller: _notes,
+                    labelText: 'notes_optional'.tr(),
+                    minLines: 2,
+                    maxLines: 4,
+                    maxLength: 2000,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.spaceLg,
+            AppTheme.spaceSm,
+            AppTheme.spaceLg,
+            AppTheme.spaceSm,
+          ),
+          child: AppButton(
+            text: _isEdit ? 'save_changes'.tr() : 'save_party'.tr(),
+            isLoading: isSaving,
+            onPressed: _save,
           ),
         ),
       ),

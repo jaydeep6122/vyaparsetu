@@ -1,38 +1,151 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:vyaparsetu/types/party.dart';
-import 'package:vyaparsetu/types/item.dart';
-import 'package:vyaparsetu/types/invoice.dart';
-import 'package:vyaparsetu/types/invoiceItem.dart';
-import 'package:vyaparsetu/global/constants.dart';
-import 'package:vyaparsetu/components/appTextField.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:vyaparsetu/components/appButton.dart';
-import 'package:vyaparsetu/screens/items/form.dart';
-import 'package:vyaparsetu/screens/parties/form.dart';
-import 'package:vyaparsetu/helpers/validators.dart';
-import 'package:vyaparsetu/helpers/datePicker.dart';
-import 'package:vyaparsetu/helpers/formatters.dart';
-import 'package:vyaparsetu/helpers/toastNotifications.dart';
-import 'package:vyaparsetu/global/themes.dart';
+import 'package:vyaparsetu/components/appCard.dart';
+import 'package:vyaparsetu/components/appTextField.dart';
+import 'package:vyaparsetu/components/formFields.dart';
+import 'package:vyaparsetu/components/infoRow.dart';
 import 'package:vyaparsetu/core/Core.dart';
-import 'package:vyaparsetu/helpers/navigation.dart';
+import 'package:vyaparsetu/global/constants.dart';
+import 'package:vyaparsetu/global/themes.dart';
+import 'package:vyaparsetu/helpers/formatters.dart';
+import 'package:vyaparsetu/helpers/inputFormatters.dart';
+import 'package:vyaparsetu/helpers/json.dart';
+import 'package:vyaparsetu/helpers/toastNotifications.dart';
+import 'package:vyaparsetu/helpers/validators.dart';
+import 'package:vyaparsetu/screens/common/pickers.dart';
+import 'package:vyaparsetu/types/account.dart';
+import 'package:vyaparsetu/types/invoice.dart';
+import 'package:vyaparsetu/types/item.dart';
+import 'package:vyaparsetu/types/party.dart';
 
+typedef _PartyRef = ({String id, String name, String? stateCode, int? creditDays});
+typedef _PayeeRef = ({String id, String name});
+
+double _round2(double value) => (value * 100).roundToDouble() / 100;
+
+class _LineDraft {
+  String? itemId;
+  final description = TextEditingController();
+  final quantity = TextEditingController(text: '1');
+  final rate = TextEditingController();
+  final discount = TextEditingController();
+  String? hsnSac;
+  String? unitCode;
+  TaxRate? taxRate;
+
+  _LineDraft();
+
+  factory _LineDraft.fromItem(Item item, InvoiceType type) {
+    final draft = _LineDraft()
+      ..itemId = item.id
+      ..hsnSac = item.hsnSac
+      ..unitCode = item.unitCode;
+    draft.description.text = item.name;
+    final price = item.priceFor(type);
+    if (price != null) draft.rate.text = Formatters.formatNumber(price, maxDecimals: 4);
+    if (item.taxRateId != null) {
+      draft.taxRate = TaxRate(
+        id: item.taxRateId!,
+        name: '',
+        rate: item.taxRate ?? 0,
+        cessRate: item.cessRate ?? 0,
+        isActive: true,
+      );
+    }
+    return draft;
+  }
+
+  factory _LineDraft.fromInvoiceLine(InvoiceLine line) {
+    final draft = _LineDraft()
+      ..itemId = line.itemId
+      ..hsnSac = line.hsnSac
+      ..unitCode = line.unitCode;
+    draft.description.text = line.description;
+    draft.quantity.text = Formatters.formatNumber(line.quantity);
+    draft.rate.text = Formatters.formatNumber(line.unitPrice, maxDecimals: 4);
+    if (line.discountPct > 0) {
+      draft.discount.text = Formatters.formatNumber(line.discountPct, maxDecimals: 2);
+    }
+    if (line.taxRate > 0 || line.cessRate > 0) {
+      draft.taxRate = TaxRate(
+        id: '',
+        name: '',
+        rate: line.taxRate,
+        cessRate: line.cessRate,
+        isActive: true,
+      );
+    }
+    return draft;
+  }
+
+  double get qty => double.tryParse(quantity.text.trim()) ?? 0;
+  double get price => double.tryParse(rate.text.trim()) ?? 0;
+  double get discountPct => double.tryParse(discount.text.trim()) ?? 0;
+
+  bool get isEmpty => description.text.trim().isEmpty && itemId == null;
+
+  void dispose() {
+    description.dispose();
+    quantity.dispose();
+    rate.dispose();
+    discount.dispose();
+  }
+}
+
+class _ChargeDraft {
+  String? id;
+  ChargeType type = ChargeType.transport;
+  ChargeBillTo billTo = ChargeBillTo.invoiceParty;
+  _PayeeRef? payee;
+  final description = TextEditingController();
+  final vehicleNo = TextEditingController();
+  final amount = TextEditingController();
+  TaxRate? taxRate;
+
+  _ChargeDraft();
+
+  factory _ChargeDraft.fromCharge(InvoiceCharge charge) {
+    final draft = _ChargeDraft()
+      ..id = charge.id
+      ..type = charge.chargeType
+      ..billTo = charge.billTo
+      ..payee = charge.payeePartyId == null
+          ? null
+          : (id: charge.payeePartyId!, name: charge.payeeName ?? '');
+    draft.description.text = charge.description ?? '';
+    draft.vehicleNo.text = charge.vehicleNo ?? '';
+    draft.amount.text = Formatters.formatNumber(charge.amount, maxDecimals: 2);
+    if (charge.taxRate > 0) {
+      draft.taxRate = TaxRate(id: '', name: '', rate: charge.taxRate, cessRate: 0, isActive: true);
+    }
+    return draft;
+  }
+
+  double get value => double.tryParse(amount.text.trim()) ?? 0;
+
+  void dispose() {
+    description.dispose();
+    vehicleNo.dispose();
+    amount.dispose();
+  }
+}
+
+/// Creates or replaces a bill: lines, charges, transport details and an
+/// optional payment made at the same time.
 class InvoiceFormScreen extends StatefulWidget {
-  final bool isSale;
-  final Invoice? existingInvoice;
-  final BillType billType;
+  final InvoiceType type;
+  final Invoice? invoice;
+  final Party? party;
 
-  const InvoiceFormScreen.sale({
+  const InvoiceFormScreen({
     super.key,
-    this.existingInvoice,
-    this.billType = BillType.gst,
-  }) : isSale = true;
-
-  const InvoiceFormScreen.purchase({super.key, this.existingInvoice})
-    : isSale = false,
-      billType = BillType.gst;
+    this.type = InvoiceType.sale,
+    this.invoice,
+    this.party,
+  });
 
   @override
   State<InvoiceFormScreen> createState() => _InvoiceFormScreenState();
@@ -40,1826 +153,918 @@ class InvoiceFormScreen extends StatefulWidget {
 
 class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  late final Invoice? _invoice = widget.invoice;
 
-  late InvoiceType _invoiceType;
-  late bool _isSale;
-  late BillType _billType;
+  late final InvoiceType _type = _invoice?.invoiceType ?? widget.type;
+  late TaxMode _taxMode = _invoice?.taxMode ?? TaxMode.gst;
+  late _PartyRef? _party = _initialParty();
+  late DateTime _date = _invoice?.invoiceDate ?? DateTime.now();
+  late DateTime? _dueDate = _invoice?.dueDate;
+  late DateTime? _supplierDate = _invoice?.supplierInvoiceDate;
+  late bool _priceIncludesTax = _invoice?.priceIncludesTax ?? false;
+  late bool _reverseCharge = _invoice?.isReverseCharge ?? false;
+  late TransportMode? _transportMode = _invoice?.transportMode;
+  late DateTime? _lrDate = _invoice?.lrDate;
+  late DateTime? _ewayDate = _invoice?.ewayBillDate;
+  late DateTime? _deliveryDate = _invoice?.deliveryDate;
 
-  final _invoiceNumberController = TextEditingController();
-  final _chalanNoController = TextEditingController();
-  final _transportQtyController = TextEditingController();
-  final _transportRateController = TextEditingController();
-  final _paidAmountController = TextEditingController();
-  final _notesController = TextEditingController();
+  late final _walkInName = TextEditingController(
+    text: _invoice?.partyId == null ? _invoice?.partyName : null,
+  );
+  late final _invoiceNumber = TextEditingController(text: _invoice?.invoiceNumber);
+  late final _supplierNumber = TextEditingController(text: _invoice?.supplierInvoiceNumber);
+  late final _vehicleNo = TextEditingController(text: _invoice?.vehicleNo);
+  late final _driverName = TextEditingController(text: _invoice?.driverName);
+  late final _driverPhone = TextEditingController(text: _invoice?.driverPhone);
+  late final _lrNo = TextEditingController(text: _invoice?.lrNo);
+  late final _ewayNo = TextEditingController(text: _invoice?.ewayBillNo);
+  late final _chalanNo = TextEditingController(text: _invoice?.chalanNo);
+  late final _notes = TextEditingController(text: _invoice?.notes);
+  late final _terms = TextEditingController(text: _invoice?.terms);
+  final _paidAmount = TextEditingController();
 
-  DateTime _invoiceDate = DateTime.now();
-  DateTime? _dueDate;
-  DateTime? _deliveryDate;
+  late final List<_LineDraft> _lines = _invoice == null
+      ? [_LineDraft()]
+      : _invoice.lines.map(_LineDraft.fromInvoiceLine).toList();
+  late final List<_ChargeDraft> _charges =
+      _invoice?.charges.map(_ChargeDraft.fromCharge).toList() ?? [];
 
-  String? _selectedPartyId;
-  String? _billingAddress;
-  String? _shippingAddress;
-  final List<InvoiceItem> _lineItems = [];
-
+  bool _showTransport = false;
+  bool _showMore = false;
+  bool _paidNow = false;
   PaymentMode _paymentMode = PaymentMode.cash;
+  Account? _account;
 
-  double _subTotal = 0.0;
-  double _taxAmount = 0.0;
-  double _discountAmount = 0.0;
-  double _transportCost = 0.0;
-  double _totalAmount = 0.0;
+  bool get _isEdit => _invoice != null;
+  bool get _isGst => _taxMode == TaxMode.gst;
 
-  bool _isEdit = false;
-  bool _isInitialized = false;
-  Item? _pendingItem;
+  _PartyRef? _initialParty() {
+    final invoice = widget.invoice;
+    if (invoice?.partyId != null) {
+      return (
+        id: invoice!.partyId!,
+        name: invoice.partyName,
+        stateCode: invoice.partyStateCode,
+        creditDays: null,
+      );
+    }
+    final party = widget.party;
+    if (party != null) {
+      return (id: party.id, name: party.name, stateCode: party.stateCode, creditDays: party.creditDays);
+    }
+    return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final core = context.read<Core>();
+      if (!_isEdit) {
+        setState(() => _taxMode = core.business.selectedBusiness?.defaultTaxMode ?? TaxMode.gst);
+      }
+      await core.account.fetchAccounts();
+      if (mounted) setState(() => _account ??= core.account.defaultAccount);
+    });
+  }
 
   @override
   void dispose() {
-    _invoiceNumberController.dispose();
-    _chalanNoController.dispose();
-    _transportQtyController.dispose();
-    _transportRateController.dispose();
-    _paidAmountController.dispose();
-    _notesController.dispose();
+    for (final controller in [
+      _walkInName, _invoiceNumber, _supplierNumber, _vehicleNo, _driverName,
+      _driverPhone, _lrNo, _ewayNo, _chalanNo, _notes, _terms, _paidAmount,
+    ]) {
+      controller.dispose();
+    }
+    for (final line in _lines) {
+      line.dispose();
+    }
+    for (final charge in _charges) {
+      charge.dispose();
+    }
     super.dispose();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_isInitialized) {
-      _isEdit = widget.existingInvoice != null;
-      _isSale = widget.isSale;
-      _invoiceType = _isSale ? InvoiceType.sale : InvoiceType.purchase;
-      _billType = widget.billType;
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _loadPartiesAndItems(),
-      );
+  // ------------------------------------------------------------- estimates
 
-      if (_isEdit) {
-        final inv = widget.existingInvoice!;
-        _selectedPartyId = inv.partyId;
-        _billingAddress = inv.billingAddress;
-        _shippingAddress = inv.shippingAddress;
-        _invoiceNumberController.text = inv.invoiceNumber;
-        _invoiceDate = inv.invoiceDate;
-        _dueDate = inv.dueDate;
-        _deliveryDate = inv.deliveryDate;
-        _chalanNoController.text = inv.chalanNo ?? '';
-        if (_isSale) {
-          _deliveryDate = inv.deliveryDate;
-        } else {
-          _transportQtyController.text = inv.transportCost > 0
-              ? inv.transportCost.toString()
-              : '';
-        }
-        _lineItems.addAll(inv.items ?? []);
-        _paymentMode = inv.paymentMode;
-        if (inv.paidAmount > 0) {
-          _paidAmountController.text = inv.paidAmount.toString();
-        }
-        _notesController.text = inv.notes ?? '';
-        WidgetsBinding.instance.addPostFrameCallback((_) => _calculateTotals());
+  double _lineTaxable(_LineDraft line) {
+    var value = line.qty * line.price;
+    if (line.discountPct > 0) value -= value * line.discountPct / 100;
+    final rate = _isGst ? (line.taxRate?.rate ?? 0) : 0;
+    if (_priceIncludesTax && rate > 0) value = value / (1 + rate / 100);
+    return _round2(value);
+  }
+
+  double _lineTax(_LineDraft line) {
+    if (!_isGst) return 0;
+    final rate = (line.taxRate?.rate ?? 0) + (line.taxRate?.cessRate ?? 0);
+    return _round2(_lineTaxable(line) * rate / 100);
+  }
+
+  double get _chargesTotal => _charges
+      .where((charge) => charge.billTo == ChargeBillTo.invoiceParty)
+      .fold(0.0, (sum, charge) {
+        final tax = _isGst ? charge.value * (charge.taxRate?.rate ?? 0) / 100 : 0;
+        return sum + _round2(charge.value + tax);
+      });
+
+  double get _paidNowAmount => double.tryParse(apiAmount(_paidAmount.text) ?? '') ?? 0;
+
+  double get _balanceAfterPayment {
+    final due = _estimatedTotal - _paidNowAmount;
+    return due < 0 ? 0 : _round2(due);
+  }
+
+  /// Guards the part-payment: something must be entered, and it can never be
+  /// more than the bill itself.
+  String? _validatePaidNow(String? value) {
+    final invalid = Validators.amount(value, fieldLabel: 'amount'.tr(), allowZero: false);
+    if (invalid != null) return invalid;
+    final paid = double.tryParse(apiAmount(value ?? '') ?? '') ?? 0;
+    // Half a rupee of slack for round-off between the estimate and the server.
+    if (paid > _estimatedTotal + 0.5) {
+      return 'validation_paid_more_than_total'.tr(namedArgs: {
+        'amount': Formatters.formatCurrency(_estimatedTotal),
+      });
+    }
+    return null;
+  }
+
+  double get _estimatedTotal {
+    final lines = _lines.fold(0.0, (sum, line) => sum + _lineTaxable(line) + _lineTax(line));
+    final total = lines + _chargesTotal;
+    final roundOff = context.read<Core>().business.selectedBusiness?.settings.roundOffInvoices ?? true;
+    return roundOff ? total.roundToDouble() : _round2(total);
+  }
+
+  // ---------------------------------------------------------------- actions
+
+  Future<void> _pickParty() async {
+    final party = await pickParty(
+      context,
+      type: _type.isSaleSide ? PartyType.customer : PartyType.supplier,
+      selectedId: _party?.id,
+    );
+    if (party == null || !mounted) return;
+    setState(() {
+      _party = (
+        id: party.id,
+        name: party.name,
+        stateCode: party.stateCode,
+        creditDays: party.creditDays,
+      );
+      if (party.creditDays != null && _dueDate == null) {
+        _dueDate = _date.add(Duration(days: party.creditDays!));
+      }
+    });
+  }
+
+  Future<void> _addLine() async {
+    final item = await pickItem(context, priceFor: _type);
+    if (item == null || !mounted) return;
+    setState(() {
+      final draft = _LineDraft.fromItem(item, _type);
+      if (_lines.length == 1 && _lines.first.isEmpty) {
+        _lines.first.dispose();
+        _lines[0] = draft;
       } else {
-        if (_isSale) {
-          _deliveryDate = DateTime.now();
-        }
-        final business = context.read<Core>().business.selectedBusiness;
-        if (business != null && _isSale) {
-          _invoiceNumberController.text = business.invoicePrefix;
-        }
+        _lines.add(draft);
       }
-
-      _isInitialized = true;
-    }
-  }
-
-  void _loadPartiesAndItems() {
-    final businessId = context.read<Core>().business.selectedBusiness?.id;
-    if (businessId != null) {
-      context.read<Core>().party.fetchParties(businessId);
-      context.read<Core>().item.fetchItems(businessId);
-    }
-  }
-
-  void _calculateTotals() {
-    double sub = 0.0;
-    double disc = 0.0;
-    double tax = 0.0;
-    final transport = _isSale
-        ? 0.0
-        : (double.tryParse(_transportQtyController.text.trim()) ?? 0.0) *
-              (double.tryParse(_transportRateController.text.trim()) ?? 0.0);
-
-    for (var item in _lineItems) {
-      final lineSub = item.unitPrice * item.quantity;
-      final lineDisc = lineSub * (item.discountPercentage / 100);
-      final taxableAmount = lineSub - lineDisc;
-      final lineTax = taxableAmount * (item.taxRate / 100);
-
-      sub += lineSub;
-      disc += lineDisc;
-      tax += lineTax;
-    }
-
-    setState(() {
-      _subTotal = sub;
-      _discountAmount = disc;
-      _taxAmount = tax;
-      _transportCost = transport;
-      _totalAmount = sub - disc + tax + transport;
     });
   }
 
-  void _onAddItemDialog() {
-    Item? tempItem = _pendingItem;
-    _pendingItem = null;
-    final qtyController = TextEditingController();
-    final rateController = TextEditingController();
-    final discController = TextEditingController();
-    final taxController = TextEditingController();
-
-    VoidCallback? onUpdate;
-    qtyController.addListener(() => onUpdate?.call());
-    rateController.addListener(() => onUpdate?.call());
-    discController.addListener(() => onUpdate?.call());
-    taxController.addListener(() => onUpdate?.call());
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        final theme = Theme.of(context);
-        final isDark = theme.brightness == Brightness.dark;
-
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            onUpdate = () {
-              setStateDialog(() {});
-            };
-
-            final qtyVal = double.tryParse(qtyController.text.trim()) ?? 1.0;
-            final rateVal = double.tryParse(rateController.text.trim()) ?? 0.0;
-            final discVal = double.tryParse(discController.text.trim()) ?? 0.0;
-            final taxVal = double.tryParse(taxController.text.trim()) ?? 0.0;
-
-            final lineSub = qtyVal * rateVal;
-            final lineDisc = lineSub * (discVal / 100);
-            final lineTax = (lineSub - lineDisc) * (taxVal / 100);
-            final lineTotal = lineSub - lineDisc + lineTax;
-
-            return Container(
-              decoration: BoxDecoration(
-                color: isDark ? AppTheme.backgroundDark : Colors.white,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
-              ),
-              padding: EdgeInsets.fromLTRB(
-                20,
-                10,
-                20,
-                20 + MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 20),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    // Header
-                    Text(
-                      'Add Product / Service',
-                      style: GoogleFonts.outfit(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                        color: isDark ? Colors.white : AppTheme.gray900,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Product Selection
-                    DropdownButtonFormField<String>(
-                      decoration: InputDecoration(
-                        labelText: 'select_product_service'.tr(),
-                        prefixIcon: const Icon(Icons.shopping_bag_outlined),
-                      ),
-                      value: tempItem?.id,
-                      items: context.read<Core>().item.items.map((item) {
-                        return DropdownMenuItem<String>(
-                          value: item.id,
-                          child: Text(item.name, style: GoogleFonts.outfit()),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setStateDialog(() {
-                            final matchedItem = context
-                                .read<Core>()
-                                .item
-                                .items
-                                .firstWhere((item) => item.id == val);
-                            tempItem = matchedItem;
-                            rateController.text = '';
-                            taxController.text = '';
-                          });
-                        }
-                      },
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: () async {
-                          final core = context.read<Core>();
-                          final businessId = core.business.selectedBusiness?.id;
-                          Navigator.of(context).pop();
-                          final result = await Navigator.of(
-                            context,
-                          ).push<Item>(getPageRoute(const ItemFormScreen()));
-                          if (result != null) {
-                            _pendingItem = result;
-                          }
-                          if (businessId != null) {
-                            await core.item.fetchItems(businessId);
-                          }
-                          _onAddItemDialog();
-                        },
-                        icon: Icon(Icons.add, size: 16),
-                        label: Text(
-                          'create_new_product'.tr(),
-                          style: TextStyle(fontSize: 13),
-                        ),
-                        style: TextButton.styleFrom(
-                          foregroundColor:
-                              Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white
-                              : AppTheme.primary,
-                        ),
-                      ),
-                    ),
-                    if (tempItem != null) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : AppTheme.primary.withValues(alpha: 0.04),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.15)
-                                : AppTheme.primary.withValues(alpha: 0.08),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.tag_rounded,
-                                  size: 14,
-                                  color: isDark
-                                      ? Colors.white
-                                      : AppTheme.primary,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'HSN Code: ${tempItem?.hsnCode ?? "N/A"}',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: isDark
-                                        ? Colors.white
-                                        : AppTheme.gray800,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? AppTheme.gray800
-                                    : AppTheme.primary.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                'Unit: ${tempItem?.measuringUnit ?? "pcs".tr()}',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark
-                                      ? Colors.white
-                                      : AppTheme.primary,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    // Quantity and Rate
-                    AppTextField(
-                      controller: qtyController,
-                      labelText: 'quantity_label'.tr(),
-                      keyboardType: TextInputType.number,
-                      prefixIcon: Icons.unfold_more_rounded,
-                    ),
-                    const SizedBox(height: 16),
-                    AppTextField(
-                      controller: rateController,
-                      labelText: 'rate_label'.tr(),
-                      keyboardType: TextInputType.number,
-                      hintText: 'rate_hint'.tr(),
-                      prefixIcon: Icons.currency_rupee_rounded,
-                    ),
-                    if (_billType == BillType.gst) ...[
-                      const SizedBox(height: 16),
-                      AppTextField(
-                        controller: discController,
-                        labelText: 'discount_label'.tr(),
-                        keyboardType: TextInputType.number,
-                        prefixIcon: Icons.percent_rounded,
-                      ),
-                      const SizedBox(height: 16),
-                      AppTextField(
-                        controller: taxController,
-                        labelText: 'tax_rate_label'.tr(),
-                        keyboardType: TextInputType.number,
-                        prefixIcon: Icons.gavel_rounded,
-                      ),
-                    ],
-                    if (tempItem != null) ...[
-                      const SizedBox(height: 20),
-                      // Summary breakdown panel
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? AppTheme.gray800.withValues(alpha: 0.3)
-                              : AppTheme.gray100.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isDark
-                                ? AppTheme.gray700.withValues(alpha: 0.4)
-                                : AppTheme.gray200.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Subtotal',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 12,
-                                    color: isDark
-                                        ? AppTheme.gray400
-                                        : AppTheme.gray600,
-                                  ),
-                                ),
-                                Text(
-                                  Formatters.formatCurrency(lineSub),
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: isDark
-                                        ? Colors.white
-                                        : AppTheme.gray800,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (_billType == BillType.gst && lineDisc > 0) ...[
-                              const SizedBox(height: 6),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Discount (${discVal.toStringAsFixed(0)}%)',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? AppTheme.gray400
-                                          : AppTheme.gray600,
-                                    ),
-                                  ),
-                                  Text(
-                                    '- ${Formatters.formatCurrency(lineDisc)}',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppTheme.error,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                            if (_billType == BillType.gst && lineTax > 0) ...[
-                              const SizedBox(height: 6),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Tax (${taxVal.toStringAsFixed(0)}%)',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 12,
-                                      color: isDark
-                                          ? AppTheme.gray400
-                                          : AppTheme.gray600,
-                                    ),
-                                  ),
-                                  Text(
-                                    '+ ${Formatters.formatCurrency(lineTax)}',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: isDark
-                                          ? Colors.white
-                                          : AppTheme.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                            const SizedBox(height: 8),
-                            const Divider(height: 1),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Total Amount',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark
-                                        ? Colors.white
-                                        : AppTheme.gray800,
-                                  ),
-                                ),
-                                Text(
-                                  Formatters.formatCurrency(lineTotal),
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark
-                                        ? Colors.white
-                                        : AppTheme.primary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 24),
-                    // Add Item Button (Full Width)
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          if (tempItem == null) {
-                            showErrorToast('select_item'.tr());
-                            return;
-                          }
-                          final qty =
-                              double.tryParse(qtyController.text.trim()) ?? 1.0;
-                          final rate =
-                              double.tryParse(rateController.text.trim()) ??
-                              0.0;
-                          final disc =
-                              double.tryParse(discController.text.trim()) ??
-                              0.0;
-                          final tax =
-                              double.tryParse(taxController.text.trim()) ?? 0.0;
-
-                          final total =
-                              (rate * qty) - ((rate * qty) * (disc / 100));
-                          final totalWithTax = total + (total * (tax / 100));
-
-                          final invoiceItem = InvoiceItem(
-                            id: '',
-                            invoiceId: '',
-                            itemId: tempItem!.id,
-                            name: tempItem!.name,
-                            quantity: qty,
-                            unitPrice: rate,
-                            discountPercentage: disc,
-                            discountAmount: (rate * qty) * (disc / 100),
-                            taxRate: tax,
-                            taxAmount: total * (tax / 100),
-                            totalAmount: totalWithTax,
-                            hsnCode: tempItem!.hsnCode,
-                          );
-
-                          setState(() {
-                            _lineItems.add(invoiceItem);
-                          });
-                          _calculateTotals();
-                          Navigator.of(context).pop();
-                        },
-                        child: Text(
-                          'Add Item',
-                          style: GoogleFonts.outfit(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+  Future<void> _pickLineItem(_LineDraft line) async {
+    final item = await pickItem(context, priceFor: _type);
+    if (item == null || !mounted) return;
+    setState(() {
+      line
+        ..itemId = item.id
+        ..hsnSac = item.hsnSac
+        ..unitCode = item.unitCode;
+      line.description.text = item.name;
+      final price = item.priceFor(_type);
+      if (price != null) line.rate.text = Formatters.formatNumber(price, maxDecimals: 4);
+      if (item.taxRateId != null) {
+        line.taxRate = TaxRate(
+          id: item.taxRateId!,
+          name: '',
+          rate: item.taxRate ?? 0,
+          cessRate: item.cessRate ?? 0,
+          isActive: true,
         );
-      },
-    );
-  }
-
-  void _onRemoveItem(int index) {
-    setState(() {
-      _lineItems.removeAt(index);
-    });
-    _calculateTotals();
-  }
-
-  Future<void> _selectDate(BuildContext context, int dateField) async {
-    final DateTime initialDate;
-    switch (dateField) {
-      case 0:
-        initialDate = _invoiceDate;
-      case 1:
-        initialDate = _dueDate ?? DateTime.now();
-      case 2:
-        initialDate = _deliveryDate ?? DateTime.now();
-      default:
-        initialDate = DateTime.now();
-    }
-    final picked = await pickAppDate(
-      context: context,
-      initialDate: initialDate,
-    );
-
-    if (picked != null) {
-      setState(() {
-        switch (dateField) {
-          case 0:
-            _invoiceDate = picked;
-          case 1:
-            _dueDate = picked;
-          case 2:
-            _deliveryDate = picked;
-        }
-      });
-    }
-  }
-
-  Future<void> _submit() async {
-    FocusScope.of(context).unfocus();
-    if (!_formKey.currentState!.validate()) return;
-
-    if (_isSale && _deliveryDate == null) {
-      showErrorToast('select_delivery_date'.tr());
-      return;
-    }
-
-    final businessId = context.read<Core>().business.selectedBusiness?.id;
-    if (businessId == null) return;
-
-    if (_lineItems.isEmpty) {
-      showErrorToast('add_at_least_one_item'.tr());
-      return;
-    }
-
-    final paidText = _paidAmountController.text.trim();
-    final hasPaidAmount = paidText.isNotEmpty;
-    final paid = hasPaidAmount ? (double.tryParse(paidText) ?? 0.0) : 0.0;
-
-    if (hasPaidAmount && paid > _totalAmount) {
-      showErrorToast('paid_exceeds_total'.tr());
-      return;
-    }
-
-    if (hasPaidAmount && _selectedPartyId == null && paid < _totalAmount) {
-      showErrorToast(
-        'Walk-in/Cash sales must be paid in full at the time of creation.',
-      );
-      return;
-    }
-
-    PaymentStatus status = PaymentStatus.unpaid;
-    if (hasPaidAmount && paid == _totalAmount) {
-      status = PaymentStatus.paid;
-    } else if (hasPaidAmount && paid > 0) {
-      status = PaymentStatus.partially_paid;
-    }
-
-    final transportCost = _isSale
-        ? 0.0
-        : (double.tryParse(_transportQtyController.text.trim()) ?? 0.0) *
-              (double.tryParse(_transportRateController.text.trim()) ?? 0.0);
-
-    final data = {
-      'party_id': _selectedPartyId,
-      'invoice_number': _invoiceNumberController.text.trim(),
-      'invoice_type': _invoiceType.value,
-      'chalan_no': _chalanNoController.text.trim().isEmpty
-          ? null
-          : _chalanNoController.text.trim(),
-      'transport_cost': transportCost,
-      'invoice_date': _invoiceDate.toUtc().toIso8601String(),
-      if (_dueDate != null) 'due_date': _dueDate?.toUtc().toIso8601String(),
-      if (_isSale && _deliveryDate != null)
-        'delivery_date': _deliveryDate?.toUtc().toIso8601String(),
-      'sub_total': _subTotal,
-      'tax_amount': _taxAmount,
-      'discount_amount': _discountAmount,
-      'total_amount': _totalAmount,
-      'payment_status': status.value,
-      'payment_mode': _paymentMode.value,
-      // bill_type is its own column now. It used to be prefixed onto notes,
-      // which meant a customer typing "[bill_type:normal]" into their notes
-      // silently turned a GST invoice into a plain one.
-      'bill_type': _billType.value,
-      'notes': _notesController.text.trim(),
-      'items': _lineItems.map((e) => e.toJson()).toList(),
-      if (_billingAddress != null && _billingAddress!.isNotEmpty)
-        'billing_address': _billingAddress,
-      if (_shippingAddress != null && _shippingAddress!.isNotEmpty)
-        'shipping_address': _shippingAddress,
-    };
-
-    if (hasPaidAmount && paid > 0) {
-      data['paid_amount'] = paid;
-    }
-
-    final invoiceProvider = context.read<Core>().invoice;
-    final success = _isEdit
-        ? await invoiceProvider.updateInvoice(
-            businessId,
-            widget.existingInvoice!.id,
-            data,
-          )
-        : await invoiceProvider.createInvoice(businessId, data);
-
-    if (success && mounted) {
-      Navigator.of(context).pop();
-      if (!_isEdit) {
-        context.read<Core>().business.fetchBusinesses();
       }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted)
-          showSuccessToast(
-            _isEdit ? 'invoice_updated'.tr() : 'invoice_generated'.tr(),
-          );
-      });
-    } else if (mounted) {
-      showErrorToast(invoiceProvider.error ?? 'invoice_failed'.tr());
+    });
+  }
+
+  Future<void> _pickPayee(_ChargeDraft charge) async {
+    final party = await pickParty(
+      context,
+      type: PartyType.transporter,
+      selectedId: charge.payee?.id,
+      title: 'select_transporter'.tr(),
+    );
+    if (party == null || !mounted) return;
+    setState(() => charge.payee = (id: party.id, name: party.name));
+  }
+
+  String? _text(TextEditingController controller) {
+    final value = controller.text.trim();
+    return value.isEmpty ? null : value;
+  }
+
+  Map<String, dynamic> _payload(InvoiceStatus status) {
+    final lines = _lines.where((line) => !line.isEmpty).toList();
+    return {
+      'invoice_type': _type.value,
+      'tax_mode': _taxMode.value,
+      if (status != InvoiceStatus.cancelled) 'status': status.value,
+      'invoice_number': _text(_invoiceNumber),
+      'invoice_date': apiDate(_date),
+      'due_date': _dueDate == null ? null : apiDate(_dueDate!),
+      'supplier_invoice_number': _text(_supplierNumber),
+      'supplier_invoice_date': _supplierDate == null ? null : apiDate(_supplierDate!),
+      'party_id': _party?.id,
+      'party_name': _party == null ? _text(_walkInName) : null,
+      'is_reverse_charge': _isGst && _reverseCharge,
+      'price_includes_tax': _priceIncludesTax,
+      'vehicle_no': _text(_vehicleNo),
+      'driver_name': _text(_driverName),
+      'driver_phone': _text(_driverPhone),
+      'transport_mode': _transportMode?.value,
+      'lr_no': _text(_lrNo),
+      'lr_date': _lrDate == null ? null : apiDate(_lrDate!),
+      'eway_bill_no': _text(_ewayNo),
+      'eway_bill_date': _ewayDate == null ? null : apiDate(_ewayDate!),
+      'chalan_no': _text(_chalanNo),
+      'delivery_date': _deliveryDate == null ? null : apiDate(_deliveryDate!),
+      'notes': _text(_notes),
+      'terms': _text(_terms),
+      'lines': [
+        for (final line in lines)
+          {
+            'item_id': line.itemId,
+            'description': line.description.text.trim(),
+            'hsn_sac': line.hsnSac,
+            'quantity': apiAmount(line.quantity.text),
+            'unit_code': line.unitCode,
+            'unit_price': apiAmount(line.rate.text),
+            'discount_pct': ?apiAmount(line.discount.text),
+            if (_isGst) ...{
+              'tax_rate': (line.taxRate?.rate ?? 0).toStringAsFixed(2),
+              'cess_rate': (line.taxRate?.cessRate ?? 0).toStringAsFixed(2),
+            },
+          },
+      ],
+      'charges': [
+        for (final charge in _charges.where((c) => c.value > 0))
+          {
+            if (charge.id != null) 'id': charge.id,
+            'charge_type': charge.type.value,
+            'description': _text(charge.description),
+            'bill_to': charge.billTo.value,
+            'payee_party_id': charge.payee?.id,
+            'vehicle_no': _text(charge.vehicleNo),
+            'amount': apiAmount(charge.amount.text),
+            if (_isGst) 'tax_rate': (charge.taxRate?.rate ?? 0).toStringAsFixed(2),
+          },
+      ],
+      if (!_isEdit && _paidNow)
+        'payment': {
+          'account_id': _account!.id,
+          'mode': _paymentMode.value,
+          // Exactly what was entered; the form refuses an empty amount.
+          'amount': apiAmount(_paidAmount.text),
+        },
+    };
+  }
+
+  Future<void> _save(InvoiceStatus status) async {
+    FocusScope.of(context).unfocus();
+    if (!_formKey.currentState!.validate()) {
+      showErrorToast('form_fix_errors'.tr());
+      return;
     }
+    if (_lines.every((line) => line.isEmpty)) {
+      showErrorToast('invoice_needs_line'.tr());
+      return;
+    }
+    for (final charge in _charges) {
+      if (charge.billTo == ChargeBillTo.payeeOnly && charge.payee == null) {
+        showErrorToast('charge_needs_payee'.tr());
+        return;
+      }
+    }
+
+    final invoices = context.read<Core>().invoice;
+    final navigator = Navigator.of(context);
+    final data = _payload(status);
+    final saved = _isEdit
+        ? await invoices.updateInvoice(_invoice!.id, data)
+        : await invoices.createInvoice(data);
+    if (!mounted) return;
+    if (saved == null) {
+      showErrorToast(invoices.error ?? 'error_generic'.tr());
+      return;
+    }
+    showSuccessToast(
+      status == InvoiceStatus.draft
+          ? 'draft_saved'.tr()
+          : 'bill_saved'.tr(namedArgs: {'number': saved.invoiceNumber}),
+    );
+    navigator.pop(saved);
+  }
+
+  // ------------------------------------------------------------------- UI
+
+  Widget _buildLine(int index, _LineDraft line) {
+    final taxable = _lineTaxable(line);
+    final tax = _lineTax(line);
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'line_number'.tr(namedArgs: {'number': '${index + 1}'}),
+                  style: context.text.labelMedium,
+                ),
+              ),
+              IconButton(
+                tooltip: 'select_item'.tr(),
+                icon: const Icon(Icons.inventory_2_outlined),
+                onPressed: () => _pickLineItem(line),
+              ),
+              if (_lines.length > 1)
+                IconButton(
+                  tooltip: 'remove'.tr(),
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  onPressed: () => setState(() => _lines.removeAt(index).dispose()),
+                ),
+            ],
+          ),
+          AppTextField(
+            controller: line.description,
+            labelText: 'item_or_description'.tr(),
+            textCapitalization: TextCapitalization.sentences,
+            onChanged: (_) => setState(() {}),
+            validator: (v) => (v == null || v.trim().isEmpty)
+                ? 'validation_required'.tr(namedArgs: {'field': 'item_or_description'.tr()})
+                : null,
+          ),
+          const SizedBox(height: AppTheme.spaceMd),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: AppTextField(
+                  controller: line.quantity,
+                  labelText: 'quantity'.tr(),
+                  suffixText: line.unitCode,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [DecimalInputFormatter(decimals: 3)],
+                  onChanged: (_) => setState(() {}),
+                  validator: Validators.quantity,
+                ),
+              ),
+              const SizedBox(width: AppTheme.spaceMd),
+              Expanded(
+                child: AppTextField(
+                  controller: line.rate,
+                  labelText: 'rate'.tr(),
+                  prefixText: '₹ ',
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [DecimalInputFormatter(decimals: 4)],
+                  onChanged: (_) => setState(() {}),
+                  validator: (v) => Validators.amount(v, fieldLabel: 'rate'.tr(), allowZero: true),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spaceMd),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: AppTextField(
+                  controller: line.discount,
+                  labelText: 'discount_percent'.tr(),
+                  suffixText: '%',
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [DecimalInputFormatter()],
+                  onChanged: (_) => setState(() {}),
+                  validator: Validators.percent,
+                ),
+              ),
+              if (_isGst) ...[
+                const SizedBox(width: AppTheme.spaceMd),
+                Expanded(
+                  child: SelectField<TaxRate>(
+                    label: 'gst_rate'.tr(),
+                    value: line.taxRate,
+                    clearable: true,
+                    labelOf: taxRateLabel,
+                    onPick: () => pickTaxRate(context, selectedId: line.taxRate?.id),
+                    onChanged: (rate) => setState(() => line.taxRate = rate),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: AppTheme.spaceSm),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              _isGst
+                  ? 'line_total_with_tax'.tr(namedArgs: {
+                      'taxable': Formatters.formatCurrency(taxable),
+                      'total': Formatters.formatCurrency(taxable + tax),
+                    })
+                  : Formatters.formatCurrency(taxable),
+              style: context.text.titleSmall,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCharge(int index, _ChargeDraft charge) {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text('charge'.tr(), style: context.text.labelMedium)),
+              IconButton(
+                tooltip: 'remove'.tr(),
+                icon: const Icon(Icons.delete_outline_rounded),
+                onPressed: () => setState(() => _charges.removeAt(index).dispose()),
+              ),
+            ],
+          ),
+          ChoiceChipsField<ChargeType>(
+            options: ChargeType.values,
+            value: charge.type,
+            labelOf: (type) => type.displayName,
+            onChanged: (type) => setState(() => charge.type = type),
+          ),
+          const SizedBox(height: AppTheme.spaceMd),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: AppTextField(
+                  controller: charge.amount,
+                  labelText: 'amount'.tr(),
+                  prefixText: '₹ ',
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [DecimalInputFormatter()],
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              if (_isGst) ...[
+                const SizedBox(width: AppTheme.spaceMd),
+                Expanded(
+                  child: SelectField<TaxRate>(
+                    label: 'gst_rate'.tr(),
+                    value: charge.taxRate,
+                    clearable: true,
+                    labelOf: taxRateLabel,
+                    onPick: () => pickTaxRate(context, selectedId: charge.taxRate?.id),
+                    onChanged: (rate) => setState(() => charge.taxRate = rate),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: AppTheme.spaceMd),
+          AppTextField(
+            controller: charge.description,
+            labelText: 'description_optional'.tr(),
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          const SizedBox(height: AppTheme.spaceMd),
+          AppTextField(
+            controller: charge.vehicleNo,
+            labelText: 'vehicle_number'.tr(),
+            textCapitalization: TextCapitalization.characters,
+            inputFormatters: [UpperCaseTextFormatter(), LengthLimitingTextInputFormatter(20)],
+          ),
+          const SizedBox(height: AppTheme.spaceMd),
+          SelectField<_PayeeRef>(
+            label: 'transporter_optional'.tr(),
+            value: charge.payee,
+            clearable: true,
+            prefixIcon: Icons.local_shipping_outlined,
+            helperText: 'transporter_hint'.tr(),
+            labelOf: (payee) => payee.name,
+            onPick: () async {
+              await _pickPayee(charge);
+              return null;
+            },
+            onChanged: (payee) => setState(() => charge.payee = payee),
+          ),
+          const SizedBox(height: AppTheme.spaceMd),
+          ChoiceChipsField<ChargeBillTo>(
+            label: 'who_pays'.tr(),
+            options: ChargeBillTo.values,
+            value: charge.billTo,
+            labelOf: (billTo) => billTo.displayName,
+            onChanged: (billTo) => setState(() => charge.billTo = billTo),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final core = context.watch<Core>();
+    final isSaving = core.invoice.isSaving;
+    final canChooseTaxMode = core.business.selectedBusiness?.canIssueGstInvoices ?? false;
+    const gap = SizedBox(height: AppTheme.spaceLg);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          _isEdit
-              ? 'Edit ${widget.existingInvoice!.invoiceNumber}'
-              : _isSale
-              ? (_billType == BillType.gst
-                    ? 'gst_invoice'.tr()
-                    : 'normal_invoice'.tr())
-              : 'purchase'.tr(),
-          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20.0),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _isSale
-                          ? _buildSaleHeaderCard()
-                          : _buildPurchaseHeaderCard(),
-                      const SizedBox(height: 20),
-
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Products & Services',
-                            style: GoogleFonts.outfit(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: _onAddItemDialog,
-                            icon: Icon(Icons.add, size: 18),
-                            label: Text('add_line_item'.tr()),
-                            style: TextButton.styleFrom(
-                              foregroundColor:
-                                  Theme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? Colors.white
-                                  : AppTheme.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-
-                      _buildLineItemsList(),
-                      const SizedBox(height: 20),
-
-                      _buildTotalsCard(),
-                      const SizedBox(height: 20),
-
-                      _buildPaymentSection(),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
-                ),
-              ),
+        title: Text(_isEdit ? 'edit_bill'.tr() : _type.displayName),
+        actions: [
+          if (!_isEdit)
+            TextButton(
+              onPressed: isSaving ? null : () => _save(InvoiceStatus.draft),
+              child: Text('save_draft'.tr()),
             ),
-
-            _buildBottomActionBar(),
-          ],
-        ),
+        ],
       ),
-    );
-  }
-
-  List<DropdownMenuItem<String>> _buildPartyItems(List<Party> parties) {
-    final filtered = parties.where((p) {
-      if (_isSale) {
-        return p.partyType == PartyType.customer ||
-            p.partyType == PartyType.both;
-      } else {
-        return p.partyType == PartyType.supplier ||
-            p.partyType == PartyType.both;
-      }
-    }).toList();
-
-    if (_isSale) {
-      return [
-        DropdownMenuItem<String>(
-          value: null,
-          child: Text(
-            'Walk-in / Cash Customer',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.spaceLg,
+            AppTheme.spaceSm,
+            AppTheme.spaceLg,
+            AppTheme.space3xl,
           ),
-        ),
-        ...filtered.map((party) {
-          return DropdownMenuItem<String>(
-            value: party.id,
-            child: Text(party.name, style: GoogleFonts.outfit()),
-          );
-        }),
-      ];
-    }
-
-    return filtered.map((party) {
-      return DropdownMenuItem<String>(
-        value: party.id,
-        child: Text(party.name, style: GoogleFonts.outfit()),
-      );
-    }).toList();
-  }
-
-  Widget _buildSaleHeaderCard() {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final parties = context.select<Core, List<Party>>((c) => c.party.parties);
-
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-          width: 1,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _fieldLabel('Customer'),
-            DropdownButtonFormField<String>(
-              decoration: InputDecoration(
-                hintText: 'select_customer'.tr(),
-                prefixIcon: const Icon(Icons.person_outline_rounded),
-              ),
-              value: parties.any((p) => p.id == _selectedPartyId)
-                  ? _selectedPartyId
-                  : null,
-              items: _buildPartyItems(parties),
-              onChanged: (val) {
-                setState(() {
-                  _selectedPartyId = val;
-                  if (val != null) {
-                    final party = parties.firstWhere((p) => p.id == val);
-                    final billAddrs = party.billingAddresses;
-                    final shipAddrs = party.shippingAddresses;
-                    _billingAddress = billAddrs.isNotEmpty
-                        ? billAddrs.first
-                        : '';
-                    _shippingAddress = shipAddrs.isNotEmpty
-                        ? shipAddrs.first
-                        : (_billingAddress ?? '');
-                  } else {
-                    _billingAddress = null;
-                    _shippingAddress = null;
-                  }
-                });
-              },
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () async {
-                  final createdParty = await Navigator.of(context).push<Party>(
-                    getPageRoute(
-                      PartyFormScreen(initialPartyType: PartyType.customer),
-                    ),
-                  );
-                  if (createdParty != null && mounted) {
-                    setState(() {
-                      _selectedPartyId = createdParty.id;
-                      final billAddrs = createdParty.billingAddresses;
-                      final shipAddrs = createdParty.shippingAddresses;
-                      _billingAddress = billAddrs.isNotEmpty
-                          ? billAddrs.first
-                          : '';
-                      _shippingAddress = shipAddrs.isNotEmpty
-                          ? shipAddrs.first
-                          : (_billingAddress ?? '');
-                    });
-                  }
-                },
-                icon: Icon(Icons.add, size: 16),
-                label: Text(
-                  'add_customer'.tr(),
-                  style: TextStyle(fontSize: 13),
-                ),
-                style: TextButton.styleFrom(
-                  foregroundColor:
-                      Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white
-                      : AppTheme.primary,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            FormSection(
+              title: 'bill_details'.tr(),
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _fieldLabel('Invoice No.'),
-                      AppTextField(
-                        controller: _invoiceNumberController,
-                        labelText: '',
-                        hintText: 'inv_hint'.tr(),
-                        validator: (val) =>
-                            Validators.validateRequired(val, 'Invoice number'),
-                      ),
-                    ],
+                if (canChooseTaxMode)
+                  ChoiceChipsField<TaxMode>(
+                    label: 'bill_type'.tr(),
+                    options: TaxMode.values,
+                    value: _taxMode,
+                    labelOf: (mode) => mode.displayName,
+                    onChanged: (mode) => setState(() => _taxMode = mode),
                   ),
+                SelectField<_PartyRef>(
+                  label: _type.isSaleSide ? 'customer'.tr() : 'supplier'.tr(),
+                  value: _party,
+                  clearable: true,
+                  prefixIcon: Icons.person_outline_rounded,
+                  labelOf: (party) => party.name,
+                  onPick: () async {
+                    await _pickParty();
+                    return null;
+                  },
+                  onChanged: (party) => setState(() => _party = party),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _fieldLabel('Invoice Date'),
-                      _buildDateField(
-                        date: _invoiceDate,
-                        icon: Icons.calendar_today_outlined,
-                        onTap: () => _selectDate(context, 0),
-                      ),
-                    ],
+                if (_party == null)
+                  AppTextField(
+                    controller: _walkInName,
+                    labelText: 'walk_in_name'.tr(),
+                    helperText: 'walk_in_hint'.tr(),
+                    textCapitalization: TextCapitalization.words,
                   ),
+                DateField(
+                  label: 'date'.tr(),
+                  value: _date,
+                  onChanged: (date) => setState(() => _date = date ?? _date),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _fieldLabel('Due Date'),
-                      _buildDateField(
-                        date: _dueDate,
-                        placeholder: 'Select',
-                        icon: Icons.calendar_month_outlined,
-                        onTap: () => _selectDate(context, 1),
-                      ),
-                    ],
+                DateField(
+                  label: 'due_date_optional'.tr(),
+                  value: _dueDate,
+                  clearable: true,
+                  helperText: 'due_date_hint'.tr(),
+                  onChanged: (date) => setState(() => _dueDate = date),
+                ),
+                if (!_type.isSaleSide) ...[
+                  AppTextField(
+                    controller: _supplierNumber,
+                    labelText: 'supplier_bill_number'.tr(),
+                    maxLength: 50,
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _fieldLabel('Delivery Date'),
-                      _buildDateField(
-                        date: _deliveryDate,
-                        placeholder: 'Today',
-                        icon: Icons.local_shipping_outlined,
-                        onTap: () => _selectDate(context, 2),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            _fieldLabel('Chalan No.'),
-            AppTextField(
-              controller: _chalanNoController,
-              labelText: '',
-              hintText: 'chalan_hint'.tr(),
-              validator: _billType == BillType.gst
-                  ? (val) => Validators.validateRequired(val, 'Chalan number')
-                  : null,
-            ),
-            const SizedBox(height: 16),
-
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _fieldLabel('Bill To'),
-                      _buildAddressCard(
-                        address: _billingAddress,
-                        onTap: () => _showAddressPicker('billing'),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _fieldLabel('Ship To'),
-                      _buildAddressCard(
-                        address: _shippingAddress,
-                        onTap: () => _showAddressPicker('shipping'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPurchaseHeaderCard() {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final parties = context.select<Core, List<Party>>((c) => c.party.parties);
-    final transportCost = _transportCost;
-
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-          width: 1,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _fieldLabel('Supplier'),
-            DropdownButtonFormField<String>(
-              decoration: InputDecoration(
-                hintText: 'select_supplier'.tr(),
-                prefixIcon: const Icon(Icons.person_outline_rounded),
-              ),
-              value: parties.any((p) => p.id == _selectedPartyId)
-                  ? _selectedPartyId
-                  : null,
-              items: _buildPartyItems(parties),
-              validator: (val) => Validators.validateRequired(val, 'Supplier'),
-              onChanged: (val) {
-                setState(() {
-                  _selectedPartyId = val;
-                  if (val != null) {
-                    final party = parties.firstWhere((p) => p.id == val);
-                    final billAddrs = party.billingAddresses;
-                    final shipAddrs = party.shippingAddresses;
-                    _billingAddress = billAddrs.isNotEmpty
-                        ? billAddrs.first
-                        : '';
-                    _shippingAddress = shipAddrs.isNotEmpty
-                        ? shipAddrs.first
-                        : (_billingAddress ?? '');
-                  } else {
-                    _billingAddress = null;
-                    _shippingAddress = null;
-                  }
-                });
-              },
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () async {
-                  final createdParty = await Navigator.of(context).push<Party>(
-                    getPageRoute(
-                      PartyFormScreen(initialPartyType: PartyType.supplier),
-                    ),
-                  );
-                  if (createdParty != null && mounted) {
-                    setState(() {
-                      _selectedPartyId = createdParty.id;
-                      final billAddrs = createdParty.billingAddresses;
-                      final shipAddrs = createdParty.shippingAddresses;
-                      _billingAddress = billAddrs.isNotEmpty
-                          ? billAddrs.first
-                          : '';
-                      _shippingAddress = shipAddrs.isNotEmpty
-                          ? shipAddrs.first
-                          : (_billingAddress ?? '');
-                    });
-                  }
-                },
-                icon: Icon(Icons.add, size: 16),
-                label: Text(
-                  'add_supplier'.tr(),
-                  style: TextStyle(fontSize: 13),
-                ),
-                style: TextButton.styleFrom(
-                  foregroundColor:
-                      Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white
-                      : AppTheme.primary,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            _fieldLabel('Invoice No.'),
-            AppTextField(
-              controller: _invoiceNumberController,
-              labelText: '',
-              hintText: 'inv_hint'.tr(),
-            ),
-            const SizedBox(height: 16),
-
-            _fieldLabel('Chalan No.'),
-            AppTextField(
-              controller: _chalanNoController,
-              labelText: '',
-              hintText: 'chalan_hint'.tr(),
-            ),
-            const SizedBox(height: 16),
-
-            _fieldLabel('Invoice Date'),
-            _buildDateField(
-              date: _invoiceDate,
-              icon: Icons.calendar_today_outlined,
-              onTap: () => _selectDate(context, 0),
-            ),
-            const SizedBox(height: 16),
-
-            _fieldLabel('Due Date'),
-            _buildDateField(
-              date: _dueDate,
-              placeholder: 'Select',
-              icon: Icons.calendar_month_outlined,
-              onTap: () => _selectDate(context, 1),
-            ),
-            const SizedBox(height: 16),
-
-            _fieldLabel('Transport Qty'),
-            AppTextField(
-              controller: _transportQtyController,
-              labelText: '',
-              hintText: 'qty_hint'.tr(),
-              keyboardType: TextInputType.number,
-              onChanged: (val) => _calculateTotals(),
-            ),
-            const SizedBox(height: 16),
-
-            _fieldLabel('Transport Rate'),
-            AppTextField(
-              controller: _transportRateController,
-              labelText: '',
-              hintText: 'rate_hint_label'.tr(),
-              keyboardType: TextInputType.number,
-              onChanged: (val) => _calculateTotals(),
-            ),
-            if (transportCost > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      'Cost: ',
-                      style: GoogleFonts.outfit(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: isDark ? AppTheme.gray400 : AppTheme.gray600,
-                      ),
-                    ),
-                    Text(
-                      Formatters.formatCurrency(transportCost),
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? AppTheme.gray400 : AppTheme.gray600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 16),
-
-            _fieldLabel('Bill To'),
-            _buildAddressCard(
-              address: _billingAddress,
-              onTap: () => _showAddressPicker('billing'),
-            ),
-            const SizedBox(height: 16),
-
-            _fieldLabel('Ship To'),
-            _buildAddressCard(
-              address: _shippingAddress,
-              onTap: () => _showAddressPicker('shipping'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDateField({
-    required DateTime? date,
-    String placeholder = 'Select',
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final text = date != null ? Formatters.formatDate(date) : placeholder;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? AppTheme.gray700 : AppTheme.gray300,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: isDark ? AppTheme.gray400 : AppTheme.gray500,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              text,
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: date != null
-                    ? theme.textTheme.bodyLarge?.color
-                    : (isDark ? AppTheme.gray500 : AppTheme.gray400),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _fieldLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        text,
-        style: GoogleFonts.outfit(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppTheme.gray500,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddressCard({
-    required String? address,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isDark
-              ? AppTheme.gray800.withValues(alpha: 0.3)
-              : AppTheme.gray50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-          ),
-        ),
-        child: Text(
-          (address != null && address.isNotEmpty) ? address : 'tap_to_set'.tr(),
-          style: GoogleFonts.outfit(
-            fontSize: 13,
-            color: (address != null && address.isNotEmpty)
-                ? (isDark ? Colors.white : AppTheme.gray900)
-                : AppTheme.gray400,
-          ),
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-    );
-  }
-
-  void _showAddressPicker(String type) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final parties = context.read<Core>().party.parties;
-    final party = _selectedPartyId != null
-        ? parties.firstWhere((p) => p.id == _selectedPartyId)
-        : null;
-
-    final addresses = type == 'billing'
-        ? (party?.billingAddresses ?? <String>[])
-        : (party?.shippingAddresses ?? <String>[]);
-
-    String customAddress = '';
-    final isCustomController = TextEditingController();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      showDragHandle: false,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateSheet) {
-            return Container(
-              decoration: BoxDecoration(
-                color: isDark ? AppTheme.backgroundDark : Colors.white,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
-                    blurRadius: 24,
-                    offset: const Offset(0, -8),
+                  DateField(
+                    label: 'supplier_bill_date'.tr(),
+                    value: _supplierDate,
+                    clearable: true,
+                    onChanged: (date) => setState(() => _supplierDate = date),
                   ),
                 ],
-              ),
-              padding: EdgeInsets.fromLTRB(
-                20,
-                10,
-                20,
-                20 + MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 20),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      type == 'billing'
-                          ? 'Select Billing Address'
-                          : 'Select Shipping Address',
-                      style: GoogleFonts.outfit(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: isDark ? Colors.white : AppTheme.gray900,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    if (type == 'shipping') ...[
-                      _addressOption(
-                        label: 'same_as_billing'.tr(),
-                        subtitle:
-                            _billingAddress != null &&
-                                _billingAddress!.isNotEmpty
-                            ? _billingAddress!
-                            : 'no_billing_address'.tr(),
-                        isDark: isDark,
-                        onTap: () {
-                          setState(() {
-                            _shippingAddress = _billingAddress;
-                          });
-                          Navigator.pop(context);
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-
-                    ...addresses.asMap().entries.map((entry) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: _addressOption(
-                          label: 'Address ${entry.key + 1}',
-                          subtitle: entry.value,
-                          isDark: isDark,
-                          onTap: () {
-                            setState(() {
-                              if (type == 'billing')
-                                _billingAddress = entry.value;
-                              else
-                                _shippingAddress = entry.value;
-                            });
-                            Navigator.pop(context);
-                          },
-                        ),
-                      );
-                    }),
-
-                    const SizedBox(height: 8),
-                    _addressOption(
-                      label: 'Enter Custom Address',
-                      subtitle: customAddress.isNotEmpty
-                          ? customAddress
-                          : 'type_custom_address'.tr(),
-                      isDark: isDark,
-                      trailing: customAddress.isEmpty
-                          ? const Icon(Icons.edit_outlined, size: 18)
-                          : null,
-                      onTap: () {
-                        setStateSheet(() {
-                          customAddress = customAddress.isEmpty
-                              ? '_editing'
-                              : '';
-                        });
-                      },
-                    ),
-
-                    if (customAddress == '_editing') ...[
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: isCustomController,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          hintText: 'enter_full_address'.tr(),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          contentPadding: const EdgeInsets.all(12),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            final addr = isCustomController.text.trim();
-                            if (addr.isNotEmpty) {
-                              setState(() {
-                                if (type == 'billing')
-                                  _billingAddress = addr;
-                                else
-                                  _shippingAddress = addr;
-                              });
-                              Navigator.pop(context);
-                            }
-                          },
-                          child: const Text('Apply'),
-                        ),
-                      ),
-                    ],
-
-                    if (addresses.isEmpty && customAddress != '_editing') ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        party != null
-                            ? 'no_saved_addresses'.tr(namedArgs: {'type': type})
-                            : 'select_party_or_custom'.tr(),
-                        style: GoogleFonts.outfit(
-                          fontSize: 13,
-                          color: isDark ? AppTheme.gray400 : AppTheme.gray600,
-                        ),
-                      ),
-                    ],
-                  ],
+              ],
+            ),
+            gap,
+            Row(
+              children: [
+                Expanded(child: Text('items'.tr(), style: context.text.titleMedium)),
+                TextButton.icon(
+                  onPressed: _addLine,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: Text('add_item'.tr()),
                 ),
+              ],
+            ),
+            for (final (index, line) in _lines.indexed) ...[
+              _buildLine(index, line),
+              const SizedBox(height: AppTheme.spaceSm),
+            ],
+            AppButton(
+              text: 'add_line'.tr(),
+              icon: Icons.playlist_add_rounded,
+              variant: AppButtonVariant.outline,
+              onPressed: () => setState(() => _lines.add(_LineDraft())),
+            ),
+            gap,
+            FormSection(
+              title: 'transport_details'.tr(),
+              subtitle: 'transport_hint'.tr(),
+              trailing: IconButton(
+                icon: Icon(_showTransport ? Icons.expand_less_rounded : Icons.expand_more_rounded),
+                onPressed: () => setState(() => _showTransport = !_showTransport),
               ),
-            );
-          },
-        );
-      },
-    ).whenComplete(() => isCustomController.dispose());
-  }
-
-  Widget _addressOption({
-    required String label,
-    required String subtitle,
-    required bool isDark,
-    Widget? trailing,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isDark
-              ? AppTheme.gray800.withValues(alpha: 0.3)
-              : AppTheme.gray50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_showTransport) ...[
+                  AppTextField(
+                    controller: _vehicleNo,
+                    labelText: 'vehicle_number'.tr(),
+                    textCapitalization: TextCapitalization.characters,
+                    inputFormatters: [UpperCaseTextFormatter(), LengthLimitingTextInputFormatter(20)],
+                  ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: AppTextField(
+                          controller: _driverName,
+                          labelText: 'driver_name'.tr(),
+                          textCapitalization: TextCapitalization.words,
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.spaceMd),
+                      Expanded(
+                        child: AppTextField(
+                          controller: _driverPhone,
+                          labelText: 'driver_phone'.tr(),
+                          keyboardType: TextInputType.phone,
+                          validator: Validators.phone,
+                        ),
+                      ),
+                    ],
+                  ),
+                  ChoiceChipsField<TransportMode>(
+                    label: 'transport_mode'.tr(),
+                    options: TransportMode.values,
+                    value: _transportMode,
+                    labelOf: (mode) => mode.displayName,
+                    onChanged: (mode) => setState(
+                      () => _transportMode = _transportMode == mode ? null : mode,
+                    ),
+                  ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: AppTextField(
+                          controller: _lrNo,
+                          labelText: 'lr_number'.tr(),
+                          maxLength: 50,
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.spaceMd),
+                      Expanded(
+                        child: DateField(
+                          label: 'lr_date'.tr(),
+                          value: _lrDate,
+                          clearable: true,
+                          onChanged: (date) => setState(() => _lrDate = date),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: AppTextField(
+                          controller: _ewayNo,
+                          labelText: 'eway_bill_number'.tr(),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(12),
+                          ],
+                          validator: (v) {
+                            final value = v?.trim() ?? '';
+                            return value.isEmpty || value.length == 12
+                                ? null
+                                : 'validation_eway_bill'.tr();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.spaceMd),
+                      Expanded(
+                        child: DateField(
+                          label: 'eway_bill_date'.tr(),
+                          value: _ewayDate,
+                          clearable: true,
+                          onChanged: (date) => setState(() => _ewayDate = date),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: AppTextField(
+                          controller: _chalanNo,
+                          labelText: 'challan_number'.tr(),
+                          maxLength: 50,
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.spaceMd),
+                      Expanded(
+                        child: DateField(
+                          label: 'delivery_date'.tr(),
+                          value: _deliveryDate,
+                          clearable: true,
+                          onChanged: (date) => setState(() => _deliveryDate = date),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+            gap,
+            Row(
+              children: [
+                Expanded(child: Text('other_charges'.tr(), style: context.text.titleMedium)),
+                TextButton.icon(
+                  onPressed: () => setState(() => _charges.add(_ChargeDraft())),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: Text('add_charge'.tr()),
+                ),
+              ],
+            ),
+            if (_charges.isEmpty)
+              Text('charges_hint'.tr(), style: context.text.bodySmall)
+            else
+              for (final (index, charge) in _charges.indexed) ...[
+                _buildCharge(index, charge),
+                const SizedBox(height: AppTheme.spaceSm),
+              ],
+            gap,
+            if (!_isEdit)
+              FormSection(
+                title: 'payment'.tr(),
                 children: [
-                  Text(
-                    label,
-                    style: GoogleFonts.outfit(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: isDark ? Colors.white : AppTheme.gray900,
-                    ),
+                  SwitchRow(
+                    title: _type.paymentDirection == PaymentDirection.paymentIn
+                        ? 'received_payment_now'.tr()
+                        : 'paid_now'.tr(),
+                    subtitle: 'paid_now_hint'.tr(),
+                    value: _paidNow,
+                    // The amount is never filled in automatically: a part
+                    // payment must not turn into a full one by accident.
+                    onChanged: (value) => setState(() => _paidNow = value),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      color: isDark ? AppTheme.gray400 : AppTheme.gray600,
+                  if (_paidNow) ...[
+                    AppTextField(
+                      controller: _paidAmount,
+                      labelText: _type.paymentDirection == PaymentDirection.paymentIn
+                          ? 'amount_received_now'.tr()
+                          : 'amount_paid_now'.tr(),
+                      helperText: 'bill_total_helper'.tr(namedArgs: {
+                        'amount': Formatters.formatCurrency(_estimatedTotal),
+                      }),
+                      prefixText: '₹ ',
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [DecimalInputFormatter()],
+                      onChanged: (_) => setState(() {}),
+                      validator: _validatePaidNow,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () => setState(
+                          () => _paidAmount.text = _estimatedTotal.toStringAsFixed(2),
+                        ),
+                        icon: const Icon(Icons.done_all_rounded, size: 18),
+                        label: Text('pay_full_amount'.tr()),
+                      ),
+                    ),
+                    InfoRow(
+                      label: 'balance_after_payment'.tr(),
+                      value: Formatters.formatCurrency(_balanceAfterPayment),
+                    ),
+                    ChoiceChipsField<PaymentMode>(
+                      options: PaymentMode.values,
+                      value: _paymentMode,
+                      labelOf: (mode) => mode.displayName,
+                      onChanged: (mode) => setState(() => _paymentMode = mode),
+                    ),
+                    SelectField<Account>(
+                      label: _type.paymentDirection == PaymentDirection.paymentIn
+                          ? 'deposit_to'.tr()
+                          : 'paid_from'.tr(),
+                      value: _account,
+                      prefixIcon: Icons.account_balance_wallet_outlined,
+                      labelOf: (account) => account.name,
+                      onPick: () => pickAccount(context, selectedId: _account?.id),
+                      onChanged: (account) => setState(() => _account = account),
+                      validator: (account) => account == null
+                          ? 'validation_required'.tr(namedArgs: {'field': 'account'.tr()})
+                          : null,
+                    ),
+                  ],
+                ],
+              ),
+            gap,
+            FormSection(
+              title: 'more_options'.tr(),
+              trailing: IconButton(
+                icon: Icon(_showMore ? Icons.expand_less_rounded : Icons.expand_more_rounded),
+                onPressed: () => setState(() => _showMore = !_showMore),
+              ),
+              children: [
+                if (_showMore) ...[
+                  if (_isGst) ...[
+                    SwitchRow(
+                      title: 'prices_include_tax'.tr(),
+                      subtitle: 'prices_include_tax_hint'.tr(),
+                      value: _priceIncludesTax,
+                      onChanged: (value) => setState(() => _priceIncludesTax = value),
+                    ),
+                    SwitchRow(
+                      title: 'reverse_charge'.tr(),
+                      subtitle: 'reverse_charge_hint'.tr(),
+                      value: _reverseCharge,
+                      onChanged: (value) => setState(() => _reverseCharge = value),
+                    ),
+                  ],
+                  AppTextField(
+                    controller: _invoiceNumber,
+                    labelText: 'bill_number_optional'.tr(),
+                    helperText: 'bill_number_hint'.tr(),
+                    maxLength: 50,
                   ),
+                  AppTextField(
+                    controller: _notes,
+                    labelText: 'notes_optional'.tr(),
+                    minLines: 2,
+                    maxLines: 4,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  AppTextField(
+                    controller: _terms,
+                    labelText: 'terms_optional'.tr(),
+                    helperText: 'terms_on_bill_hint'.tr(),
+                    minLines: 2,
+                    maxLines: 4,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: AppTheme.spaceLg),
+            AppCard(
+              child: Column(
+                children: [
+                  InfoRow(
+                    label: 'estimated_total'.tr(),
+                    emphasize: true,
+                    value: Formatters.formatCurrency(_estimatedTotal),
+                  ),
+                  Text('estimate_note'.tr(), style: context.text.bodySmall),
                 ],
               ),
             ),
-            trailing ?? const Icon(Icons.chevron_right_rounded, size: 20),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildLineItemsList() {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    if (_lineItems.isEmpty) {
-      return Container(
-        height: 100,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: isDark ? AppTheme.cardDark : AppTheme.gray50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? AppTheme.gray700 : AppTheme.gray200,
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.spaceLg),
+          child: AppButton(
+            text: _isEdit ? 'save_changes'.tr() : 'save_bill'.tr(),
+            isLoading: isSaving,
+            onPressed: () => _save(InvoiceStatus.finalized),
           ),
         ),
-        child: Center(
-          child: Text(
-            'no_items_added_yet'.tr(),
-            style: GoogleFonts.outfit(
-              color: isDark ? AppTheme.gray400 : AppTheme.gray500,
-              fontSize: 13,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _lineItems.length,
-      itemBuilder: (context, index) {
-        final item = _lineItems[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8.0),
-          child: ListTile(
-            dense: true,
-            title: Text(
-              item.name,
-              style: GoogleFonts.outfit(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-              ),
-            ),
-            subtitle: Text(
-              _billType == BillType.gst
-                  ? '${item.quantity} qty x ${Formatters.formatCurrency(item.unitPrice)} | Disc: ${item.discountPercentage}% | Tax: ${item.taxRate}%'
-                  : '${item.quantity} qty x ${Formatters.formatCurrency(item.unitPrice)}',
-              style: GoogleFonts.outfit(fontSize: 12),
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  Formatters.formatCurrency(item.totalAmount),
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: Icon(Icons.delete_outline, color: AppTheme.error),
-                  onPressed: () => _onRemoveItem(index),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTotalsCard() {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-          width: 1,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            _buildTotalRow('Sub Total', Formatters.formatCurrency(_subTotal)),
-            if (_billType == BillType.gst) ...[
-              const SizedBox(height: 8),
-              _buildTotalRow(
-                'Discount Total (-)',
-                Formatters.formatCurrency(_discountAmount),
-                color: AppTheme.success,
-              ),
-              const SizedBox(height: 8),
-              _buildTotalRow(
-                'Tax Total (+)',
-                Formatters.formatCurrency(_taxAmount),
-                color: AppTheme.warning,
-              ),
-            ],
-            if (!_isSale) ...[
-              const SizedBox(height: 8),
-              _buildTotalRow(
-                'Transport Cost (+)',
-                Formatters.formatCurrency(_transportCost),
-                color: isDark ? AppTheme.gray400 : AppTheme.gray600,
-              ),
-            ],
-            const Divider(height: 20),
-            _buildTotalRow(
-              'Total Bill Amount',
-              Formatters.formatCurrency(_totalAmount),
-              isBold: true,
-              fontSize: 18,
-              color: isDark ? Colors.white : AppTheme.primary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTotalRow(
-    String label,
-    String val, {
-    bool isBold = false,
-    double fontSize = 14,
-    Color? color,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.outfit(
-            fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-            fontSize: fontSize,
-          ),
-        ),
-        Text(
-          val,
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.bold,
-            fontSize: fontSize,
-            color: color,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPaymentSection() {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-          width: 1,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Payment & Notes',
-              style: GoogleFonts.outfit(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Payment Mode
-            Text(
-              'payment_mode'.tr(),
-              style: GoogleFonts.outfit(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.6),
-              ),
-            ),
-            const SizedBox(height: 6),
-            DropdownButtonFormField<PaymentMode>(
-              value: PaymentMode.values.contains(_paymentMode)
-                  ? _paymentMode
-                  : PaymentMode.cash,
-              decoration: const InputDecoration(
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 4,
-                ),
-              ),
-              items: PaymentMode.values.map((mode) {
-                return DropdownMenuItem<PaymentMode>(
-                  value: mode,
-                  child: Text(mode.displayName, style: GoogleFonts.outfit()),
-                );
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() {
-                    _paymentMode = val;
-                    if (val == PaymentMode.credit) {
-                      _paidAmountController.text = '0';
-                    }
-                  });
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Paid Amount
-            AppTextField(
-              controller: _paidAmountController,
-              labelText: 'paid_amount'.tr(),
-              hintText: 'cash_collected'.tr(),
-              keyboardType: TextInputType.number,
-              readOnly: _paymentMode == PaymentMode.credit,
-              validator: (val) {
-                if (val == null || val.trim().isEmpty) return null;
-                final numValue = double.tryParse(val);
-                if (numValue == null) return 'enter_valid_number'.tr();
-                if (numValue < 0) return 'amount_no_negative'.tr();
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Notes
-            AppTextField(
-              controller: _notesController,
-              labelText: 'notes'.tr(),
-              hintText: 'write_terms'.tr(),
-              maxLines: 2,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomActionBar() {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.cardDark : Colors.white,
-        border: Border(
-          top: BorderSide(
-            color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-            width: 1,
-          ),
-        ),
-      ),
-      child: AppButton(
-        text: _isEdit ? 'Update Invoice' : 'Generate Invoice',
-        isLoading: context.select<Core, bool>((c) => c.invoice.isLoading),
-        onPressed: _submit,
       ),
     );
   }

@@ -1,61 +1,105 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:vyaparsetu/global/constants.dart';
 import 'package:vyaparsetu/global/themes.dart';
+import 'package:vyaparsetu/types/invoice.dart';
+
+enum ChipTone { neutral, primary, success, warning, danger, info }
 
 class StatusChip extends StatelessWidget {
   final String label;
-  final Color dotColor;
+  final ChipTone tone;
+  final IconData? icon;
 
   const StatusChip({
     super.key,
     required this.label,
-    required this.dotColor,
+    this.tone = ChipTone.neutral,
+    this.icon,
   });
 
-  factory StatusChip.paid() {
-    return const StatusChip(
-      label: 'Paid',
-      dotColor: AppTheme.success,
+  /// Cancelled, draft, overdue, or how much of the invoice is paid.
+  factory StatusChip.forInvoice(Invoice invoice) {
+    if (invoice.isCancelled) {
+      return StatusChip(
+        label: InvoiceStatus.cancelled.displayName,
+        tone: ChipTone.danger,
+      );
+    }
+    if (invoice.isDraft) {
+      return StatusChip(label: InvoiceStatus.draft.displayName);
+    }
+    if (invoice.isOverdue) {
+      return StatusChip(label: 'status_overdue'.tr(), tone: ChipTone.danger);
+    }
+    return StatusChip.forPayment(invoice.paymentStatus);
+  }
+
+  factory StatusChip.forPayment(PaymentStatus status) {
+    return StatusChip(
+      label: status.displayName,
+      tone: switch (status) {
+        PaymentStatus.paid => ChipTone.success,
+        PaymentStatus.partiallyPaid => ChipTone.warning,
+        PaymentStatus.unpaid => ChipTone.info,
+      },
     );
   }
 
-  factory StatusChip.unpaid() {
-    return const StatusChip(
-      label: 'Unpaid',
-      dotColor: AppTheme.error,
-    );
-  }
-
-  factory StatusChip.partiallyPaid() {
-    return const StatusChip(
-      label: 'Partially Paid',
-      dotColor: AppTheme.warning,
+  factory StatusChip.forRecord(RecordStatus status) {
+    return StatusChip(
+      label: status.displayName,
+      tone: status == RecordStatus.cancelled ? ChipTone.danger : ChipTone.success,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(
-            color: dotColor,
-            shape: BoxShape.circle,
+    final colors = context.colors;
+    final (Color background, Color foreground) = switch (tone) {
+      ChipTone.neutral => (colors.surfaceAlt, colors.inkSecondary),
+      ChipTone.primary => (colors.primarySoft, colors.primary),
+      ChipTone.success => (colors.successSoft, colors.success),
+      ChipTone.warning => (colors.warningSoft, colors.warning),
+      ChipTone.danger => (colors.dangerSoft, colors.danger),
+      ChipTone.info => (colors.infoSoft, colors.info),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 12, color: foreground),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: context.text.labelSmall?.copyWith(
+              color: foreground,
+              letterSpacing: 0.2,
+            ),
           ),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: GoogleFonts.outfit(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: AppTheme.gray500,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
+}
+
+/// Foreground and soft background for a tone, for icons and badges.
+(Color background, Color foreground) toneColors(BuildContext context, ChipTone tone) {
+  final colors = context.colors;
+  return switch (tone) {
+    ChipTone.neutral => (colors.surfaceAlt, colors.inkSecondary),
+    ChipTone.primary => (colors.primarySoft, colors.primary),
+    ChipTone.success => (colors.successSoft, colors.success),
+    ChipTone.warning => (colors.warningSoft, colors.warning),
+    ChipTone.danger => (colors.dangerSoft, colors.danger),
+    ChipTone.info => (colors.infoSoft, colors.info),
+  };
 }

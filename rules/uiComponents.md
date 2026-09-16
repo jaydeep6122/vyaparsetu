@@ -1,69 +1,70 @@
 # UI Components
 
 ## Rule
-Use existing components from `lib/components/` before building new. Theme everything through `AppTheme`.
+Build screens out of `lib/components/`. Colours, spacing and radii come from
+the theme — never raw values.
 
-## Available Components
+## Available components
 
 | Component | Description |
 |---|---|
-| `AmountDisplay` | Formatted currency text, colored for receivable/expense |
-| `AppButton` | Primary/secondary/outlined button with loading state |
-| `AppTextField` | Styled input field with password visibility toggle |
-| `ConfirmationDialog` | Reusable confirm/cancel dialog |
-| `EmptyState` | Placeholder for empty lists with optional action button |
-| `AppErrorWidget` | Error display with optional retry callback |
-| `ImagePickerWidget` | Camera/gallery image picker with preview |
-| `LoadingIndicator` | Spinner (with optional message) or shimmer skeleton |
-| `PremiumNavBar` | Custom bottom navigation bar |
-| `AppSearchBar` | Debounced search input with clear button |
-| `SectionHeader` | Section title with optional "View All" link |
-| `SignaturePadWidget` | Drawing pad for signatures |
-| `StatusChip` | Colored chip with named constructors (paid, unpaid, partiallyPaid) |
-| `SummaryCard` | Dashboard metric card with icon, value, colored accent |
+| `AppButton` | `primary` / `secondary` / `outline` / `danger` / `text`, loading state, `compact`, `expand` |
+| `AppTextField` | Form field with helper, prefix/suffix, password toggle, formatters |
+| `AppCard` | Bordered surface used for rows, sections and summaries |
+| `AmountDisplay` | Rupee amount with tabular figures and tone (positive / negative / bySign) |
+| `StatusChip` | Small status pill; `forInvoice`, `forPayment`, `forRecord`; `toneColors(context, tone)` for matching icon colours |
+| `SummaryCard` | Headline figure with icon, optional tap |
+| `InfoRow` | "Label … value" line; renders nothing when the value is null |
+| `SectionHeader` | Section title with an optional action |
+| `EmptyState` | Icon, title, hint and an optional action button |
+| `AppErrorWidget` | Error with retry |
+| `LoadingIndicator` / `SkeletonList` | Spinner, or placeholder rows while a list loads |
+| `LoadStateBody` / `LoadStateSection` | Renders a `LoadState<T>`: value, spinner or error |
+| `PagedListView` | Pull-to-refresh list that loads the next page near the bottom |
+| `AppSearchBar` | Debounced search with clear |
+| `showPickerSheet<T>` | Bottom sheet picker with local or server search and an "add new" action |
+| `FormSection`, `SelectField<T>`, `DateField`, `SwitchRow`, `ChoiceChipsField<T>` | Form building blocks |
+| `showConfirmDialog`, `showReasonDialog`, `showTextInputDialog` | Standard dialogs |
+| `PeriodBar` | Report period chooser (this FY, month, custom …) |
+| `InitialsAvatar`, `BusinessLogo`, `decodeImageDataUri` | Avatars and inline images |
+| `ImagePickerWidget`, `SignaturePadWidget` | Logo picking and signature drawing |
+
+Domain tiles live next to their screens: `InvoiceTile`, `PartyTile`,
+`PartyBalance`, `ItemTile`, `PaymentTile`, `LedgerView`.
 
 ## Theming
 
 ```dart
-// Use AppTheme constants — never raw values
+final colors = context.colors;   // AppColors theme extension
+final text = context.text;       // TextTheme
+context.isDark;                  // brightness
+
 Container(
+  padding: const EdgeInsets.all(AppTheme.spaceLg),
   decoration: BoxDecoration(
-    borderRadius: BorderRadius.circular(AppTheme.radiusMd),   // not 12
-    boxShadow: [AppTheme.shadowSm],                            // not custom shadow
-    gradient: AppTheme.primaryGradient,                        // not hand-written gradient
+    color: colors.surface,
+    border: Border.all(color: colors.border),
+    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
   ),
-  padding: EdgeInsets.all(AppTheme.spaceMd),                   // not 16
-  child: Text(
-    'Hello',
-    style: GoogleFonts.outfit(
-      fontWeight: FontWeight.bold,
-      fontSize: 16,
-    ),
-  ),
+  child: Text('Hello', style: text.titleMedium),
 )
 ```
 
-## Dark Mode
+`AppColors` carries `primary`, `onPrimary`, `primarySoft`, `background`,
+`surface`, `surfaceAlt`, `border`, `ink`, `inkSecondary`, `muted`, and
+`success`/`danger`/`warning`/`info` with their `*Soft` backgrounds. Both light
+and dark palettes define every token, so no widget needs an `isDark` branch.
 
-```dart
-final isDark = Theme.of(context).brightness == Brightness.dark;
-
-// Conditional color:
-color: isDark ? AppTheme.primaryDark : AppTheme.primary,
-
-// Or use theme directly (preferred):
-color: Theme.of(context).colorScheme.primary,
-```
+Spacing: `spaceXs 4`, `spaceSm 8`, `spaceMd 12`, `spaceLg 16`, `spaceXl 20`,
+`space2xl 24`, `space3xl 32`, `space4xl 48`. Radii: `radiusXs 6` … `radiusFull`.
+Lists that sit under a FAB end with `AppTheme.fabClearance` padding.
 
 ## DO
-- Browse `lib/components/` before creating a new widget
-- Use `AppTheme` constants for colors, spacing, border radius, shadows, gradients
-- Use `GoogleFonts.outfit()` for text styling
-- Use `Theme.of(context)` for Material Design properties
-- Wrap reusable UI patterns as components in `lib/components/`
+- Check `lib/components/` before writing a widget
+- Take colours from `context.colors` and text styles from `context.text`
+- Keep new shared widgets in `lib/components/`, screen-specific ones in `widgets.dart` beside the screen
 
 ## DON'T
-- Use raw color hex values (e.g., `Color(0xFF...)`) — use AppTheme colors
-- Use hardcoded padding/spacing values — use `AppTheme.space*` constants
-- Use hardcoded border radius — use `AppTheme.radius*` constants
-- Define components in screen files — extract to `lib/components/`
+- Use raw hex colours, hardcoded padding or `GoogleFonts` in screens (the theme sets Inter)
+- Branch on `isDark` — the palette already handles it
+- Re-implement empty, loading or error states by hand

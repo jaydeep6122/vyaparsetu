@@ -3,57 +3,56 @@ import 'package:flutter/material.dart';
 import 'package:vyaparsetu/global/themes.dart';
 import 'package:vyaparsetu/helpers/navigation.dart';
 
-void _showToast(Flushbar toast) {
-  final ctx = navigatorKey.currentContext;
-  if (ctx == null) return;
-  toast.show(ctx);
-}
+void _showToast({
+  required String message,
+  required Color color,
+  required IconData icon,
+  required int durationSeconds,
+}) {
+  final context = navigatorKey.currentContext;
+  if (context == null || message.trim().isEmpty) return;
 
-void showSuccessToast(String message, {int durationSeconds = 3}) {
-  _showToast(Flushbar(
+  Flushbar<void>(
     message: message,
-    backgroundColor: AppTheme.success,
+    icon: Icon(icon, color: Colors.white, size: 22),
+    shouldIconPulse: false,
+    backgroundColor: color,
     duration: Duration(seconds: durationSeconds),
+    flushbarPosition: FlushbarPosition.TOP,
     flushbarStyle: FlushbarStyle.FLOATING,
     messageColor: Colors.white,
-    borderRadius: BorderRadius.circular(7),
-    margin: const EdgeInsets.symmetric(horizontal: 5).copyWith(bottom: 5),
-    padding: const EdgeInsets.symmetric(vertical: 15).copyWith(left: 15),
-    animationDuration: const Duration(milliseconds: 400),
-    forwardAnimationCurve: Curves.decelerate,
+    messageSize: 14,
+    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+    margin: const EdgeInsets.all(AppTheme.spaceMd),
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppTheme.spaceLg,
+      vertical: AppTheme.spaceMd + 2,
+    ),
+    animationDuration: const Duration(milliseconds: 300),
+    forwardAnimationCurve: Curves.easeOutCubic,
     isDismissible: true,
-  ));
+    dismissDirection: FlushbarDismissDirection.VERTICAL,
+  ).show(context);
 }
 
-void showErrorToast(String message, {int durationSeconds = 3}) {
-  _showToast(Flushbar(
-    message: message,
-    backgroundColor: AppTheme.error,
-    duration: Duration(seconds: durationSeconds),
-    flushbarStyle: FlushbarStyle.FLOATING,
-    messageColor: Colors.white,
-    borderRadius: BorderRadius.circular(7),
-    margin: const EdgeInsets.symmetric(horizontal: 5).copyWith(bottom: 5),
-    padding: const EdgeInsets.symmetric(vertical: 15).copyWith(left: 15),
-    animationDuration: const Duration(milliseconds: 400),
-    forwardAnimationCurve: Curves.decelerate,
-    isDismissible: true,
-  ));
-}
+void showSuccessToast(String message, {int durationSeconds = 3}) => _showToast(
+  message: message,
+  color: AppTheme.success,
+  icon: Icons.check_circle_rounded,
+  durationSeconds: durationSeconds,
+);
 
-void showInfoToast(String message, {int durationSeconds = 3}) {
-  _showToast(Flushbar(
-    message: message,
-    backgroundColor: AppTheme.info,
-    duration: Duration(seconds: durationSeconds),
-    flushbarStyle: FlushbarStyle.FLOATING,
-    messageColor: Colors.white,
-    borderRadius: BorderRadius.circular(7),
-    margin: const EdgeInsets.symmetric(horizontal: 5).copyWith(bottom: 5),
-    padding: const EdgeInsets.symmetric(vertical: 15).copyWith(left: 15),
-    animationDuration: const Duration(milliseconds: 400),
-    forwardAnimationCurve: Curves.decelerate,
-    icon: const Icon(Icons.info, color: Colors.white),
-    isDismissible: true,
-  ));
-}
+/// Errors stay a little longer: they usually need reading.
+void showErrorToast(String message, {int durationSeconds = 4}) => _showToast(
+  message: message,
+  color: AppTheme.error,
+  icon: Icons.error_rounded,
+  durationSeconds: durationSeconds,
+);
+
+void showInfoToast(String message, {int durationSeconds = 3}) => _showToast(
+  message: message,
+  color: AppTheme.info,
+  icon: Icons.info_rounded,
+  durationSeconds: durationSeconds,
+);

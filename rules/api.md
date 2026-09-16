@@ -1,81 +1,81 @@
 # API
 
 ## Rule
-All HTTP requests go through `Api.instance.<module>.<method>()`. Calls are made inside Core modules, never directly from screens.
+Every request goes through `Api.instance.<module>.<method>()`, called from a
+Core module — never from a screen.
 
-## Api Singleton
+## Response envelope
 
-```dart
-class Api {
-  static late final Api _instance;
-  static Api get instance => _instance;
+The backend always answers with the same shape:
 
-  late final AuthApi auth;
-  late final BusinessApi business;
-  late final DashboardApi dashboard;
-  late final ExpenseApi expense;
-  late final InvoiceApi invoice;
-  late final ItemApi item;
-  late final PartyApi party;
-  late final PaymentApi payment;
-
-  Api._internal(Dio dio) {
-    auth = AuthApi(dio);
-    business = BusinessApi(dio);
-    // ... all modules with same dio
-  }
-
-  static void initialize(Dio dio) {
-    _instance = Api._internal(dio);
-  }
-}
+```json
+{ "success": true, "data": { ... }, "pagination": { "limit": 50, "offset": 0, "total": 120 } }
+{ "success": false, "statusCode": 409, "message": "…", "constraint": "parties_name_unique" }
 ```
 
-## Dio Configuration
+`api/response.dart` unwraps it:
 
-- **Base URL:** `AppConstants.apiBaseUrl` (`https://vyaparsetubackend.onrender.com/v1/`)
-- **Timeouts:** 30s connect, 30s receive
-- **Auth header:** Automatically added via interceptor (`Authorization: Bearer <token>`)
-- **Excluded paths:** `/auth/login`, `/auth/signup`, `/auth/refresh`
-- **Session expiry:** Silent token refresh on 401. Calls `onSessionExpired` callback if refresh fails.
+| Helper | Purpose |
+|---|---|
+| `dataOf(response)` | `data` as `Map<String, dynamic>` |
+| `listOf(response)` | `data` as `List<Map<String, dynamic>>` |
+| `PageJson.of(response)` | items + limit/offset/total for paged endpoints |
+| `queryOf({...})` | Drops null and empty query values |
+| `businessPath(id)` | `/businesses/<id>` |
 
-## Initialization Order (in `main.dart`)
+Errors are turned into text by `helpers/errorHandler.dart` →
+`userFriendlyError`, which maps unique constraints to `error_*` keys and
+rewrites validation paths ("lines.0.quantity") into "Line 1 · Quantity: …".
+
+## Dio
+
+- Base URL `AppConstants.apiBaseUrl` (`…/v1/`), 30s timeouts.
+- Interceptor adds `Authorization: Bearer <access token>`, except on
+  `/auth/login`, `/auth/signup`, `/auth/refresh`, `/auth/logout`,
+  `/auth/password/forgot`, `/auth/password/reset`.
+- On 401 it refreshes once with the stored refresh token
+  (`data.access_token` / `data.refresh_token`) and replays the request;
+  if that fails it calls `onSessionExpired`, which signs the user out.
+
+## Module pattern
 
 ```dart
-DioInstance.init(baseURL: AppConstants.apiBaseUrl);
-Api.initialize(dioInstance.dio);
-```
-
-## API Module Pattern
-
-```dart
-class InvoiceApi {
+class PartyApi {
   final Dio _dio;
-  InvoiceApi(this._dio);
+  PartyApi(this._dio);
 
-  Future<List<Map<String, dynamic>>> getInvoices(String businessId) async {
-    final response = await _dio.get('/businesses/$businessId/invoices');
-    return (response.data['data'] as List).cast<Map<String, dynamic>>();
+  String _base(String businessId) => '${businessPath(businessId)}/parties';
+
+  Future<PageJson> list(String businessId, {String? search, int? limit, int offset = 0}) async {
+    final response = await _dio.get(
+      _base(businessId),
+      queryParameters: queryOf({'search': search, 'limit': limit, 'offset': offset}),
+    );
+    return PageJson.of(response);
   }
 
-  Future<Map<String, dynamic>> createInvoice(
-    String businessId,
-    Map<String, dynamic> data,
-  ) async {
-    final response = await _dio.post('/businesses/$businessId/invoices', data: data);
-    return response.data['data'] as Map<String, dynamic>;
-  }
+  Future<Map<String, dynamic>> create(String businessId, Map<String, dynamic> data) async =>
+      dataOf(await _dio.post(_base(businessId), data: data));
 }
 ```
+
+Request bodies are plain maps with snake_case keys, built by the screen and
+passed straight through. Amounts are sent as strings ("1250.00") so they never
+pass through float maths; dates as `YYYY-MM-DD` via `apiDate()`.
+
+## Writes and role
+
+`PATCH` updates only the fields sent (null clears one). `PUT` replaces the whole
+document (invoices, payments, expenses). Editing, cancelling, transfers, stock
+adjustments and reports need `accountant`; accounts, tax rates, team, business
+settings and numbering need `admin`; archiving a business needs `owner`.
 
 ## DO
-- Create one API module file per entity in `api/modules/`
-- Use `Api.instance` from within Core modules only
-- Return raw JSON (`List<Map>`, `Map<String, dynamic>`) — parsing happens in Core modules
-- Handle 401s via the Dio interceptor (automatic token refresh)
+- One API module file per entity in `api/modules/`
+- Return raw JSON; parse in Core modules
+- Use `queryOf` so empty filters are dropped
 
 ## DON'T
-- Call `Api.instance` from screen files — always go through Core modules
-- Create API module files outside `api/modules/`
-- Add auth headers manually — the Dio interceptor handles it
-- Use raw HTTP instead of Dio
+- Add auth headers by hand
+- Parse models or show toasts inside `api/`
+- Call the API from screens or widgets

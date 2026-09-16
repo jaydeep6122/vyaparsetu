@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:vyaparsetu/components/appButton.dart';
 import 'package:vyaparsetu/global/themes.dart';
 
 class EmptyState extends StatelessWidget {
@@ -7,6 +7,7 @@ class EmptyState extends StatelessWidget {
   final String title;
   final String? description;
   final String? buttonText;
+  final IconData? buttonIcon;
   final VoidCallback? onButtonPressed;
 
   const EmptyState({
@@ -15,64 +16,42 @@ class EmptyState extends StatelessWidget {
     required this.title,
     this.description,
     this.buttonText,
+    this.buttonIcon,
     this.onButtonPressed,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final colors = context.colors;
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.space3xl,
+          vertical: AppTheme.space2xl,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: (isDark ? AppTheme.primaryDark : AppTheme.primary)
-                    .withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-              ),
-              child: Icon(
-                icon,
-                size: 36,
-                color: isDark ? Colors.white60 : AppTheme.primary,
-              ),
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(color: colors.primarySoft, shape: BoxShape.circle),
+              child: Icon(icon, size: 32, color: colors.primary),
             ),
-            const SizedBox(height: 20),
-            Text(
-              title,
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: theme.textTheme.titleLarge?.color,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            const SizedBox(height: AppTheme.spaceLg),
+            Text(title, style: context.text.titleMedium, textAlign: TextAlign.center),
             if (description != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                description!,
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  color: theme.textTheme.bodyMedium?.color,
-                ),
-                textAlign: TextAlign.center,
-              ),
+              const SizedBox(height: AppTheme.spaceXs + 2),
+              Text(description!, style: context.text.bodyMedium, textAlign: TextAlign.center),
             ],
             if (buttonText != null && onButtonPressed != null) ...[
-              const SizedBox(height: 24),
-              SizedBox(
-                width: 200,
-                height: 44,
-                child: ElevatedButton(
-                  onPressed: onButtonPressed,
-                  child: Text(buttonText!),
-                ),
+              const SizedBox(height: AppTheme.spaceXl),
+              AppButton(
+                text: buttonText!,
+                icon: buttonIcon,
+                onPressed: onButtonPressed,
+                expand: false,
               ),
             ],
           ],

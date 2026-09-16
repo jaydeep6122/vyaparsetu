@@ -1,85 +1,57 @@
 # Storage
 
 ## Rule
-Non-sensitive data goes in Hive boxes. Sensitive data (tokens) goes in `flutter_secure_storage`. Both are initialized in `main()` before the app runs.
+Non-sensitive data goes in Hive; tokens go in `flutter_secure_storage`. Both
+are opened in `main()` before the app runs. Local storage is a cache and a
+preference store — never a second source of truth.
 
-## Hive Boxes
+## Hive boxes
 
-| Box Class | File | Data |
+| Box | File | Data |
 |---|---|---|
-| `CacheBox` | `storage/hive/cache.dart` | `user` (Map), `businesses` (List), `selectedBusinessId` (String?) |
-| `UserBox` | `storage/hive/user.dart` | `deviceAuthEnabled` (bool), `lastLoginEmail` (String) |
-| `PreferencesBox` | `storage/hive/preferences.dart` | `themeMode` (String), `locale` (String), `prevVersion` (String) |
+| `CacheBox` | `storage/hive/cache.dart` | `user`, `businesses`, `selectedBusinessId`, per-business `dashboards` |
+| `UserBox` | `storage/hive/user.dart` | `lastLoginEmail`, `deviceAuthEnabled` |
+| `PreferencesBox` | `storage/hive/preferences.dart` | `themeMode` only |
 
-### Box Pattern
+`CacheBox.purgeLegacyCache()` and `PreferencesBox.clearLegacyKeys()` run at
+startup from `SettingsModule.load()` to drop keys older versions wrote
+(language, invoice design, version checks).
+
+The cache exists so the app opens with something on screen: the last user, the
+business list and the last dashboard. Every one of them is refreshed from the
+server right after.
+
+## Secure storage
+
+`SecureStorage` keeps `access_token` and `refresh_token` and nothing else.
+`deleteAll()` runs on sign-out and when a refresh fails.
+
+## Startup order (`main.dart`)
 
 ```dart
-class CacheBox {
-  static Box? _box;
-  static String get boxName => 'cacheBox';
-
-  static Future<void> open() async {
-    _box = await Hive.openBox(boxName);
-  }
-
-  static String? get selectedBusinessId => _box?.get('selectedBusinessId') as String?;
-  static set selectedBusinessId(String? id) => _box?.put('selectedBusinessId', id);
-
-  static Future<void> clear() async => _box?.clear();
-  static Future<void> close() async => _box?.close();
-}
+await Hive.initFlutter();
+await openAllBoxes();                  // CacheBox + UserBox + PreferencesBox
+await EasyLocalization.ensureInitialized();
+final dioInstance = await DioInstance.init(baseURL: AppConstants.apiBaseUrl);
+Api.initialize(dioInstance.dio);
+final core = Core();
+core.settings.load();                  // theme + legacy cleanup
 ```
 
-## Secure Storage
+## Sign-out
 
 ```dart
-class SecureStorage {
-  static const _storage = FlutterSecureStorage(
-    aOptions: AndroidOptions(resetOnError: true),
-  );
-
-  static Future<void> setAccessToken(String token) async =>
-    await _storage.write(key: 'access_token', value: token);
-
-  static Future<String?> getAccessToken() async =>
-    await _storage.read(key: 'access_token');
-
-  static Future<void> deleteAll() async =>
-    await _storage.deleteAll();
-}
-```
-
-## Initialization Order (in `main()`)
-
-```dart
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Hive.initFlutter();
-  await openAllBoxes();  // parallel: CacheBox + UserBox + PreferencesBox
-  await EasyLocalization.ensureInitialized();
-  // ...
-  DioInstance.init(baseURL: AppConstants.apiBaseUrl);
-  Api.initialize(dioInstance.dio);
-  final core = Core();
-  await core.settings.load();
-  // ...
-}
-```
-
-## Cleanup on Logout
-
-```dart
-await clearBoxes();     // clears cacheBox + userBox
-await SecureStorage.deleteAll();  // clears tokens
+await SecureStorage.deleteAll();
+await clearBoxes();
+core.auth.handleSessionExpired();      // clears Core state
 ```
 
 ## DO
-- Use Hive boxes for non-sensitive app data
-- Use `flutter_secure_storage` for access/refresh tokens only
-- Open all boxes in parallel via `Future.wait` in `openAllBoxes()`
-- Clear all storage on logout
+- Cache only what makes the first frame useful
+- Key cached data by business id (`CacheBox.setDashboard(businessId, json)`)
+- Clear everything on sign-out
 
 ## DON'T
-- Store tokens in Hive — always use `flutter_secure_storage`
-- Open Hive boxes lazily — open all at app startup
-- Use SharedPreferences — all local storage is Hive-based
+- Store tokens, GSTINs or ledger data in Hive
+- Read a cached value when a module already has it
+- Use SharedPreferences

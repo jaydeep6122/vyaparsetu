@@ -1,58 +1,31 @@
 import 'package:flutter/material.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:vyaparsetu/core/Core.dart';
 import 'package:vyaparsetu/storage/hive/cache.dart';
 import 'package:vyaparsetu/storage/hive/preferences.dart';
-import 'package:vyaparsetu/core/Core.dart';
 
 class SettingsModule {
   final Core core;
   SettingsModule(this.core);
 
-  ThemeMode _themeMode = ThemeMode.light;
+  ThemeMode _themeMode = ThemeMode.system;
   ThemeMode get themeMode => _themeMode;
-  bool get isDarkMode => _themeMode == ThemeMode.dark;
-
-  Locale _locale = const Locale('en');
-  Locale get locale => _locale;
 
   void load() {
-    _loadTheme();
-    _loadLocale();
-    // The factory module has been removed. Drop anything it persisted so a
-    // stale app mode or cached factory data cannot linger in a user's boxes.
-    PreferencesBox.clearAppMode();
-    CacheBox.purgeFactoryCache();
-  }
-
-  void _loadTheme() {
-    final themeStr = PreferencesBox.getThemeMode();
-    _themeMode = themeStr == 'dark' ? ThemeMode.dark : ThemeMode.light;
+    _themeMode = switch (PreferencesBox.getThemeMode()) {
+      'dark' => ThemeMode.dark,
+      'light' => ThemeMode.light,
+      _ => ThemeMode.system,
+    };
+    // Older versions stored factory mode, language, invoice design and
+    // version-check data that nothing reads any more.
+    PreferencesBox.clearLegacyKeys();
+    CacheBox.purgeLegacyCache();
     core.notify();
   }
 
-  void _loadLocale() {
-    final code = PreferencesBox.getLocaleCode();
-    _locale = Locale(code);
-    core.notify();
-  }
-
-  Future<void> toggleTheme() async {
-    if (_themeMode == ThemeMode.light) {
-      _themeMode = ThemeMode.dark;
-      await PreferencesBox.setThemeMode('dark');
-    } else {
-      _themeMode = ThemeMode.light;
-      await PreferencesBox.setThemeMode('light');
-    }
-    core.notify();
-  }
-
-  Future<void> changeLocale(BuildContext context, Locale newLocale) async {
-    _locale = newLocale;
-    await PreferencesBox.setLocaleCode(newLocale.languageCode);
-    if (context.mounted) {
-      await context.setLocale(newLocale);
-    }
+  Future<void> setThemeMode(ThemeMode mode) async {
+    _themeMode = mode;
+    await PreferencesBox.setThemeMode(mode.name);
     core.notify();
   }
 }

@@ -1,67 +1,140 @@
+import 'dart:math' as math;
+
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:easy_localization/easy_localization.dart';
-import 'package:vyaparsetu/types/party.dart';
-import 'package:vyaparsetu/types/invoice.dart';
-import 'package:vyaparsetu/types/payment.dart';
+import 'package:vyaparsetu/components/appButton.dart';
+import 'package:vyaparsetu/components/appCard.dart';
+import 'package:vyaparsetu/components/appTextField.dart';
+import 'package:vyaparsetu/components/formFields.dart';
+import 'package:vyaparsetu/components/infoRow.dart';
+import 'package:vyaparsetu/core/Core.dart';
+import 'package:vyaparsetu/core/components/getters.dart';
 import 'package:vyaparsetu/global/constants.dart';
 import 'package:vyaparsetu/global/themes.dart';
-import 'package:vyaparsetu/components/appTextField.dart';
-import 'package:vyaparsetu/components/appButton.dart';
-import 'package:vyaparsetu/components/confirmationDialog.dart';
-import 'package:vyaparsetu/helpers/validators.dart';
-import 'package:vyaparsetu/helpers/datePicker.dart';
 import 'package:vyaparsetu/helpers/formatters.dart';
+import 'package:vyaparsetu/helpers/inputFormatters.dart';
+import 'package:vyaparsetu/helpers/json.dart';
 import 'package:vyaparsetu/helpers/toastNotifications.dart';
-import 'package:vyaparsetu/core/Core.dart';
+import 'package:vyaparsetu/helpers/validators.dart';
+import 'package:vyaparsetu/screens/common/pickers.dart';
+import 'package:vyaparsetu/types/account.dart';
+import 'package:vyaparsetu/types/invoice.dart';
+import 'package:vyaparsetu/types/party.dart';
+import 'package:vyaparsetu/types/payment.dart';
+import 'package:vyaparsetu/types/reports.dart';
 
+typedef PartyRef = ({String id, String name});
+
+/// Warns that money not linked to a bill becomes an advance, which flips the
+/// party's balance the other way.
+class _AdvanceNotice extends StatelessWidget {
+  final double amount;
+  final String partyName;
+
+  const _AdvanceNotice({required this.amount, required this.partyName});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      color: context.colors.warningSoft,
+      borderColor: Colors.transparent,
+      padding: const EdgeInsets.all(AppTheme.spaceMd),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline_rounded, size: 20, color: context.colors.warning),
+          const SizedBox(width: AppTheme.spaceSm),
+          Expanded(
+            child: Text(
+              'advance_warning'.tr(namedArgs: {
+                'amount': Formatters.formatCurrency(amount),
+                'name': partyName,
+              }),
+              style: context.text.bodySmall?.copyWith(color: context.colors.warning),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A bill, freight charge or expense a payment can settle.
+class _OpenDocument {
+  final String kind;
+  final String id;
+  final String number;
+  final String label;
+  final DateTime? date;
+  final double outstanding;
+
+  const _OpenDocument({
+    required this.kind,
+    required this.id,
+    required this.number,
+    required this.label,
+    required this.date,
+    required this.outstanding,
+  });
+
+  factory _OpenDocument.fromOutstanding(OutstandingDocument doc) => _OpenDocument(
+    kind: doc.kind,
+    id: doc.id,
+    number: doc.number,
+    label: _labelFor(doc.kind, doc.documentType),
+    date: doc.documentDate,
+    outstanding: doc.outstanding,
+  );
+
+  factory _OpenDocument.fromInvoice(Invoice invoice) => _OpenDocument(
+    kind: 'invoice',
+    id: invoice.id,
+    number: invoice.invoiceNumber,
+    label: invoice.invoiceType.displayName,
+    date: invoice.invoiceDate,
+    outstanding: invoice.outstanding,
+  );
+
+  static String _labelFor(String kind, String documentType) => switch (kind) {
+    'charge' => 'freight_charge'.tr(),
+    'expense' => 'expense'.tr(),
+    _ => InvoiceType.fromString(documentType).displayName,
+  };
+
+  String get key => '$kind:$id';
+
+  String get field => switch (kind) {
+    'charge' => 'invoice_charge_id',
+    'expense' => 'expense_id',
+    _ => 'invoice_id',
+  };
+
+  _OpenDocument plus(double amount) => _OpenDocument(
+    kind: kind,
+    id: id,
+    number: number,
+    label: label,
+    date: date,
+    outstanding: outstanding + amount,
+  );
+}
+
+/// Records money received or paid, and which bills it settles.
 class PaymentFormScreen extends StatefulWidget {
-  final Payment? existingPayment;
+  final PaymentDirection direction;
+  final Payment? payment;
+  final Party? party;
+
+  /// Settle this bill: fills in its party and the amount still due.
   final Invoice? invoice;
-  final String? partyId;
-  final double? initialAmount;
-  final PaymentType paymentType;
 
   const PaymentFormScreen({
     super.key,
-    this.existingPayment,
+    this.direction = PaymentDirection.paymentIn,
+    this.payment,
+    this.party,
     this.invoice,
-    this.partyId,
-    this.initialAmount,
-    required this.paymentType,
   });
-
-  const PaymentFormScreen.paymentIn({
-    super.key,
-    this.partyId,
-    this.initialAmount,
-  }) : existingPayment = null,
-       invoice = null,
-       paymentType = PaymentType.payment_in;
-
-  const PaymentFormScreen.paymentOut({
-    super.key,
-    this.partyId,
-    this.initialAmount,
-  }) : existingPayment = null,
-       invoice = null,
-       paymentType = PaymentType.payment_out;
-
-  PaymentFormScreen.edit({super.key, required this.existingPayment})
-    : invoice = null,
-      partyId = null,
-      initialAmount = null,
-      paymentType = existingPayment!.paymentType;
-
-  PaymentFormScreen.fromInvoice({super.key, required this.invoice})
-    : existingPayment = null,
-      partyId = null,
-      initialAmount = null,
-      paymentType =
-          invoice!.invoiceType == InvoiceType.sale
-              ? PaymentType.payment_in
-              : PaymentType.payment_out;
 
   @override
   State<PaymentFormScreen> createState() => _PaymentFormScreenState();
@@ -69,778 +142,475 @@ class PaymentFormScreen extends StatefulWidget {
 
 class _PaymentFormScreenState extends State<PaymentFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  late final Payment? _payment = widget.payment;
 
-  String? _selectedPartyId;
-  String? _selectedInvoiceId;
-  final _amountController = TextEditingController();
-  final _refNoController = TextEditingController();
-  final _descController = TextEditingController();
+  static String _plain(double value) => Formatters.formatNumber(value, maxDecimals: 2);
 
-  DateTime _paymentDate = DateTime.now();
-  PaymentMode _paymentMode = PaymentMode.cash;
+  late PaymentDirection _direction = _payment?.paymentType ?? widget.direction;
+  late PartyRef? _party = _initialParty();
+  Account? _account;
+  bool _accountChosen = false;
+  late PaymentMode _mode = _payment?.mode ?? PaymentMode.cash;
+  late DateTime _date = _payment?.paymentDate ?? DateTime.now();
+  late DateTime? _chequeDate = _payment?.chequeDate;
+  late final _amount = TextEditingController(
+    text: _payment != null
+        ? _plain(_payment.amount)
+        : widget.invoice != null
+        ? _plain(widget.invoice!.outstanding)
+        : null,
+  );
+  late final _reference = TextEditingController(text: _payment?.referenceNo);
+  late final _chequeNo = TextEditingController(text: _payment?.chequeNo);
+  late final _notes = TextEditingController(text: _payment?.notes);
 
-  Payment? _existingPayment;
-  bool _isEdit = false;
-  bool _isInitialized = false;
+  List<_OpenDocument>? _documents;
+  final Map<String, TextEditingController> _allocations = {};
 
-  List<Invoice> _unpaidInvoices = [];
-  bool _isLoadingInvoices = false;
-  bool _lockPartyAndInvoice = false;
+  bool get _isEdit => _payment != null;
+
+  PartyRef? _initialParty() {
+    final payment = widget.payment;
+    if (payment?.partyId != null) return (id: payment!.partyId!, name: payment.partyName ?? '');
+    if (widget.party != null) return (id: widget.party!.id, name: widget.party!.name);
+    final invoice = widget.invoice;
+    if (invoice?.partyId != null) return (id: invoice!.partyId!, name: invoice.partyName);
+    return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.invoice != null) _direction = widget.invoice!.invoiceType.paymentDirection;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _init());
+  }
+
+  Future<void> _init() async {
+    final accounts = context.read<Core>().account;
+    await accounts.fetchAccounts();
+    if (!mounted) return;
+    setState(() {
+      _account = _payment != null
+          ? accounts.activeAccounts.where((a) => a.id == _payment.accountId).firstOrNull
+          : _suggestAccount(accounts.activeAccounts, accounts.defaultAccount);
+      _accountChosen = _payment != null;
+    });
+    await _loadDocuments();
+  }
 
   @override
   void dispose() {
-    _amountController.dispose();
-    _refNoController.dispose();
-    _descController.dispose();
+    for (final controller in [_amount, _reference, _chequeNo, _notes, ..._allocations.values]) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_isInitialized) return;
-    _isInitialized = true;
-
-    if (widget.existingPayment != null) {
-      final arg = widget.existingPayment!;
-      _existingPayment = arg;
-      _isEdit = true;
-      _paymentMode = arg.paymentMode;
-      _paymentDate = arg.paymentDate;
-      _amountController.text = arg.amount.toString();
-      _refNoController.text = arg.referenceNumber ?? '';
-      _descController.text = arg.description ?? '';
-      _selectedPartyId = arg.partyId;
-      _selectedInvoiceId = arg.invoiceId;
-      _lockPartyAndInvoice = true;
-      if (_selectedPartyId != null) {
-        _loadUnpaidInvoices(_selectedPartyId!);
-      }
-    } else if (widget.invoice != null) {
-      final arg = widget.invoice!;
-      if (arg.partyId == null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          showErrorToast(
-            'cannot_record_payment'.tr(),
-          );
-          Navigator.of(context).pop();
-        });
-        return;
-      }
-      _selectedPartyId = arg.partyId;
-      _selectedInvoiceId = arg.id;
-      _lockPartyAndInvoice = true;
-      _amountController.text = (arg.totalAmount - arg.paidAmount).toString();
-      if (_selectedPartyId != null) {
-        _loadUnpaidInvoices(_selectedPartyId!);
-      }
-    }
-    if (widget.partyId != null) {
-      _selectedPartyId = widget.partyId;
-      _loadUnpaidInvoices(widget.partyId!);
-    }
-    if (widget.initialAmount != null && _selectedInvoiceId == null) {
-      _amountController.text = widget.initialAmount.toString();
-    }
-    _loadParties();
+  Account? _suggestAccount(List<Account> active, Account? fallback) {
+    if (_mode == PaymentMode.cash) return fallback;
+    return active.where((a) => a.accountType == AccountType.bank).firstOrNull ?? fallback;
   }
 
-  void _loadParties() {
-    final businessId = context.read<Core>().business.selectedBusiness?.id;
-    if (businessId != null) {
-      context.read<Core>().party.fetchParties(businessId);
+  TextEditingController _allocationFor(String key) =>
+      _allocations.putIfAbsent(key, TextEditingController.new);
+
+  double _parse(String text) => double.tryParse(apiAmount(text) ?? '') ?? 0;
+
+  double get _amountValue => _parse(_amount.text);
+
+  double get _allocated => (_documents ?? const <_OpenDocument>[])
+      .fold(0.0, (sum, doc) => sum + _parse(_allocations[doc.key]?.text ?? ''));
+
+  Future<void> _loadDocuments() async {
+    for (final controller in _allocations.values) {
+      controller.dispose();
     }
-  }
+    _allocations.clear();
+    setState(() => _documents = null);
 
-  Future<void> _loadUnpaidInvoices(String partyId) async {
-    final businessId = context.read<Core>().business.selectedBusiness?.id;
-    if (businessId == null) return;
+    final core = context.read<Core>();
+    final party = _party;
+    final invoice = widget.invoice;
+    var documents = <_OpenDocument>[];
 
-    if (mounted) setState(() => _isLoadingInvoices = true);
+    if (party != null) {
+      if (core.can(MemberRole.accountant)) {
+        final type = _direction == PaymentDirection.paymentIn
+            ? OutstandingType.receivable
+            : OutstandingType.payable;
+        final open = await core.report.outstandingForParty(type, party.id);
+        documents = open.map(_OpenDocument.fromOutstanding).toList();
+      } else {
+        final invoices = await core.invoice.invoicesForParty(party.id, unpaidOnly: true);
+        documents = invoices
+            .where((i) => i.invoiceType.paymentDirection == _direction)
+            .map(_OpenDocument.fromInvoice)
+            .toList();
+      }
+    }
 
-    try {
-      final invoiceModule = context.read<Core>().invoice;
-      await invoiceModule.fetchInvoices(businessId);
-
-      if (!mounted) return;
-
-      final targetType =
-          widget.paymentType == PaymentType.payment_in
-              ? InvoiceType.sale
-              : InvoiceType.purchase;
-
-      setState(() {
-        _unpaidInvoices =
-            invoiceModule.invoices
-                .where(
-                  (inv) =>
-                      inv.partyId == partyId &&
-                      inv.invoiceType == targetType &&
-                      inv.paymentStatus != PaymentStatus.paid,
-                )
-                .toList();
-
-        if (_lockPartyAndInvoice && _selectedInvoiceId != null) {
-          final isPresent = _unpaidInvoices.any(
-            (i) => i.id == _selectedInvoiceId,
-          );
-          if (!isPresent && widget.invoice != null) {
-            _unpaidInvoices.add(widget.invoice!);
-          }
+    // When editing, what this payment already settles is still open to it.
+    final payment = _payment;
+    if (payment != null && payment.partyId == party?.id) {
+      for (final allocation in payment.allocations) {
+        final kind = allocation.invoiceChargeId != null
+            ? 'charge'
+            : allocation.expenseId != null
+            ? 'expense'
+            : 'invoice';
+        final id = allocation.invoiceChargeId ?? allocation.expenseId ?? allocation.invoiceId ?? '';
+        final index = documents.indexWhere((d) => d.kind == kind && d.id == id);
+        if (index >= 0) {
+          documents[index] = documents[index].plus(allocation.amount);
+        } else {
+          documents.add(_OpenDocument(
+            kind: kind,
+            id: id,
+            number: allocation.documentNumber ?? '',
+            label: _OpenDocument._labelFor(kind, ''),
+            date: allocation.documentDate,
+            outstanding: allocation.amount,
+          ));
         }
-      });
-    } catch (e) {
-      if (mounted) showErrorToast('failed_load_party_invoices'.tr());
-    } finally {
-      if (mounted) setState(() => _isLoadingInvoices = false);
-    }
-  }
-
-  Future<void> _selectDate() async {
-    final picked = await pickAppDate(
-      context: context,
-      initialDate: _paymentDate,
-    );
-    if (picked != null) {
-      setState(() => _paymentDate = picked);
-    }
-  }
-
-  void _submit() async {
-    FocusScope.of(context).unfocus();
-    if (!_formKey.currentState!.validate()) return;
-
-    if (_selectedPartyId == null) {
-      showErrorToast('select_party_payment'.tr());
-      return;
-    }
-
-    if (_selectedInvoiceId == null) {
-      showErrorToast('select_invoice_payment'.tr());
-      return;
-    }
-
-    final businessId = context.read<Core>().business.selectedBusiness?.id;
-    if (businessId == null) return;
-
-    final data = {
-      'party_id': _selectedPartyId!,
-      'invoice_id': _selectedInvoiceId,
-      'payment_type': widget.paymentType.value,
-      'amount': double.parse(_amountController.text.trim()),
-      'payment_date': _paymentDate.toUtc().toIso8601String(),
-      'payment_mode': _paymentMode.value,
-      'reference_number':
-          _refNoController.text.trim().isEmpty
-              ? null
-              : _refNoController.text.trim(),
-      'description':
-          _descController.text.trim().isEmpty
-              ? null
-              : _descController.text.trim(),
-    };
-
-    final provider = context.read<Core>().payment;
-
-    bool success;
-    if (_isEdit && _existingPayment != null) {
-      success = await provider.updatePayment(
-        businessId,
-        _existingPayment!.id,
-        data,
-      );
-    } else {
-      success = await provider.createPayment(businessId, data);
-    }
-
-    if (success && mounted) {
-      Navigator.of(context).pop();
-      context.read<Core>().business.fetchBusinesses();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted)
-          showSuccessToast(
-            _isEdit
-                ? 'payment_updated'.tr()
-                : 'payment_recorded'.tr(),
-          );
-      });
-    } else if (mounted) {
-      showErrorToast(provider.error ?? 'failed_save_payment'.tr());
-    }
-  }
-
-  void _deletePayment() async {
-    final businessId = context.read<Core>().business.selectedBusiness?.id;
-    if (businessId == null || _existingPayment == null) return;
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => ConfirmationDialog(
-            title: 'delete_payment'.tr(),
-            content: 'delete_payment_confirm'.tr(),
-            confirmText: 'delete'.tr(),
-            isDestructive: true,
-            icon: Icons.delete_outline_rounded,
-          ),
-    );
-
-    if (confirm == true && mounted) {
-      final success = await context.read<Core>().payment.deletePayment(
-        businessId,
-        _existingPayment!.id,
-      );
-      if (success && mounted) {
-        Navigator.of(context).pop();
-        context.read<Core>().business.fetchBusinesses();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) showSuccessToast('payment_deleted'.tr());
-        });
+        _allocationFor('$kind:$id').text = _plain(allocation.amount);
       }
     }
-  }
 
-  Future<void> _showInvoicePicker() async {
-    if (_unpaidInvoices.isEmpty) {
-      showErrorToast('no_unpaid_invoices'.tr());
-      return;
+    // Settling a specific bill (including a walk-in cash sale).
+    if (payment == null && invoice != null) {
+      if (!documents.any((d) => d.kind == 'invoice' && d.id == invoice.id)) {
+        documents.add(_OpenDocument.fromInvoice(invoice));
+      }
+      _allocationFor('invoice:${invoice.id}').text = _plain(invoice.outstanding);
     }
 
-    final result = await showModalBottomSheet<String>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      showDragHandle: false,
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Text(
-                'select_invoice'.tr(),
-                style: GoogleFonts.outfit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Divider(color: isDark ? AppTheme.gray700 : Colors.grey.shade200),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(ctx).size.height * 0.4,
-                ),
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    ..._unpaidInvoices.map((inv) {
-                      final due = inv.totalAmount - inv.paidAmount;
-                      final isSelected = inv.id == _selectedInvoiceId;
-                      final accent =
-                          widget.paymentType == PaymentType.payment_in
-                              ? AppTheme.success
-                              : AppTheme.error;
-                      return ListTile(
-                        leading: Icon(
-                          isSelected
-                              ? Icons.check_circle
-                              : Icons.description_outlined,
-                          color: isSelected ? accent : AppTheme.slate500,
-                        ),
-                        title: Text(
-                          inv.invoiceNumber,
-                          style: GoogleFonts.outfit(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '${Formatters.formatCurrency(due)} due',
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.successDark,
-                          ),
-                        ),
-                        trailing: Text(
-                          Formatters.formatDate(inv.invoiceDate),
-                          style: GoogleFonts.outfit(
-                            fontSize: 12,
-                            color: AppTheme.slate500,
-                          ),
-                        ),
-                        onTap: () => Navigator.of(ctx).pop(inv.id),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
+    documents.sort((a, b) => (a.date ?? DateTime(2100)).compareTo(b.date ?? DateTime(2100)));
+    if (!mounted) return;
+    setState(() => _documents = documents);
+  }
 
-    if (result == null) return;
+  void _settleOldestFirst() {
+    var remaining = _amountValue;
+    for (final doc in _documents ?? const <_OpenDocument>[]) {
+      final share = math.min(remaining, doc.outstanding);
+      _allocationFor(doc.key).text = share > 0.004 ? _plain(share) : '';
+      remaining = math.max(0, remaining - share);
+    }
+    setState(() {});
+  }
 
+  Future<void> _pickParty() async {
+    final party = await pickParty(context, selectedId: _party?.id);
+    if (party == null || !mounted) return;
+    setState(() => _party = (id: party.id, name: party.name));
+    await _loadDocuments();
+  }
+
+  void _setMode(PaymentMode mode) {
+    final accounts = context.read<Core>().account;
     setState(() {
-      _selectedInvoiceId = result;
-      final inv = _unpaidInvoices.firstWhere((i) => i.id == result);
-      _amountController.text = (inv.totalAmount - inv.paidAmount).toString();
+      _mode = mode;
+      if (!_accountChosen) {
+        _account = _suggestAccount(accounts.activeAccounts, accounts.defaultAccount);
+      }
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final accentColor =
-        widget.paymentType == PaymentType.payment_in
-            ? AppTheme.success
-            : AppTheme.error;
-    final parties = context.select<Core, List<Party>>((c) => c.party.parties);
+  Future<void> _save() async {
+    FocusScope.of(context).unfocus();
+    if (!_formKey.currentState!.validate()) {
+      showErrorToast('form_fix_errors'.tr());
+      return;
+    }
+    if (_allocated > _amountValue + 0.004) {
+      showErrorToast('allocation_exceeds_amount'.tr());
+      return;
+    }
 
-    final filteredParties =
-        parties.where((p) {
-          if (widget.partyId != null && p.id == widget.partyId) return true;
-          if (widget.paymentType == PaymentType.payment_in) {
-            return p.partyType == PartyType.customer ||
-                p.partyType == PartyType.both;
-          }
-          return p.partyType == PartyType.supplier ||
-              p.partyType == PartyType.both;
-        }).toList();
+    String? text(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
+    final isCheque = _mode == PaymentMode.cheque;
+    final data = <String, dynamic>{
+      if (!_isEdit) 'payment_type': _direction.value,
+      'payment_date': apiDate(_date),
+      'party_id': _party?.id,
+      'account_id': _account!.id,
+      'mode': _mode.value,
+      'amount': apiAmount(_amount.text),
+      'reference_no': text(_reference),
+      'cheque_no': isCheque ? text(_chequeNo) : null,
+      'cheque_date': isCheque && _chequeDate != null ? apiDate(_chequeDate!) : null,
+      'notes': text(_notes),
+      'allocations': [
+        for (final doc in _documents ?? const <_OpenDocument>[])
+          if (_parse(_allocations[doc.key]?.text ?? '') > 0)
+            {doc.field: doc.id, 'amount': apiAmount(_allocations[doc.key]!.text)},
+      ],
+    };
 
-    final selectedParty =
-        _selectedPartyId != null
-            ? parties.where((p) => p.id == _selectedPartyId).firstOrNull
-            : null;
-    final selectedPartyName =
-        _existingPayment?.partyName ?? selectedParty?.name;
+    final payments = context.read<Core>().payment;
+    final navigator = Navigator.of(context);
+    final saved = _isEdit
+        ? await payments.updatePayment(_payment!.id, data)
+        : await payments.createPayment(data);
+    if (!mounted) return;
+    if (saved == null) {
+      showErrorToast(payments.error ?? 'error_generic'.tr());
+      return;
+    }
+    showSuccessToast(
+      saved.isIn ? 'payment_received_saved'.tr() : 'payment_made_saved'.tr(),
+    );
+    navigator.pop(saved);
+  }
 
-    final showPartySelector = _selectedPartyId == null && !_lockPartyAndInvoice;
-    final showInvoiceSelector =
-        _selectedPartyId != null && !_lockPartyAndInvoice;
-    final showSubtitle =
-        (_lockPartyAndInvoice || widget.partyId != null) &&
-        selectedPartyName != null;
+  Widget _buildAllocations(BuildContext context) {
+    final documents = _documents;
+    if (_party == null && widget.invoice == null) {
+      return Text('choose_party_to_settle'.tr(), style: context.text.bodySmall);
+    }
+    if (documents == null) return const LinearProgressIndicator();
+    if (documents.isEmpty) {
+      // Nothing to settle: the money stays on the party as an advance, which
+      // shows up as a balance owed the other way. Say so plainly.
+      if (_amountValue <= 0.004) {
+        return Text('no_open_bills'.tr(), style: context.text.bodySmall);
+      }
+      return _AdvanceNotice(
+        amount: _amountValue,
+        partyName: _party?.name ?? '',
+      );
+    }
 
-    final invoiceLabel =
-        _selectedInvoiceId != null
-            ? (_unpaidInvoices
-                    .where((i) => i.id == _selectedInvoiceId)
-                    .firstOrNull
-                    ?.invoiceNumber ??
-                'invoice_selected'.tr())
-            : 'select_invoice_required'.tr();
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _isEdit
-                  ? 'edit_payment'.tr()
-                  : widget.paymentType == PaymentType.payment_in
-                  ? 'record_payment_in'.tr()
-                  : 'record_payment_out'.tr(),
-              style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-            ),
-            if (showSubtitle)
-              Text(
-                selectedPartyName,
-                style: GoogleFonts.outfit(
-                  fontSize: 13,
-                  color: isDark ? Colors.white70 : Colors.black54,
-                ),
-              ),
-          ],
+    final unallocated = _amountValue - _allocated;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _settleOldestFirst,
+            icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
+            label: Text('settle_oldest_first'.tr()),
+          ),
         ),
-        actions:
-            _isEdit
-                ? [
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    onPressed: _deletePayment,
-                  ),
-                ]
-                : null,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        for (final doc in documents)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppTheme.spaceSm),
+            child: Row(
               children: [
-                if (showPartySelector) ...[
-                  DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      labelText:
-                          widget.paymentType == PaymentType.payment_in
-                              ? 'Select Customer'
-                              : 'Select Supplier',
-                      prefixIcon: const Icon(Icons.person_outline_rounded),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${doc.label} · ${doc.number}', style: context.text.titleSmall),
+                      Text(
+                        [
+                          if (doc.date != null) Formatters.formatDate(doc.date!),
+                          'due_amount'.tr(namedArgs: {
+                            'amount': Formatters.formatCurrency(doc.outstanding),
+                          }),
+                        ].join(' · '),
+                        style: context.text.bodySmall,
                       ),
-                    ),
-                    isExpanded: true,
-                    value: null,
-                    items:
-                        filteredParties.map((party) {
-                          return DropdownMenuItem<String>(
-                            value: party.id,
-                            child: Text(
-                              party.name,
-                              style: GoogleFonts.outfit(),
-                            ),
-                          );
-                        }).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() {
-                          _selectedPartyId = val;
-                          _selectedInvoiceId = null;
-                        });
-                        _loadUnpaidInvoices(val);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                ],
-
-                if (_selectedPartyId != null &&
-                    !_lockPartyAndInvoice &&
-                    selectedPartyName != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: accentColor.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: accentColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            Icons.person_rounded,
-                            color: accentColor,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                selectedPartyName,
-                                style: GoogleFonts.outfit(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
-                                  color:
-                                      isDark ? Colors.white : AppTheme.primary,
-                                ),
-                              ),
-                              Text(
-                                widget.paymentType == PaymentType.payment_in
-                                    ? 'Customer'
-                                    : 'Supplier',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 12,
-                                  color: accentColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            setState(() {
-                              _selectedPartyId = null;
-                              _selectedInvoiceId = null;
-                              _unpaidInvoices.clear();
-                            });
-                          },
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: Text(
-                            'Change',
-                            style: GoogleFonts.outfit(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: accentColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-
-                if (showInvoiceSelector) ...[
-                  _isLoadingInvoices
-                      ? const Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                      : InkWell(
-                        onTap: _showInvoicePicker,
-                        borderRadius: BorderRadius.circular(12),
-                        child: InputDecorator(
-                          decoration: InputDecoration(
-                            labelText: 'link_to_invoice'.tr(),
-                            prefixIcon: const Icon(Icons.description_outlined),
-                            suffixIcon: const Icon(
-                              Icons.arrow_forward_ios,
-                              size: 14,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 4,
-                            ),
-                          ),
-                          child: Text(
-                            invoiceLabel,
-                            style: GoogleFonts.outfit(
-                              fontWeight:
-                                  _selectedInvoiceId != null
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                      ),
-                  const SizedBox(height: 20),
-                ],
-
-                Text(
-                  'amount_label'.tr(),
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: theme.textTheme.bodyLarge?.color?.withValues(
-                      alpha: 0.7,
-                    ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _amountController,
-                  keyboardType: TextInputType.number,
-                  style: GoogleFonts.outfit(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  decoration: InputDecoration(
-                    prefixText: '₹  ',
-                    prefixStyle: GoogleFonts.outfit(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    filled: true,
-                    fillColor:
-                        isDark
-                            ? AppTheme.cardDark
-                            : accentColor.withValues(alpha: 0.05),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: accentColor.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: accentColor.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: accentColor, width: 1.5),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 20,
+                const SizedBox(width: AppTheme.spaceMd),
+                SizedBox(
+                  width: 128,
+                  child: AppTextField(
+                    controller: _allocationFor(doc.key),
+                    labelText: '',
+                    hintText: '0',
+                    prefixText: '₹ ',
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [DecimalInputFormatter()],
+                    onChanged: (_) => setState(() {}),
+                    validator: (v) => Validators.amount(
+                      v,
+                      fieldLabel: 'amount'.tr(),
+                      isRequired: false,
+                      max: doc.outstanding,
                     ),
                   ),
-                  validator:
-                      (val) => Validators.validatePositiveAmount(val, 'Amount'),
-                ),
-                const SizedBox(height: 24),
-
-                Text(
-                  'payment_mode'.tr(),
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: theme.textTheme.bodyLarge?.color?.withValues(
-                      alpha: 0.7,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    _buildModeTile(
-                      icon: Icons.monetization_on_outlined,
-                      label: 'Cash',
-                      mode: PaymentMode.cash,
-                      accentColor: accentColor,
-                      isDark: isDark,
-                    ),
-                    const SizedBox(width: 10),
-                    _buildModeTile(
-                      icon: Icons.account_balance_outlined,
-                      label: 'Bank',
-                      mode: PaymentMode.bank,
-                      accentColor: accentColor,
-                      isDark: isDark,
-                    ),
-                    const SizedBox(width: 10),
-                    _buildModeTile(
-                      icon: Icons.phone_android_outlined,
-                      label: 'UPI',
-                      mode: PaymentMode.upi,
-                      accentColor: accentColor,
-                      isDark: isDark,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                InkWell(
-                  onTap: _selectDate,
-                  borderRadius: BorderRadius.circular(12),
-                  child: InputDecorator(
-                    decoration: InputDecoration(
-                      labelText: 'payment_date'.tr(),
-                      prefixIcon: const Icon(Icons.calendar_today_outlined),
-                    ),
-                    child: Text(
-                      Formatters.formatDate(_paymentDate),
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                AppTextField(
-                  controller: _refNoController,
-                  labelText: 'reference_number'.tr(),
-                  hintText: 'txn_id_hint'.tr(),
-                  prefixIcon: Icons.tag,
-                ),
-                const SizedBox(height: 16),
-
-                AppTextField(
-                  controller: _descController,
-                  labelText: 'description'.tr(),
-                  hintText: 'remarks_hint'.tr(),
-                  maxLines: 2,
-                  prefixIcon: Icons.description_outlined,
-                ),
-                const SizedBox(height: 28),
-
-                AppButton(
-                  text: _isEdit ? 'update_payment'.tr() : 'record_payment_btn'.tr(),
-                  isLoading: context.select<Core, bool>(
-                    (c) => c.payment.isLoading,
-                  ),
-                  onPressed: _submit,
                 ),
               ],
             ),
           ),
-        ),
-      ),
+        const Divider(),
+        InfoRow(label: 'settles_bills'.tr(), value: Formatters.formatCurrency(_allocated)),
+        if (unallocated > 0.004) ...[
+          InfoRow(
+            label: 'kept_as_advance'.tr(),
+            value: Formatters.formatCurrency(unallocated),
+          ),
+          const SizedBox(height: AppTheme.spaceSm),
+          _AdvanceNotice(amount: unallocated, partyName: _party?.name ?? ''),
+        ],
+        if (unallocated < -0.004)
+          Text(
+            'allocation_exceeds_amount'.tr(),
+            style: context.text.bodySmall?.copyWith(color: context.colors.danger),
+          ),
+      ],
     );
   }
 
-  Widget _buildModeTile({
-    required IconData icon,
-    required String label,
-    required PaymentMode mode,
-    required Color accentColor,
-    required bool isDark,
-  }) {
-    final isSelected = _paymentMode == mode;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _paymentMode = mode),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color:
-                isSelected
-                    ? accentColor.withValues(alpha: 0.1)
-                    : (isDark ? AppTheme.cardDark : AppTheme.gray50),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color:
-                  isSelected
-                      ? accentColor
-                      : (isDark ? AppTheme.gray600 : AppTheme.gray300),
-              width: isSelected ? 2 : 1,
-            ),
+  @override
+  Widget build(BuildContext context) {
+    final isSaving = context.select<Core, bool>((c) => c.payment.isSaving);
+    final isIn = _direction == PaymentDirection.paymentIn;
+    const gap = SizedBox(height: AppTheme.spaceLg);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          _isEdit
+              ? 'edit_payment'.tr()
+              : isIn
+              ? 'payment_in_title'.tr()
+              : 'payment_out_title'.tr(),
+        ),
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.spaceLg,
+            AppTheme.spaceSm,
+            AppTheme.spaceLg,
+            AppTheme.space3xl,
           ),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                size: 24,
-                color:
-                    isSelected
-                        ? accentColor
-                        : (isDark ? Colors.white60 : AppTheme.slate500),
+          children: [
+            if (!_isEdit && widget.invoice == null) ...[
+              SegmentedButton<PaymentDirection>(
+                showSelectedIcon: false,
+                segments: [
+                  ButtonSegment(
+                    value: PaymentDirection.paymentIn,
+                    icon: const Icon(Icons.call_received_rounded),
+                    label: Text('money_in'.tr()),
+                  ),
+                  ButtonSegment(
+                    value: PaymentDirection.paymentOut,
+                    icon: const Icon(Icons.call_made_rounded),
+                    label: Text('money_out'.tr()),
+                  ),
+                ],
+                selected: {_direction},
+                onSelectionChanged: (selection) {
+                  setState(() => _direction = selection.first);
+                  _loadDocuments();
+                },
               ),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color:
-                      isSelected
-                          ? (isDark ? Colors.white : accentColor)
-                          : (isDark ? Colors.white60 : AppTheme.slate500),
-                ),
-              ),
+              gap,
             ],
+            FormSection(
+              title: 'payment_details'.tr(),
+              children: [
+                SelectField<PartyRef>(
+                  label: isIn ? 'received_from'.tr() : 'paid_to'.tr(),
+                  value: _party,
+                  clearable: !_isEdit,
+                  prefixIcon: Icons.person_outline_rounded,
+                  helperText: 'payment_party_hint'.tr(),
+                  labelOf: (party) => party.name,
+                  onPick: () async {
+                    await _pickParty();
+                    return null;
+                  },
+                  onChanged: (party) {
+                    setState(() => _party = party);
+                    _loadDocuments();
+                  },
+                ),
+                AppTextField(
+                  controller: _amount,
+                  labelText: 'amount'.tr(),
+                  prefixText: '₹ ',
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [DecimalInputFormatter()],
+                  onChanged: (_) => setState(() {}),
+                  validator: (v) => Validators.amount(v, fieldLabel: 'amount'.tr(), allowZero: false),
+                ),
+                DateField(
+                  label: 'date'.tr(),
+                  value: _date,
+                  onChanged: (date) => setState(() => _date = date ?? _date),
+                ),
+                ChoiceChipsField<PaymentMode>(
+                  label: 'payment_mode'.tr(),
+                  options: PaymentMode.values,
+                  value: _mode,
+                  labelOf: (mode) => mode.displayName,
+                  onChanged: _setMode,
+                ),
+                SelectField<Account>(
+                  label: isIn ? 'deposit_to'.tr() : 'paid_from'.tr(),
+                  value: _account,
+                  prefixIcon: Icons.account_balance_wallet_outlined,
+                  labelOf: (account) => account.name,
+                  onPick: () => pickAccount(context, selectedId: _account?.id),
+                  onChanged: (account) => setState(() {
+                    _account = account;
+                    _accountChosen = true;
+                  }),
+                  validator: (account) => account == null
+                      ? 'validation_required'.tr(namedArgs: {'field': 'account'.tr()})
+                      : null,
+                ),
+                if (_mode == PaymentMode.cheque) ...[
+                  AppTextField(
+                    controller: _chequeNo,
+                    labelText: 'cheque_number'.tr(),
+                    keyboardType: TextInputType.number,
+                    maxLength: 20,
+                  ),
+                  DateField(
+                    label: 'cheque_date'.tr(),
+                    value: _chequeDate,
+                    clearable: true,
+                    onChanged: (date) => setState(() => _chequeDate = date),
+                  ),
+                ] else if (_mode != PaymentMode.cash)
+                  AppTextField(
+                    controller: _reference,
+                    labelText: 'reference_optional'.tr(),
+                    helperText: 'reference_hint'.tr(),
+                    maxLength: 100,
+                  ),
+              ],
+            ),
+            gap,
+            FormSection(
+              title: 'settle_bills'.tr(),
+              subtitle: 'settle_bills_hint'.tr(),
+              children: [_buildAllocations(context)],
+            ),
+            gap,
+            FormSection(
+              title: 'notes'.tr(),
+              children: [
+                AppTextField(
+                  controller: _notes,
+                  labelText: 'notes_optional'.tr(),
+                  minLines: 2,
+                  maxLines: 4,
+                  maxLength: 2000,
+                  textCapitalization: TextCapitalization.sentences,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.spaceLg),
+          child: AppButton(
+            text: _isEdit ? 'save_changes'.tr() : 'save_payment'.tr(),
+            isLoading: isSaving,
+            onPressed: _save,
           ),
         ),
       ),

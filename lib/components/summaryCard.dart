@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:vyaparsetu/components/appCard.dart';
+import 'package:vyaparsetu/components/statusChip.dart';
 import 'package:vyaparsetu/global/themes.dart';
 
+/// A headline figure (e.g. "To collect ₹12,400") with an icon.
 class SummaryCard extends StatelessWidget {
   final String title;
   final String value;
   final IconData icon;
-  final Color color;
+  final ChipTone tone;
+  final String? subtitle;
   final VoidCallback? onTap;
 
   const SummaryCard({
@@ -14,153 +17,66 @@ class SummaryCard extends StatelessWidget {
     required this.title,
     required this.value,
     required this.icon,
-    required this.color,
+    this.tone = ChipTone.primary,
+    this.subtitle,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final (background, foreground) = toneColors(context, tone);
 
-    // Blend a desaturated tint of the status color onto the standard card color.
-    final cardBgColor = Color.alphaBlend(
-      color.withValues(alpha: isDark ? 0.12 : 0.06),
-      isDark ? AppTheme.cardDark : Colors.white,
-    );
-
-    return _InteractiveScale(
+    return AppCard(
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: cardBgColor,
-          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-          border: Border.all(
-            color: color.withValues(alpha: isDark ? 0.22 : 0.14),
-            width: 1.2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.03),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.all(AppTheme.spaceLg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: GoogleFonts.outfit(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: theme.textTheme.bodyMedium?.color?.withValues(
-                          alpha: isDark ? 0.65 : 0.5,
-                        ),
-                        letterSpacing: 0.3,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: isDark ? 0.18 : 0.08),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                      border: Border.all(
-                        color: color.withValues(alpha: isDark ? 0.35 : 0.15),
-                        width: 1,
-                      ),
-                    ),
-                    child: Icon(
-                      icon,
-                      color: isDark ? color.withValues(alpha: 0.95) : color,
-                      size: 18,
-                    ),
-                  ),
-                ],
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: background,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                ),
+                child: Icon(icon, size: 18, color: foreground),
               ),
-              const Spacer(),
-              FittedBox(
-                fit: BoxFit.scaleDown,
+              const SizedBox(width: AppTheme.spaceSm),
+              Expanded(
                 child: Text(
-                  value,
-                  style: GoogleFonts.outfit(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: theme.textTheme.titleLarge?.color,
-                    letterSpacing: -0.5,
-                  ),
+                  title,
+                  style: context.text.labelMedium,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (onTap != null)
+                Icon(Icons.chevron_right_rounded, size: 18, color: context.colors.muted),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InteractiveScale extends StatefulWidget {
-  final Widget child;
-  final VoidCallback? onTap;
-
-  const _InteractiveScale({required this.child, this.onTap});
-
-  @override
-  State<_InteractiveScale> createState() => _InteractiveScaleState();
-}
-
-class _InteractiveScaleState extends State<_InteractiveScale> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 90),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Listener(
-      onPointerDown: (_) {
-        if (widget.onTap != null) _controller.forward();
-      },
-      onPointerUp: (_) {
-        if (widget.onTap != null) _controller.reverse();
-      },
-      onPointerCancel: (_) {
-        if (widget.onTap != null) _controller.reverse();
-      },
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: ScaleTransition(
-          scale: _scaleAnimation,
-          child: widget.child,
-        ),
+          const SizedBox(height: AppTheme.spaceMd),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: context.text.headlineSmall?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              subtitle!,
+              style: context.text.bodySmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ],
       ),
     );
   }

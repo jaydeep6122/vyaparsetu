@@ -1,872 +1,339 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:easy_localization/easy_localization.dart';
-import 'package:vyaparsetu/types/party.dart';
-import 'package:vyaparsetu/types/partyLedger.dart';
-import 'package:vyaparsetu/types/invoice.dart';
-import 'package:vyaparsetu/types/partyQuantitySummary.dart';
-import 'package:vyaparsetu/components/confirmationDialog.dart';
-import 'package:vyaparsetu/helpers/formatters.dart';
-import 'package:vyaparsetu/helpers/toastNotifications.dart';
-import 'package:vyaparsetu/global/themes.dart';
-import 'package:vyaparsetu/global/constants.dart';
-import 'package:vyaparsetu/helpers/navigation.dart';
-import 'package:vyaparsetu/screens/parties/form.dart';
-import 'package:vyaparsetu/screens/reports/partyLedger.dart';
-import 'package:vyaparsetu/screens/payments/form.dart';
-import 'package:vyaparsetu/screens/invoices/detail.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:vyaparsetu/components/amountDisplay.dart';
+import 'package:vyaparsetu/components/appButton.dart';
+import 'package:vyaparsetu/components/appCard.dart';
+import 'package:vyaparsetu/components/avatar.dart';
+import 'package:vyaparsetu/components/infoRow.dart';
+import 'package:vyaparsetu/components/loadStateBody.dart';
+import 'package:vyaparsetu/components/loadingIndicator.dart';
+import 'package:vyaparsetu/components/statusChip.dart';
 import 'package:vyaparsetu/core/Core.dart';
+import 'package:vyaparsetu/core/components/getters.dart';
+import 'package:vyaparsetu/global/constants.dart';
+import 'package:vyaparsetu/global/themes.dart';
+import 'package:vyaparsetu/helpers/formatters.dart';
+import 'package:vyaparsetu/helpers/gst.dart';
+import 'package:vyaparsetu/helpers/navigation.dart';
+import 'package:vyaparsetu/helpers/toastNotifications.dart';
+import 'package:vyaparsetu/screens/common/ledgerView.dart';
+import 'package:vyaparsetu/screens/invoices/form.dart';
+import 'package:vyaparsetu/screens/invoices/widgets.dart';
+import 'package:vyaparsetu/screens/parties/form.dart';
+import 'package:vyaparsetu/screens/payments/form.dart';
+import 'package:vyaparsetu/types/invoice.dart';
+import 'package:vyaparsetu/types/party.dart';
 
 class PartyDetailScreen extends StatefulWidget {
-  final Party party;
-  const PartyDetailScreen({super.key, required this.party});
+  final String partyId;
+
+  const PartyDetailScreen({super.key, required this.partyId});
 
   @override
   State<PartyDetailScreen> createState() => _PartyDetailScreenState();
 }
 
 class _PartyDetailScreenState extends State<PartyDetailScreen> {
+  List<Invoice>? _bills;
+  bool _showLedger = false;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load(refresh: true));
   }
 
-  void _loadData({bool forceRefresh = false}) {
-    final businessId = context.read<Core>().business.selectedBusiness?.id;
-    if (businessId != null) {
-      context.read<Core>().party.fetchPartyLedger(businessId, widget.party.id, forceRefresh: forceRefresh);
-      context.read<Core>().invoice.fetchPartyInvoices(businessId, widget.party.id, forceRefresh: forceRefresh);
-      context.read<Core>().party.fetchPartyQuantitySummary(businessId, widget.party.id, forceRefresh: forceRefresh);
+  Future<void> _load({bool refresh = false}) async {
+    final core = context.read<Core>();
+    await Future.wait([
+      core.party.getParty(widget.partyId, refresh: refresh),
+      _loadBills(core),
+      if (core.can(MemberRole.accountant))
+        core.party.fetchLedger(widget.partyId, refresh: refresh),
+    ]);
+  }
+
+  Future<void> _loadBills(Core core) async {
+    final bills = await core.invoice.invoicesForParty(widget.partyId);
+    if (mounted) setState(() => _bills = bills);
+  }
+
+  void _push(Widget screen) => Navigator.of(context).push(getPageRoute(screen));
+
+  static String? _whatsAppNumber(String? phone) {
+    final digits = phone?.replaceAll(RegExp(r'\D'), '') ?? '';
+    if (digits.length == 10) return '91$digits';
+    if (digits.length == 12 && digits.startsWith('91')) return digits;
+    if (digits.length == 11 && digits.startsWith('0')) return '91${digits.substring(1)}';
+    return null;
+  }
+
+  Future<void> _remind(Party party) async {
+    final number = _whatsAppNumber(party.phone);
+    if (number == null) return;
+    final business = context.read<Core>().business.selectedBusiness?.name ?? '';
+    final message = 'payment_reminder_message'.tr(namedArgs: {
+      'name': party.name,
+      'amount': Formatters.formatCurrency(party.balance),
+      'business': business,
+    });
+    final uri = Uri.parse('https://wa.me/$number?text=${Uri.encodeComponent(message)}');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      showErrorToast('whatsapp_open_failed'.tr());
     }
   }
 
-  void _deleteParty(Party party) async {
-    final core = context.read<Core>();
-    final businessId = core.business.selectedBusiness?.id;
-    if (businessId == null) return;
+  Future<void> _call(String phone) async {
+    await launchUrl(Uri(scheme: 'tel', path: phone));
+  }
 
-    // Captured before the async gaps below so nothing reaches for `context`
-    // after an await.
-    final navigator = Navigator.of(context);
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => ConfirmationDialog(
-        title: 'delete_party'.tr(),
-        content: 'delete_party_confirm'.tr(),
-        confirmText: 'delete'.tr(),
-        isDestructive: true,
-        icon: Icons.delete_outline_rounded,
-      ),
-    );
-
-    if (confirm != true || !mounted) return;
-
-    final success = await core.party.deleteParty(businessId, party.id);
-    if (!success || !mounted) return;
-
-    navigator.pop();
-    // showSuccessToast resolves its own context via navigatorKey.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      showSuccessToast('party_deleted'.tr());
-    });
+  Future<void> _toggleArchive(Party party) async {
+    final parties = context.read<Core>().party;
+    final saved = await parties.setArchived(party.id, archived: !party.isArchived);
+    if (saved == null) {
+      showErrorToast(parties.error ?? 'error_generic'.tr());
+    } else {
+      showSuccessToast(saved.isArchived ? 'party_archived'.tr() : 'party_restored'.tr());
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final parties = context.select<Core, List<Party>>((c) => c.party.parties);
-    final matchedParty = parties.firstWhere(
-      (p) => p.id == widget.party.id,
-      orElse: () => widget.party,
+    final core = context.watch<Core>();
+    final state = core.party.detail(widget.partyId);
+    final ledger = core.party.ledger(widget.partyId);
+    final canSeeLedger = core.can(MemberRole.accountant);
+    scheduleReload(
+      state.needsReload || (canSeeLedger && ledger.needsReload),
+      () => _load(refresh: true),
     );
-
-    final partyLedger = context.select<Core, PartyLedger?>(
-      (c) => c.party.getPartyLedgerFor(widget.party.id),
-    );
-    final isLoading = context.select<Core, bool>(
-      (c) => c.party.isLoadingPartyLedger,
-    );
-
-    final isCustomer =
-        matchedParty.partyType == PartyType.customer ||
-        matchedParty.partyType == PartyType.both;
-
-    final entries = partyLedger?.ledger ?? <LedgerEntry>[];
-    final totalInvoiceAmount = entries
-        .where(
-          (e) =>
-              isCustomer
-                  ? e.type.contains('sale')
-                  : e.type.contains('purchase'),
-        )
-        .fold(0.0, (s, e) => s + e.totalAmount);
-    final totalPaid = entries
-        .where((e) => e.type.contains('payment'))
-        .fold(0.0, (s, e) => s + e.totalAmount);
-    final outstanding = totalInvoiceAmount - totalPaid;
-
-    final partyQuantitySummary = context.select<Core, PartyQuantitySummary?>(
-      (c) => c.party.getPartyQuantitySummaryFor(widget.party.id),
-    );
-    final isLoadingPartyQuantity = context.select<Core, bool>(
-      (c) => c.party.isLoadingPartyQuantitySummary,
-    );
-
-    final partyInvoices = context.select<Core, List<Invoice>>(
-      (c) => c.invoice.getPartyInvoicesFor(widget.party.id),
-    );
+    final party = state.value;
 
     return Scaffold(
-      body: RefreshIndicator(
-        color: AppTheme.primary,
-        onRefresh: () async => _loadData(forceRefresh: true),
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 220,
-            pinned: true,
-            stretch: true,
-            backgroundColor: AppTheme.primary,
-            leading: Padding(
-              padding: const EdgeInsets.all(8),
-              child: CircleAvatar(
-                backgroundColor: Colors.black.withValues(alpha: 0.2),
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
+      appBar: AppBar(
+        title: Text(party?.name ?? 'party'.tr()),
+        actions: [
+          if (party != null)
+            IconButton(
+              tooltip: 'edit'.tr(),
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => _push(PartyFormScreen(party: party)),
             ),
-            flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Container(
-                    decoration: const BoxDecoration(
-                      gradient: AppTheme.primaryGradient,
-                    ),
-                  ),
-                  Positioned(
-                    right: -50,
-                    top: -50,
-                    child: CircleAvatar(
-                      radius: 100,
-                      backgroundColor: AppTheme.secondary.withValues(
-                        alpha: 0.1,
-                      ),
-                    ),
-                  ),
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Hero(
-                        tag: 'party_${matchedParty.id}',
-                        child: CircleAvatar(
-                          radius: 35,
-                          backgroundColor: Colors.white,
-                          child: Text(
-                            matchedParty.name.isNotEmpty
-                                ? matchedParty.name
-                                    .substring(0, 1)
-                                    .toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              color: AppTheme.primary,
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        matchedParty.name,
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        matchedParty.phone ?? '',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.edit_outlined, color: Colors.white),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    getPageRoute(PartyFormScreen(existingParty: matchedParty)),
-                  );
-                },
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: Colors.white,
-                ),
-                onPressed: () => _deleteParty(matchedParty),
-              ),
-            ],
-          ),
-
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildContactCard(matchedParty),
-                  const SizedBox(height: 20),
-
-                  _buildSectionHeader('lifetime_summary'.tr()),
-                  const SizedBox(height: 12),
-
-                  _buildPremiumSummary(
-                    isCustomer,
-                    totalInvoiceAmount,
-                    totalPaid,
-                    outstanding,
-                  ),
-                  const SizedBox(height: 24),
-
-                  _buildSectionHeader('item_quantities'.tr()),
-                  const SizedBox(height: 12),
-
-                  if (isLoadingPartyQuantity)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  else if (partyQuantitySummary != null && partyQuantitySummary.items.isNotEmpty)
-                    ...partyQuantitySummary.items.map(
-                      (item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _buildItemQuantityCard(context, item),
-                      ),
-                    )
-                  else if (partyQuantitySummary != null && partyQuantitySummary.items.isEmpty)
-                    _buildEmptyItems(context),
-
-                  const SizedBox(height: 24),
-
-                  _buildActionTier(isCustomer, matchedParty, outstanding),
-                  const SizedBox(height: 32),
-
-                  _buildInvoiceHeader(partyInvoices.length),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            ),
-          ),
-
-          if (partyInvoices.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: _buildEmptyInvoices(isLoading),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) =>
-                      _buildInvoiceCard(partyInvoices[index]),
-                  childCount: partyInvoices.length,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContactCard(Party party) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.cardDark : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? AppTheme.gray700 : AppTheme.gray200),
-      ),
-      child: Column(
-        children: [
-          _buildInfoRow(
-            Icons.phone_in_talk_rounded,
-            party.phone ?? 'not_provided'.tr(),
-          ),
-          if (party.gstin != null && party.gstin!.isNotEmpty) ...[
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Divider(
-                height: 1,
-                color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-              ),
-            ),
-            _buildInfoRow(Icons.badge_rounded, 'GSTIN: ${party.gstin}'),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String text) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: AppTheme.secondary),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              color: isDark ? Colors.white : AppTheme.gray600,
-              height: 1.4,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Text(
-      title,
-      style: GoogleFonts.outfit(
-        fontSize: 15,
-        fontWeight: FontWeight.bold,
-        letterSpacing: 0.5,
-        color: isDark ? Colors.white : AppTheme.gray900,
-      ),
-    );
-  }
-
-  Widget _buildPremiumSummary(
-    bool isCustomer,
-    double total,
-    double paid,
-    double pending,
-  ) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final borderColor = isDark ? AppTheme.gray700 : AppTheme.gray200;
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.cardDark : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor),
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            _buildSummaryColumn(
-              isCustomer ? 'total_sales_label'.tr() : 'lifetime_trade'.tr(),
-              total,
-              isDark ? Colors.white : AppTheme.primary,
-            ),
-            VerticalDivider(width: 1, thickness: 1, color: borderColor),
-            _buildSummaryColumn(
-              isCustomer ? 'payments_received'.tr() : 'total_settled'.tr(),
-              paid,
-              AppTheme.success,
-            ),
-            VerticalDivider(width: 1, thickness: 1, color: borderColor),
-            _buildSummaryColumn(
-              isCustomer ? 'outstanding'.tr() : 'current_dues'.tr(),
-              pending,
-              AppTheme.error,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryColumn(String label, double value, Color color) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
-        child: Column(
-          children: [
-            SizedBox(
-              height: 32,
-              child: Center(
-                child: Text(
-                  label.toUpperCase(),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  style: GoogleFonts.outfit(
-                    fontSize: 10,
-                    color: isDark ? AppTheme.gray400 : AppTheme.slate500,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                Formatters.formatCurrency(value),
-                style: GoogleFonts.outfit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionTier(bool isCustomer, Party party, double pending) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isEnabled = pending > 0;
-
-    // Theme color definitions
-    final activePrimaryColor = isDark ? AppTheme.primaryDark : AppTheme.primary;
-    final activeSecondaryColor = isDark ? Colors.white70 : AppTheme.primary;
-
-    return Row(
-      children: [
-        // Main Action Button: RECORD PAYMENT / REGISTER SETTLEMENT
-        Expanded(
-          flex: 2,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
-            height: 50,
-            decoration: BoxDecoration(
-              gradient: isEnabled ? AppTheme.primaryGradient : null,
-              color: isEnabled ? null : (isDark ? AppTheme.gray800 : AppTheme.gray100),
-              borderRadius: BorderRadius.circular(14),
-              border: isEnabled
-                  ? Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1)
-                  : Border.all(color: isDark ? AppTheme.gray700 : AppTheme.gray300, width: 1.2),
-              boxShadow: isEnabled
-                  ? [
-                      BoxShadow(
-                        color: activePrimaryColor.withValues(alpha: 0.25),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ]
-                  : [],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: isEnabled
-                    ? () {
-                        Navigator.of(context).push(
-                          getPageRoute(
-                            isCustomer
-                                ? PaymentFormScreen.paymentIn(
-                                    partyId: party.id,
-                                    initialAmount: pending,
-                                  )
-                                : PaymentFormScreen.paymentOut(
-                                    partyId: party.id,
-                                    initialAmount: pending,
-                                  ),
-                          ),
-                        );
-                      }
-                    : null,
-                borderRadius: BorderRadius.circular(14),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.add_card_rounded,
-                      size: 18,
-                      color: isEnabled
-                          ? Colors.white
-                          : (isDark ? AppTheme.gray600 : AppTheme.gray400),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      isCustomer ? 'RECORD PAYMENT' : 'REGISTER SETTLEMENT',
-                      style: GoogleFonts.outfit(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        letterSpacing: 0.5,
-                        color: isEnabled
-                            ? Colors.white
-                            : (isDark ? AppTheme.gray600 : AppTheme.gray400),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        // Secondary Action Button: LEDGER
-        Expanded(
-          child: Container(
-            height: 50,
-            decoration: BoxDecoration(
-              color: isDark
-                  ? AppTheme.primaryDark.withValues(alpha: 0.15)
-                  : AppTheme.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: isDark
-                    ? AppTheme.primaryDark.withValues(alpha: 0.3)
-                    : AppTheme.primary.withValues(alpha: 0.15),
-                width: 1.2,
-              ),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () {
-                  Navigator.of(context).push(
-                    getPageRoute(TransactionScreen(partyId: party.id)),
-                  );
-                },
-                borderRadius: BorderRadius.circular(14),
-                highlightColor: activePrimaryColor.withValues(alpha: 0.05),
-                splashColor: activePrimaryColor.withValues(alpha: 0.15),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.receipt_long_rounded,
-                      color: activeSecondaryColor,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          'ledger'.tr().toUpperCase(),
-                          style: GoogleFonts.outfit(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                            letterSpacing: 0.5,
-                            color: activeSecondaryColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInvoiceHeader(int count) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          'invoices_section'.tr(),
-          style: GoogleFonts.outfit(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-            color: isDark ? Colors.white : AppTheme.gray900,
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppTheme.secondary.withValues(alpha: isDark ? 0.2 : 0.1),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            '$count Invoices',
-            style: GoogleFonts.outfit(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.secondary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInvoiceCard(Invoice invoice) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final isPaid = invoice.paymentStatus == PaymentStatus.paid;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: isDark ? AppTheme.cardDark : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          onTap: () {
-            Navigator.of(context).push(
-              getPageRoute(InvoiceDetailScreen(invoiceId: invoice.id)),
-            );
-          },
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-              ),
-            ),
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.secondary.withValues(
-                      alpha: isDark ? 0.15 : 0.05,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.receipt_long_rounded,
-                    color: AppTheme.secondary,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        invoice.invoiceNumber,
-                        style: GoogleFonts.outfit(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: isDark ? Colors.white : AppTheme.gray900,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        Formatters.formatDate(invoice.invoiceDate),
-                        style: GoogleFonts.outfit(
-                          color: isDark ? AppTheme.gray400 : AppTheme.slate500,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      Formatters.formatCurrency(invoice.totalAmount),
-                      style: GoogleFonts.outfit(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: isDark ? Colors.white : AppTheme.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            isPaid
-                                ? AppTheme.success.withValues(
-                                  alpha: isDark ? 0.2 : 0.1,
-                                )
-                                : invoice.paymentStatus == PaymentStatus.partially_paid
-                                    ? AppTheme.warning.withValues(
-                                      alpha: isDark ? 0.2 : 0.1,
-                                    )
-                                    : AppTheme.error.withValues(
-                                      alpha: isDark ? 0.2 : 0.1,
-                                    ),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        invoice.paymentStatus.displayName.toUpperCase(),
-                        style: TextStyle(
-                          color:
-                              isPaid
-                                  ? AppTheme.success
-                                  : invoice.paymentStatus ==
-                                          PaymentStatus.partially_paid
-                                      ? AppTheme.warning
-                                      : AppTheme.error,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
+          if (party != null && canSeeLedger)
+            PopupMenuButton<String>(
+              onSelected: (_) => _toggleArchive(party),
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'archive',
+                  child: Text(party.isArchived ? 'restore'.tr() : 'archive'.tr()),
                 ),
               ],
             ),
-          ),
-        ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildItemQuantityCard(BuildContext context, ItemQuantityBreakdown item) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final borderColor = isDark ? AppTheme.gray700 : AppTheme.gray200;
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.cardDark : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppTheme.warning.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
+      body: LoadStateBody<Party>(
+        state: state,
+        onRetry: () => _load(refresh: true),
+        builder: (context, party) => RefreshIndicator(
+          onRefresh: () => _load(refresh: true),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.spaceLg,
+              AppTheme.spaceSm,
+              AppTheme.spaceLg,
+              AppTheme.space3xl,
             ),
-            child: const Icon(Icons.inventory_2_rounded, size: 16, color: AppTheme.warning),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              item.itemName,
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : AppTheme.gray900,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                'SOLD',
-                style: GoogleFonts.outfit(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.warning,
-                  letterSpacing: 0.6,
+              _buildHeader(context, party),
+              const SizedBox(height: AppTheme.spaceMd),
+              _buildActions(party),
+              const SizedBox(height: AppTheme.space2xl),
+              if (canSeeLedger) ...[
+                SegmentedButton<bool>(
+                  showSelectedIcon: false,
+                  segments: [
+                    ButtonSegment(
+                      value: false,
+                      icon: const Icon(Icons.receipt_long_outlined),
+                      label: Text('bills'.tr()),
+                    ),
+                    ButtonSegment(
+                      value: true,
+                      icon: const Icon(Icons.menu_book_outlined),
+                      label: Text('ledger'.tr()),
+                    ),
+                  ],
+                  selected: {_showLedger},
+                  onSelectionChanged: (selection) => setState(() => _showLedger = selection.first),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                Formatters.formatDouble(item.sold),
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.warning,
-                ),
-              ),
+                const SizedBox(height: AppTheme.spaceMd),
+              ],
+              if (_showLedger && canSeeLedger)
+                LedgerView(
+                  state: ledger,
+                  isAccount: false,
+                  onRetry: () => core.party.fetchLedger(widget.partyId, refresh: true),
+                )
+              else
+                ..._buildBills(context),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyItems(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.cardDark : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isDark ? AppTheme.gray700 : AppTheme.gray200),
-      ),
-      child: Center(
-        child: Text(
-          'no_item_transactions'.tr(),
-          style: GoogleFonts.outfit(
-            fontSize: 13,
-            color: isDark ? AppTheme.gray500 : AppTheme.gray400,
-          ),
         ),
       ),
     );
   }
 
-  Widget _buildEmptyInvoices(bool loading) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Center(
+  Widget _buildHeader(BuildContext context, Party party) {
+    final phone = party.phone;
+    return AppCard(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (loading)
-            const SizedBox(
-              width: 40,
-              height: 40,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else ...[
-            Icon(
-              Icons.receipt_long_outlined,
-              size: 70,
-              color: isDark ? AppTheme.gray500 : AppTheme.gray400,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'no_invoices_yet'.tr(),
-              style: GoogleFonts.outfit(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: isDark ? AppTheme.gray500 : AppTheme.gray400,
+          Row(
+            children: [
+              InitialsAvatar(name: party.name, size: 48),
+              const SizedBox(width: AppTheme.spaceMd),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(party.name, style: context.text.titleLarge),
+                    Text(
+                      [party.partyType.displayName, party.gstType.displayName].join(' · '),
+                      style: context.text.bodySmall,
+                    ),
+                  ],
+                ),
               ),
+              if (party.isArchived) StatusChip(label: 'archived'.tr()),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spaceLg),
+          Text(
+            party.isSettled
+                ? 'settled'.tr()
+                : party.balance > 0
+                ? 'you_will_get'.tr()
+                : 'you_will_give'.tr(),
+            style: context.text.labelMedium,
+          ),
+          if (!party.isSettled)
+            AmountDisplay(
+              amount: party.balance.abs(),
+              tone: party.balance > 0 ? AmountTone.positive : AmountTone.negative,
+              style: context.text.headlineSmall,
             ),
-            const SizedBox(height: 40),
-          ],
+          const Divider(height: AppTheme.space2xl),
+          InfoRow(
+            label: 'phone'.tr(),
+            icon: Icons.phone_outlined,
+            valueWidget: phone == null
+                ? null
+                : InkWell(
+                    onTap: () => _call(phone),
+                    child: Text(
+                      phone,
+                      style: context.text.titleSmall?.copyWith(color: context.colors.primary),
+                    ),
+                  ),
+          ),
+          InfoRow(label: 'email'.tr(), icon: Icons.mail_outline_rounded, value: party.email),
+          InfoRow(label: 'gstin'.tr(), icon: Icons.verified_outlined, value: party.gstin),
+          InfoRow(label: 'state'.tr(), icon: Icons.place_outlined, value: stateNameFromCode(party.stateCode)),
+          InfoRow(
+            label: 'billing_address'.tr(),
+            icon: Icons.home_work_outlined,
+            value: party.billingAddress?.singleLine,
+          ),
+          InfoRow(
+            label: 'credit_days'.tr(),
+            icon: Icons.schedule_outlined,
+            value: party.creditDays == null
+                ? null
+                : 'days_count'.tr(namedArgs: {'count': '${party.creditDays}'}),
+          ),
+          InfoRow(
+            label: 'credit_limit'.tr(),
+            icon: Icons.speed_outlined,
+            value: party.creditLimit == null ? null : Formatters.formatCurrency(party.creditLimit!),
+          ),
         ],
       ),
     );
+  }
+
+  Widget _buildActions(Party party) {
+    final paysUs = party.balance > 0 || (party.partyType.canSell && party.balance >= 0);
+    final canRemind = party.balance > 0 && _whatsAppNumber(party.phone) != null;
+
+    return Wrap(
+      spacing: AppTheme.spaceSm,
+      runSpacing: AppTheme.spaceSm,
+      children: [
+        if (party.partyType.canSell)
+          AppButton(
+            text: 'new_sale'.tr(),
+            icon: Icons.receipt_long_rounded,
+            compact: true,
+            expand: false,
+            onPressed: () => _push(InvoiceFormScreen(type: InvoiceType.sale, party: party)),
+          ),
+        if (party.partyType.canBuy)
+          AppButton(
+            text: 'new_purchase'.tr(),
+            icon: Icons.shopping_bag_outlined,
+            compact: true,
+            expand: false,
+            variant: party.partyType.canSell ? AppButtonVariant.secondary : AppButtonVariant.primary,
+            onPressed: () => _push(InvoiceFormScreen(type: InvoiceType.purchase, party: party)),
+          ),
+        AppButton(
+          text: paysUs ? 'receive_payment'.tr() : 'make_payment'.tr(),
+          icon: paysUs ? Icons.call_received_rounded : Icons.call_made_rounded,
+          compact: true,
+          expand: false,
+          variant: AppButtonVariant.outline,
+          onPressed: () => _push(PaymentFormScreen(
+            direction: paysUs ? PaymentDirection.paymentIn : PaymentDirection.paymentOut,
+            party: party,
+          )),
+        ),
+        if (canRemind)
+          AppButton(
+            text: 'send_reminder'.tr(),
+            icon: Icons.chat_outlined,
+            compact: true,
+            expand: false,
+            variant: AppButtonVariant.outline,
+            onPressed: () => _remind(party),
+          ),
+      ],
+    );
+  }
+
+  List<Widget> _buildBills(BuildContext context) {
+    final bills = _bills;
+    if (bills == null) return const [SizedBox(height: 160, child: LoadingIndicator())];
+    if (bills.isEmpty) {
+      return [
+        Padding(
+          padding: const EdgeInsets.all(AppTheme.space2xl),
+          child: Text(
+            'no_bills_for_party'.tr(),
+            style: context.text.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ];
+    }
+    return [
+      for (final bill in bills)
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppTheme.spaceSm),
+          child: InvoiceTile(invoice: bill),
+        ),
+    ];
   }
 }

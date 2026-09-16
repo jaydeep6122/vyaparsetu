@@ -1,18 +1,60 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:easy_localization/easy_localization.dart';
-import 'package:vyaparsetu/helpers/datePicker.dart';
-import 'package:vyaparsetu/types/payment.dart';
-import 'package:vyaparsetu/components/loadingIndicator.dart';
+import 'package:vyaparsetu/components/amountDisplay.dart';
+import 'package:vyaparsetu/components/appCard.dart';
 import 'package:vyaparsetu/components/emptyState.dart';
-import 'package:vyaparsetu/components/errorWidget.dart';
-import 'package:vyaparsetu/helpers/formatters.dart';
+import 'package:vyaparsetu/components/loadStateBody.dart';
+import 'package:vyaparsetu/components/pagedList.dart';
+import 'package:vyaparsetu/components/searchBar.dart';
+import 'package:vyaparsetu/components/statusChip.dart';
+import 'package:vyaparsetu/core/Core.dart';
 import 'package:vyaparsetu/global/constants.dart';
 import 'package:vyaparsetu/global/themes.dart';
-import 'package:vyaparsetu/screens/payments/form.dart';
-import 'package:vyaparsetu/core/Core.dart';
+import 'package:vyaparsetu/helpers/formatters.dart';
 import 'package:vyaparsetu/helpers/navigation.dart';
+import 'package:vyaparsetu/screens/payments/detail.dart';
+import 'package:vyaparsetu/screens/payments/form.dart';
+import 'package:vyaparsetu/types/payment.dart';
+
+/// Asks whether money is coming in or going out, then opens the form.
+Future<void> startNewPayment(BuildContext context) async {
+  final direction = await showModalBottomSheet<PaymentDirection>(
+    context: context,
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.spaceLg,
+              0,
+              AppTheme.spaceLg,
+              AppTheme.spaceSm,
+            ),
+            child: Text('new_payment'.tr(), style: sheetContext.text.titleLarge),
+          ),
+          ListTile(
+            leading: Icon(Icons.call_received_rounded, color: sheetContext.colors.success),
+            title: Text('payment_in_title'.tr()),
+            subtitle: Text('payment_in_hint'.tr()),
+            onTap: () => Navigator.of(sheetContext).pop(PaymentDirection.paymentIn),
+          ),
+          ListTile(
+            leading: Icon(Icons.call_made_rounded, color: sheetContext.colors.danger),
+            title: Text('payment_out_title'.tr()),
+            subtitle: Text('payment_out_hint'.tr()),
+            onTap: () => Navigator.of(sheetContext).pop(PaymentDirection.paymentOut),
+          ),
+          const SizedBox(height: AppTheme.spaceSm),
+        ],
+      ),
+    ),
+  );
+  if (direction == null || !context.mounted) return;
+  await Navigator.of(context).push(getPageRoute(PaymentFormScreen(direction: direction)));
+}
 
 class PaymentListScreen extends StatefulWidget {
   const PaymentListScreen({super.key});
@@ -22,509 +64,167 @@ class PaymentListScreen extends StatefulWidget {
 }
 
 class _PaymentListScreenState extends State<PaymentListScreen> {
-  String? _filterType;
-  DateTime? _fromDate;
-  DateTime? _toDate;
-
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadData();
-    });
-  }
-
-  void _loadData() {
-    final businessId = context.read<Core>().business.selectedBusiness?.id;
-    if (businessId != null) {
-      context.read<Core>().payment.fetchPayments(businessId);
-    }
-  }
-
-  List<Payment> _filterPayments(List<Payment> list) {
-    return list.where((p) {
-      final matchesType = _filterType == null || p.paymentType.value == _filterType;
-      final matchesFrom = _fromDate == null || 
-          p.paymentDate.isAfter(_fromDate!.subtract(const Duration(seconds: 1)));
-      final matchesTo = _toDate == null || 
-          p.paymentDate.isBefore(_toDate!.add(const Duration(days: 1)));
-      return matchesType && matchesFrom && matchesTo;
-    }).toList();
-  }
-
-  void _showNewPaymentSheet(String? businessId) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      showDragHandle: false,
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Text(
-                'new_payment'.tr(),
-                style: GoogleFonts.outfit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: AppTheme.success.withValues(alpha: 0.15),
-                  child: const Icon(
-                    Icons.payments_rounded,
-                    color: AppTheme.success,
-                  ),
-                ),
-                title: Text(
-                  'Payment In',
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
-                ),
-                subtitle: Text(
-                  'payment_in_subtitle'.tr(),
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: AppTheme.slate500,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  Navigator.of(context)
-                      .push(getPageRoute(const PaymentFormScreen.paymentIn()))
-                      .then((_) {
-                        if (businessId != null && mounted) _loadData();
-                      });
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: AppTheme.error.withValues(alpha: 0.15),
-                  child: const Icon(
-                    Icons.payments_outlined,
-                    color: AppTheme.error,
-                  ),
-                ),
-                title: Text(
-                  'Payment Out',
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
-                ),
-                subtitle: Text(
-                  'payment_out_subtitle'.tr(),
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: AppTheme.slate500,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  Navigator.of(context)
-                      .push(getPageRoute(const PaymentFormScreen.paymentOut()))
-                      .then((_) {
-                        if (businessId != null && mounted) _loadData();
-                      });
-                },
-              ),
-            ],
-          ),
-        );
-      },
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => context.read<Core>().payment.fetchPayments(),
     );
-  }
-
-  Future<void> _pickDate(bool isFrom) async {
-    final picked = await pickAppDate(
-      context: context,
-      initialDate: DateTime.now(),
-    );
-    if (picked != null) {
-      setState(() {
-        if (isFrom) {
-          _fromDate = picked;
-        } else {
-          _toDate = picked;
-        }
-      });
-    }
-  }
-
-  void _clearFilters() {
-    setState(() {
-      _filterType = null;
-      _fromDate = null;
-      _toDate = null;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final businessId = context.select<Core, String?>(
-      (c) => c.business.selectedBusiness?.id,
-    );
-    final isLoading = context.select<Core, bool>((c) => c.payment.isLoading);
-    final payments = context.select<Core, List<Payment>>(
-      (c) => c.payment.payments,
-    );
-    final error = context.select<Core, String?>((c) => c.payment.error);
+    final core = context.watch<Core>();
+    final payments = core.payment;
+    scheduleReload(payments.list.needsReload, () => payments.fetchPayments(refresh: true));
 
     return Scaffold(
-      resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        title: Text(
-          'payments'.tr(),
-          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-        ),
+      appBar: AppBar(title: Text('payments'.tr())),
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'new-payment',
+        onPressed: () => startNewPayment(context),
+        icon: const Icon(Icons.add_rounded),
+        label: Text('new_payment'.tr()),
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Column(
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.spaceLg,
+              0,
+              AppTheme.spaceLg,
+              AppTheme.spaceSm,
+            ),
+            child: AppSearchBar(
+              hintText: 'search_payments'.tr(),
+              initialValue: payments.search,
+              onChanged: (query) => payments.setFilters(search: query),
+            ),
+          ),
+          SizedBox(
+            height: 48,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceLg),
               children: [
-                Row(
-                  children: [
-                    _buildFilterChip('All', null),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Payment In', 'payment_in'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Payment Out', 'payment_out'),
-                    const Spacer(),
-                    if (_filterType != null ||
-                        _fromDate != null ||
-                        _toDate != null)
-                      GestureDetector(
-                        onTap: _clearFilters,
-                        child: Text(
-                          'Clear',
-                          style: GoogleFonts.outfit(
-                            fontSize: 12,
-                            color: isDark ? Colors.white : AppTheme.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                  ],
+                ChoiceChip(
+                  label: Text('filter_all'.tr()),
+                  selected: payments.direction == null,
+                  showCheckmark: false,
+                  onSelected: (_) => payments.setFilters(clearDirection: true),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildDateButton(
-                        'From',
-                        _fromDate,
-                        () => _pickDate(true),
-                      ),
+                for (final direction in PaymentDirection.values)
+                  Padding(
+                    padding: const EdgeInsets.only(left: AppTheme.spaceSm),
+                    child: ChoiceChip(
+                      label: Text(direction.displayName),
+                      selected: payments.direction == direction,
+                      showCheckmark: false,
+                      onSelected: (_) => payments.setFilters(direction: direction),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildDateButton(
-                        'To',
-                        _toDate,
-                        () => _pickDate(false),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
               ],
             ),
           ),
           Expanded(
-            child: _buildPaymentList(
-              isDark,
-              theme,
-              isLoading,
-              payments,
-              error,
-              businessId,
+            child: PagedListView<Payment>(
+              items: payments.list.items,
+              isLoading: payments.list.isLoading,
+              isLoadingMore: payments.list.isLoadingMore,
+              hasMore: payments.list.data.hasMore,
+              error: payments.list.error,
+              onRefresh: () => payments.fetchPayments(refresh: true),
+              onLoadMore: payments.loadMore,
+              emptyState: EmptyState(
+                icon: Icons.swap_vert_rounded,
+                title: 'no_payments_yet'.tr(),
+                description: 'no_payments_yet_hint'.tr(),
+                buttonText: 'new_payment'.tr(),
+                onButtonPressed: () => startNewPayment(context),
+              ),
+              itemBuilder: (context, payment) => PaymentTile(payment: payment),
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'payments_fab',
-        onPressed: () => _showNewPaymentSheet(businessId),
-        child: const Icon(Icons.add_card_rounded),
-      ),
     );
   }
+}
 
-  Widget _buildPaymentList(
-    bool isDark,
-    ThemeData theme,
-    bool isLoading,
-    List<Payment> payments,
-    String? error,
-    String? businessId,
-  ) {
-    if (isLoading && payments.isEmpty) {
-      return LoadingIndicator(
-        message: 'loading_payments'.tr(),
-        isShimmer: true,
-      );
-    }
+class PaymentTile extends StatelessWidget {
+  final Payment payment;
 
-    if (error != null) {
-      return AppErrorWidget(errorMessage: error, onRetry: _loadData);
-    }
+  const PaymentTile({super.key, required this.payment});
 
-    final filtered = _filterPayments(payments);
+  @override
+  Widget build(BuildContext context) {
+    final (background, foreground) = toneColors(
+      context,
+      payment.isIn ? ChipTone.success : ChipTone.danger,
+    );
 
-    return RefreshIndicator(
-      color: isDark ? Colors.white : AppTheme.primary,
-      onRefresh: () async {
-        if (businessId != null) {
-          await context.read<Core>().payment.fetchPayments(
-            businessId,
-            forceRefresh: true,
-          );
-        }
-      },
-      child: filtered.isEmpty
-          ? LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight,
-                    ),
-                    child: Center(
-                      child: EmptyState(
-                        icon: Icons.payment_outlined,
-                        title: 'no_payments'.tr(),
-                        description: _filterType != null || _fromDate != null || _toDate != null
-                            ? 'no_match_filters'.tr()
-                            : 'payments_empty_msg'.tr(),
-                        buttonText: _filterType == null && _fromDate == null && _toDate == null ? 'add_payment'.tr() : null,
-                        onButtonPressed: _filterType == null && _fromDate == null && _toDate == null
-                            ? () => _showNewPaymentSheet(businessId)
-                            : null,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            )
-          : ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: filtered.length,
-        itemBuilder: (context, index) {
-          final p = filtered[index];
-          final isIn = p.paymentType == PaymentType.payment_in;
-          final amountColor = isIn ? AppTheme.success : AppTheme.error;
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+    return AppCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spaceLg,
+        vertical: AppTheme.spaceMd,
+      ),
+      onTap: () => Navigator.of(context).push(
+        getPageRoute(PaymentDetailScreen(paymentId: payment.id)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: background, shape: BoxShape.circle),
+            child: Icon(
+              payment.isIn ? Icons.call_received_rounded : Icons.call_made_rounded,
+              color: foreground,
+              size: 20,
             ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-              onTap: () {
-                Navigator.of(context)
-                    .push(
-                      getPageRoute(PaymentFormScreen.edit(existingPayment: p)),
-                    )
-                    .then((_) {
-                      if (mounted) {
-                        _loadData();
-                      }
-                    });
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          p.partyName ?? 'Contact',
-                          style: GoogleFonts.outfit(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text(
-                          Formatters.formatCurrency(p.amount),
-                          style: GoogleFonts.outfit(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: amountColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          Formatters.formatDate(p.paymentDate),
-                          style: GoogleFonts.outfit(
-                            fontSize: 12,
-                            color: theme.textTheme.bodyMedium?.color,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: amountColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.radiusFull,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                isIn
-                                    ? Icons.arrow_downward
-                                    : Icons.arrow_upward,
-                                size: 12,
-                                color: amountColor,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                p.paymentMode.displayName,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: amountColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+          ),
+          const SizedBox(width: AppTheme.spaceMd),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  payment.partyName ?? 'no_party'.tr(),
+                  style: context.text.titleSmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  [
+                    payment.paymentNumber,
+                    Formatters.formatDate(payment.paymentDate),
+                    payment.mode.displayName,
+                  ].join(' · '),
+                  style: context.text.bodySmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              AmountDisplay(
+                amount: payment.amount,
+                tone: payment.isCancelled
+                    ? AmountTone.neutral
+                    : payment.isIn
+                    ? AmountTone.positive
+                    : AmountTone.negative,
+                style: context.text.titleSmall?.copyWith(
+                  decoration: payment.isCancelled ? TextDecoration.lineThrough : null,
                 ),
               ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, String? value) {
-    final theme = Theme.of(context);
-    final isSelected = _filterType == value;
-    final isDark = theme.brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _filterType = value;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color:
-              isSelected
-                  ? (isDark
-                      ? Colors.white.withValues(alpha: 0.2)
-                      : AppTheme.primary)
-                  : (isDark ? AppTheme.cardDark : AppTheme.gray100),
-          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.outfit(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color:
-                isSelected
-                    ? Colors.white
-                    : theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.7),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDateButton(String label, DateTime? date, VoidCallback onTap) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isDark ? AppTheme.cardDark : AppTheme.gray100,
-          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-          border:
-              date != null
-                  ? Border.all(
-                    color:
-                        isDark
-                            ? Colors.white.withValues(alpha: 0.5)
-                            : AppTheme.primary,
-                  )
-                  : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.calendar_today,
-              size: 14,
-              color:
-                  date != null
-                      ? (isDark ? Colors.white : AppTheme.primary)
-                      : AppTheme.gray400,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              date != null ? DateFormat('dd/MM/yyyy').format(date) : label,
-              style: GoogleFonts.outfit(
-                fontSize: 12,
-                fontWeight: date != null ? FontWeight.bold : FontWeight.w500,
-                color:
-                    date != null
-                        ? (isDark ? Colors.white : AppTheme.primary)
-                        : null,
-              ),
-            ),
-            if (date != null) ...[
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    if (label == 'From')
-                      _fromDate = null;
-                    else
-                      _toDate = null;
-                  });
-                },
-                child: Icon(Icons.close, size: 14, color: AppTheme.error),
-              ),
+              if (payment.isCancelled) StatusChip.forRecord(payment.status),
             ],
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

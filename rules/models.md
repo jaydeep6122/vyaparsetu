@@ -1,138 +1,77 @@
 # Models
 
 ## Rule
-All data models are immutable classes with `fromJson`/`toJson`/`copyWith`. JSON keys use `snake_case` to match the API.
+Types in `lib/types/` are immutable and built from the API's snake_case JSON
+with the helpers in `helpers/json.dart`. They carry no business logic beyond
+small read-only getters.
 
-## Model Pattern
+## Model pattern
 
 ```dart
-class Invoice {
+class Party {
   final String id;
-  final InvoiceType invoiceType;
-  final String invoiceNumber;
-  final String? partyId;
-  final String? partyName;
-  final List<InvoiceItem> items;
-  final double subtotal;
-  final double discount;
-  final double taxAmount;
-  final double total;
-  final PaymentStatus paymentStatus;
-  final DateTime createdAt;
+  final String name;
+  final PartyType partyType;
+  final String? gstin;
 
-  const Invoice({
+  /// Positive: the party owes the business. Negative: the business owes them.
+  final double balance;
+  final DateTime? archivedAt;
+
+  const Party({
     required this.id,
-    required this.invoiceType,
-    required this.invoiceNumber,
-    this.partyId,
-    this.partyName,
-    required this.items,
-    required this.subtotal,
-    required this.discount,
-    required this.taxAmount,
-    required this.total,
-    required this.paymentStatus,
-    required this.createdAt,
+    required this.name,
+    required this.partyType,
+    this.gstin,
+    required this.balance,
+    this.archivedAt,
   });
 
-  factory Invoice.fromJson(Map<String, dynamic> json) {
-    return Invoice(
-      id: json['id'] as String,
-      invoiceType: InvoiceType.fromString(json['invoice_type'] as String),
-      invoiceNumber: json['invoice_number'] as String,
-      partyId: json['party_id'] as String?,
-      partyName: json['party_name'] as String?,
-      items: (json['items'] as List)
-          .map((e) => InvoiceItem.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      subtotal: (json['subtotal'] as num).toDouble(),
-      discount: (json['discount'] as num?)?.toDouble() ?? 0.0,
-      taxAmount: (json['tax_amount'] as num?)?.toDouble() ?? 0.0,
-      total: (json['total'] as num).toDouble(),
-      paymentStatus: PaymentStatus.fromString(json['payment_status'] as String),
-      createdAt: DateTime.parse(json['created_at'] as String),
-    );
-  }
+  factory Party.fromJson(Map<String, dynamic> json) => Party(
+    id: json['id'] as String,
+    name: asString(json['name']),
+    partyType: PartyType.fromString(json['party_type'] as String?),
+    gstin: json['gstin'] as String?,
+    balance: asDouble(json['balance']),
+    archivedAt: asDate(json['archived_at']),
+  );
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'invoice_type': invoiceType.value,
-    'invoice_number': invoiceNumber,
-    'party_id': partyId,
-    'party_name': partyName,
-    'items': items.map((e) => e.toJson()).toList(),
-    'subtotal': subtotal,
-    'discount': discount,
-    'tax_amount': taxAmount,
-    'total': total,
-    'payment_status': paymentStatus.value,
-    'created_at': createdAt.toIso8601String(),
-  };
-
-  Invoice copyWith({
-    String? id,
-    InvoiceType? invoiceType,
-    String? invoiceNumber,
-    String? partyId,
-    String? partyName,
-    List<InvoiceItem>? items,
-    double? subtotal,
-    double? discount,
-    double? taxAmount,
-    double? total,
-    PaymentStatus? paymentStatus,
-    DateTime? createdAt,
-  }) {
-    return Invoice(
-      id: id ?? this.id,
-      invoiceType: invoiceType ?? this.invoiceType,
-      invoiceNumber: invoiceNumber ?? this.invoiceNumber,
-      partyId: partyId ?? this.partyId,
-      partyName: partyName ?? this.partyName,
-      items: items ?? this.items,
-      subtotal: subtotal ?? this.subtotal,
-      discount: discount ?? this.discount,
-      taxAmount: taxAmount ?? this.taxAmount,
-      total: total ?? this.total,
-      paymentStatus: paymentStatus ?? this.paymentStatus,
-      createdAt: createdAt ?? this.createdAt,
-    );
-  }
+  bool get isArchived => archivedAt != null;
+  bool get isSettled => balance.abs() < 0.005;
 }
 ```
 
+- `asDouble`, `asInt`, `asBool`, `asString`, `asDate`, `asMap`, `asMapList`
+  accept numbers or strings, which is what the API sends for money.
+- `toJson()` only exists where something is cached or sent back
+  (`Business`, `User`, `Address`, `PaymentAllocation`).
+- `copyWith` only where a screen actually needs it — most edits go to the
+  server and come back fresh.
+- `Paged<T>` (`types/paged.dart`) holds `items`, `total`, `hasMore`.
+
 ## Enums
 
-Defined in `lib/global/constants.dart`:
+All API enums live in `global/constants.dart` as enhanced enums with
+`value` (wire string), `fromString` (falls back to a safe default) and
+`displayName` (`'party_type_$value'.tr()`):
 
-| Enum | Values |
-|---|---|
-| `BusinessType` | `retailer`, `wholesaler`, `service` |
-| `PartyType` | `customer`, `supplier`, `both` |
-| `OpeningBalanceType` | `receive`, `pay` |
-| `ItemType` | `product`, `service` |
-| `InvoiceType` | `sale`, `purchase` |
-| `PaymentStatus` | `paid`, `unpaid`, `partially_paid` |
-| `PaymentMode` | `cash`, `bank`, `upi`, `credit`, `multiple` |
-| `PaymentType` | `payment_in`, `payment_out` |
-| `SupportedLocale` | `en`, `hi`, `gu` |
+`GstRegistrationType`, `PartyType`, `PartyGstType`, `BalanceType`, `ItemType`,
+`InvoiceType`, `TaxMode`, `InvoiceStatus`, `PaymentStatus`, `PaymentDirection`,
+`PaymentMode`, `RecordStatus`, `AccountType`, `ChargeType`, `ChargeBillTo`,
+`TransportMode`, `MemberRole`, `AdjustmentReason`, `LedgerSource`, plus the
+app-side `CategoryKind`, `OutstandingType` and `BillDesign`.
 
-Each enum has:
-- `String get value` — the API wire value
-- `factory fromString(String)` — safe deserialization
-- `String get displayName` — human-readable label
+Useful members: `InvoiceType.isSaleSide` / `isReturn` / `paymentDirection`,
+`PartyType.canSell` / `canBuy`, `PartyGstType.needsGstin`,
+`MemberRole.atLeast(...)`.
 
 ## DO
-- Make all fields `final`
-- Use `required` named constructor parameters
-- Use safe parsing with `as Type`, `tryParse`, fallback defaults
-- Use `snake_case` keys in `toJson()` matching the API
-- Define enums in `global/constants.dart`, not in model files
-- Use the `.value` getter for serialization, `fromString` for deserialization
+- Keep every field `final` and named
+- Parse through `helpers/json.dart` instead of raw casts on numbers and dates
+- Document sign conventions (party balance, account opening balance)
+- Add a new enum value in `constants.dart` **and** its `en.json` key
 
 ## DON'T
-- Use mutable fields
-- Use positional constructor parameters
-- Use `camelCase` JSON keys — API expects `snake_case`
-- Parse enums as raw strings — always use the enum's `fromString`
-- Use `dynamic` types — cast to concrete types in `fromJson`
+- Compute totals, tax or balances in a model
+- Use `camelCase` JSON keys
+- Parse an enum as a raw string

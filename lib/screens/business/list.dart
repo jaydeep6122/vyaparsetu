@@ -1,19 +1,24 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:easy_localization/easy_localization.dart';
-import 'package:vyaparsetu/types/business.dart';
+import 'package:vyaparsetu/components/appButton.dart';
+import 'package:vyaparsetu/components/appCard.dart';
+import 'package:vyaparsetu/components/avatar.dart';
 import 'package:vyaparsetu/components/loadingIndicator.dart';
-import 'package:vyaparsetu/components/emptyState.dart';
-import 'package:vyaparsetu/components/errorWidget.dart';
+import 'package:vyaparsetu/core/Core.dart';
 import 'package:vyaparsetu/global/themes.dart';
 import 'package:vyaparsetu/helpers/navigation.dart';
+import 'package:vyaparsetu/screens/auth/login.dart';
 import 'package:vyaparsetu/screens/business/form.dart';
+import 'package:vyaparsetu/screens/business/joinBusiness.dart';
 import 'package:vyaparsetu/screens/home/home.dart';
-import 'package:vyaparsetu/core/Core.dart';
+import 'package:vyaparsetu/types/business.dart';
 
 class BusinessListScreen extends StatefulWidget {
-  const BusinessListScreen({super.key});
+  /// Shown right after sign-in, with nothing to go back to.
+  final bool isRoot;
+
+  const BusinessListScreen({super.key, this.isRoot = false});
 
   @override
   State<BusinessListScreen> createState() => _BusinessListScreenState();
@@ -23,176 +28,113 @@ class _BusinessListScreenState extends State<BusinessListScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<Core>().business.fetchBusinesses();
-    });
+    if (!widget.isRoot) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => context.read<Core>().business.fetchBusinesses(),
+      );
+    }
   }
 
-  void _onBusinessSelected(Business business) async {
-    final businessProvider = context.read<Core>().business;
-    await businessProvider.selectBusiness(business);
-    if (mounted) {
-      Navigator.of(context).pushReplacement(getPageRoute(const HomeScreen()));
-    }
+  Future<void> _open(Business business) async {
+    final navigator = Navigator.of(context);
+    await context.read<Core>().business.selectBusiness(business);
+    navigator.pushAndRemoveUntil(getPageRoute(const HomeScreen()), (_) => false);
+  }
+
+  Future<void> _logout() async {
+    final navigator = Navigator.of(context);
+    await context.read<Core>().auth.logout();
+    navigator.pushAndRemoveUntil(getPageRoute(const LoginScreen()), (_) => false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final isLoading = context.select<Core, bool>((c) => c.business.isLoading);
-    final error = context.select<Core, String?>((c) => c.business.error);
-    final businesses = context.select<Core, List<Business>>((c) => c.business.businesses);
-    final selectedBusinessId = context.select<Core, String?>((c) => c.business.selectedBusiness?.id);
+    final core = context.watch<Core>();
+    final businesses = core.business.businesses;
+    final selectedId = core.business.selectedBusiness?.id;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'select_business'.tr(),
-          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-        ),
+        automaticallyImplyLeading: !widget.isRoot,
+        title: Text('your_businesses'.tr()),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.of(context).push(getPageRoute(const BusinessFormScreen()));
-            },
-          ),
+          if (widget.isRoot)
+            IconButton(
+              tooltip: 'sign_out'.tr(),
+              icon: const Icon(Icons.logout_rounded),
+              onPressed: _logout,
+            ),
         ],
       ),
-      body: _buildList(isLoading, error, businesses, selectedBusinessId, theme, isDark),
-    );
-  }
-
-  Widget _buildList(bool isLoading, String? error, List<Business> businesses, String? selectedBusinessId, ThemeData theme, bool isDark) {
-    final sorted = List<Business>.from(businesses)..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    businesses = sorted;
-    if (isLoading) {
-      return LoadingIndicator(message: 'loading_businesses'.tr(), isShimmer: true);
-    }
-    if (error != null) {
-      return AppErrorWidget(
-        errorMessage: error,
-        onRetry: () => context.read<Core>().business.fetchBusinesses(),
-      );
-    }
-    if (businesses.isEmpty) {
-      return EmptyState(
-        icon: Icons.store_rounded,
-        title: 'no_businesses_found'.tr(),
-        description: 'create_first_business'.tr(),
-        buttonText: 'add_business'.tr(),
-        onButtonPressed: () {
-          Navigator.of(context).push(getPageRoute(const BusinessFormScreen()));
-        },
-      );
-    }
-    return RefreshIndicator(
-      color: isDark ? Colors.white : AppTheme.primary,
-      onRefresh: () => context.read<Core>().business.fetchBusinesses(),
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: businesses.length,
-        itemBuilder: (context, index) {
-          final b = businesses[index];
-          final isSelected = selectedBusinessId == b.id;
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-              side: BorderSide(
-                color: isSelected
-                    ? (isDark ? Colors.white : AppTheme.primary)
-                    : Colors.transparent,
-                width: 2,
-              ),
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-              onTap: () => _onBusinessSelected(b),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? (isDark ? AppTheme.primary.withValues(alpha: 0.2) : AppTheme.primary.withValues(alpha: 0.08))
-                            : (isDark ? AppTheme.gray800 : AppTheme.gray100),
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                      ),
-                      child: b.logoUrl != null && b.logoUrl!.isNotEmpty
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                              child: Image.network(
-                                b.logoUrl!,
-                                fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Icon(
-                                    Icons.store_rounded,
-                                    color: isSelected ? (isDark ? Colors.white : AppTheme.primary) : AppTheme.gray400,
-                                  ),
-                              ),
-                            )
-                          : Icon(
-                              Icons.store_rounded,
-                              color: isSelected ? (isDark ? Colors.white : AppTheme.primary) : AppTheme.gray400,
-                              size: 28,
+      body: RefreshIndicator(
+        onRefresh: core.business.fetchBusinesses,
+        child: ListView(
+          padding: const EdgeInsets.all(AppTheme.spaceLg),
+          children: [
+            if (widget.isRoot) ...[
+              Text('choose_business_hint'.tr(), style: context.text.bodyLarge),
+              const SizedBox(height: AppTheme.spaceLg),
+            ],
+            if (core.business.isLoading && businesses.isEmpty)
+              const SizedBox(height: 240, child: LoadingIndicator()),
+            for (final business in businesses)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppTheme.spaceSm),
+                child: AppCard(
+                  onTap: () => _open(business),
+                  borderColor: business.id == selectedId ? context.colors.primary : null,
+                  child: Row(
+                    children: [
+                      BusinessLogo(logoUrl: business.logoUrl, name: business.name, size: 44),
+                      const SizedBox(width: AppTheme.spaceMd),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              business.name,
+                              style: context.text.titleSmall,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            b.name,
-                            style: GoogleFonts.outfit(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              color: theme.textTheme.titleLarge?.color,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${b.city}, ${b.state}',
-                            style: GoogleFonts.outfit(
-                              fontSize: 14,
-                              color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.6),
-                            ),
-                          ),
-                          if (b.gstin != null && b.gstin!.isNotEmpty) ...[
                             const SizedBox(height: 2),
                             Text(
-                              'GSTIN: ${b.gstin}',
-                              style: GoogleFonts.outfit(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.5),
-                              ),
+                              [business.role.displayName, ?business.gstin].join(' · '),
+                              style: context.text.bodySmall,
                             ),
                           ],
-                        ],
+                        ),
                       ),
-                    ),
-                    if (isSelected)
                       Icon(
-                        Icons.check_circle,
-                        color: isDark ? Colors.white : AppTheme.primary,
-                        size: 28,
-                      )
-                    else
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: theme.iconTheme.color?.withValues(alpha: 0.4),
+                        business.id == selectedId
+                            ? Icons.check_circle_rounded
+                            : Icons.chevron_right_rounded,
+                        color: business.id == selectedId
+                            ? context.colors.primary
+                            : context.colors.muted,
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
+            const SizedBox(height: AppTheme.spaceLg),
+            AppButton(
+              text: 'add_business'.tr(),
+              icon: Icons.add_business_outlined,
+              variant: AppButtonVariant.secondary,
+              onPressed: () => Navigator.of(context).push(
+                getPageRoute(const BusinessFormScreen()),
+              ),
             ),
-          );
-        },
+            const SizedBox(height: AppTheme.spaceSm),
+            AppButton(
+              text: 'join_with_invite'.tr(),
+              icon: Icons.group_add_outlined,
+              variant: AppButtonVariant.text,
+              onPressed: () => showJoinBusinessDialog(context),
+            ),
+          ],
+        ),
       ),
     );
   }

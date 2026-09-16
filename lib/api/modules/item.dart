@@ -1,46 +1,62 @@
 import 'package:dio/dio.dart';
+import 'package:vyaparsetu/api/response.dart';
 
 class ItemApi {
   final Dio _dio;
 
   ItemApi(this._dio);
 
-  Future<Map<String, dynamic>> create(String businessId, Map<String, dynamic> data) async {
-    final response = await _dio.post('/businesses/$businessId/items', data: data);
-    return response.data;
-  }
+  String _base(String businessId) => '${businessPath(businessId)}/items';
 
-  Future<List<Map<String, dynamic>>> list(
+  Future<PageJson> list(
     String businessId, {
     String? search,
+    String? categoryId,
+    bool lowStock = false,
+    bool includeArchived = false,
+    int? limit,
+    int offset = 0,
   }) async {
     final response = await _dio.get(
-      '/businesses/$businessId/items',
-      queryParameters: {
-        if (search != null) 'search': search,
-      },
+      _base(businessId),
+      queryParameters: queryOf({
+        'search': search,
+        'category_id': categoryId,
+        'low_stock': lowStock ? 'true' : null,
+        'include_archived': includeArchived ? 'true' : null,
+        'limit': limit,
+        'offset': offset,
+      }),
     );
-    final List<dynamic> list = response.data;
-    return list.map((e) => Map<String, dynamic>.from(e)).toList();
+    return PageJson.of(response);
   }
 
-  Future<Map<String, dynamic>> getById(String businessId, String itemId) async {
-    final response = await _dio.get('/businesses/$businessId/items/$itemId');
-    return response.data;
+  Future<Map<String, dynamic>> get(String businessId, String itemId) async {
+    return dataOf(await _dio.get('${_base(businessId)}/$itemId'));
   }
 
-  Future<void> update(String businessId, String itemId, Map<String, dynamic> data) async {
-    await _dio.put('/businesses/$businessId/items/$itemId', data: data);
+  Future<Map<String, dynamic>> create(
+    String businessId,
+    Map<String, dynamic> data,
+  ) async {
+    return dataOf(await _dio.post(_base(businessId), data: data));
   }
 
-  Future<void> delete(String businessId, String itemId) async {
-    await _dio.delete('/businesses/$businessId/items/$itemId');
+  /// Only the fields sent are changed; null clears a field.
+  Future<Map<String, dynamic>> update(
+    String businessId,
+    String itemId,
+    Map<String, dynamic> data,
+  ) async {
+    return dataOf(await _dio.patch('${_base(businessId)}/$itemId', data: data));
   }
 
-  Future<Map<String, dynamic>> getQuantitySummary(String businessId, String itemId) async {
-    final response = await _dio.get(
-      '/businesses/$businessId/items/$itemId/quantity-summary',
-    );
-    return response.data;
+  Future<Map<String, dynamic>> setArchived(
+    String businessId,
+    String itemId, {
+    required bool archived,
+  }) async {
+    final action = archived ? 'archive' : 'restore';
+    return dataOf(await _dio.post('${_base(businessId)}/$itemId/$action'));
   }
 }

@@ -1,17 +1,20 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:vyaparsetu/global/themes.dart';
 
+/// Search field that reports changes after the user pauses typing.
 class AppSearchBar extends StatefulWidget {
   final String hintText;
   final void Function(String) onChanged;
+  final String initialValue;
   final Duration debounceDuration;
 
   const AppSearchBar({
     super.key,
     required this.hintText,
     required this.onChanged,
+    this.initialValue = '',
     this.debounceDuration = const Duration(milliseconds: 350),
   });
 
@@ -20,20 +23,8 @@ class AppSearchBar extends StatefulWidget {
 }
 
 class _AppSearchBarState extends State<AppSearchBar> {
-  final _controller = TextEditingController();
+  late final _controller = TextEditingController(text: widget.initialValue);
   Timer? _debounce;
-  bool _hasText = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.addListener(() {
-      final hasText = _controller.text.isNotEmpty;
-      if (hasText != _hasText) {
-        setState(() => _hasText = hasText);
-      }
-    });
-  }
 
   @override
   void dispose() {
@@ -43,59 +34,47 @@ class _AppSearchBarState extends State<AppSearchBar> {
   }
 
   void _onChanged(String value) {
+    setState(() {});
     _debounce?.cancel();
-    _debounce = Timer(widget.debounceDuration, () {
-      widget.onChanged(value);
-    });
+    _debounce = Timer(widget.debounceDuration, () => widget.onChanged(value.trim()));
+  }
+
+  void _clear() {
+    _debounce?.cancel();
+    _controller.clear();
+    setState(() {});
+    widget.onChanged('');
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final colors = context.colors;
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      borderSide: BorderSide(color: colors.border),
+    );
 
     return TextField(
       controller: _controller,
       onChanged: _onChanged,
-      style: GoogleFonts.outfit(fontSize: 13, color: theme.textTheme.bodyLarge?.color),
+      textInputAction: TextInputAction.search,
+      style: context.text.bodyLarge,
       decoration: InputDecoration(
         hintText: widget.hintText,
-        hintStyle: GoogleFonts.outfit(
-          fontSize: 13,
-          color: isDark ? AppTheme.gray400 : AppTheme.gray400,
-        ),
-        prefixIcon: Icon(
-          Icons.search_rounded,
-          color: isDark ? AppTheme.gray400 : AppTheme.gray400,
-          size: 16,
-        ),
-        suffixIcon: _hasText
-            ? IconButton(
-                icon: Icon(Icons.close_rounded, size: 16, color: isDark ? AppTheme.gray400 : AppTheme.gray500),
-                onPressed: () {
-                  _controller.clear();
-                  widget.onChanged('');
-                  FocusScope.of(context).unfocus();
-                },
-              )
-            : null,
-        filled: true,
-        fillColor: isDark ? AppTheme.gray700 : AppTheme.gray100,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-          borderSide: BorderSide(
-            color: isDark ? AppTheme.primaryDark : AppTheme.primary,
-            width: 1.5,
-          ),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        prefixIcon: const Icon(Icons.search_rounded, size: 22),
+        suffixIcon: _controller.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: MaterialLocalizations.of(context).deleteButtonTooltip,
+                icon: const Icon(Icons.close_rounded, size: 20),
+                onPressed: _clear,
+              ),
+        border: border,
+        enabledBorder: border,
+        focusedBorder: border.copyWith(
+          borderSide: BorderSide(color: colors.primary, width: 1.6),
         ),
       ),
     );

@@ -1,20 +1,26 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:easy_localization/easy_localization.dart';
-import 'package:vyaparsetu/types/item.dart';
-import 'package:vyaparsetu/types/itemQuantitySummary.dart';
-import 'package:vyaparsetu/components/confirmationDialog.dart';
-import 'package:vyaparsetu/helpers/formatters.dart';
-import 'package:vyaparsetu/helpers/toastNotifications.dart';
-import 'package:vyaparsetu/global/themes.dart';
-import 'package:vyaparsetu/helpers/navigation.dart';
-import 'package:vyaparsetu/screens/items/form.dart';
+import 'package:vyaparsetu/components/appButton.dart';
+import 'package:vyaparsetu/components/appCard.dart';
+import 'package:vyaparsetu/components/infoRow.dart';
+import 'package:vyaparsetu/components/loadStateBody.dart';
+import 'package:vyaparsetu/components/statusChip.dart';
 import 'package:vyaparsetu/core/Core.dart';
+import 'package:vyaparsetu/core/components/getters.dart';
+import 'package:vyaparsetu/global/constants.dart';
+import 'package:vyaparsetu/global/themes.dart';
+import 'package:vyaparsetu/helpers/formatters.dart';
+import 'package:vyaparsetu/helpers/navigation.dart';
+import 'package:vyaparsetu/helpers/toastNotifications.dart';
+import 'package:vyaparsetu/screens/items/form.dart';
+import 'package:vyaparsetu/screens/stock/form.dart';
+import 'package:vyaparsetu/types/item.dart';
 
 class ItemDetailScreen extends StatefulWidget {
-  final Item item;
-  const ItemDetailScreen({super.key, required this.item});
+  final String itemId;
+
+  const ItemDetailScreen({super.key, required this.itemId});
 
   @override
   State<ItemDetailScreen> createState() => _ItemDetailScreenState();
@@ -24,448 +30,161 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
   }
 
-  void _loadData({bool forceRefresh = false}) {
-    final businessId = context.read<Core>().business.selectedBusiness?.id;
-    if (businessId != null) {
-      context.read<Core>().item.fetchQuantitySummary(businessId, widget.item.id, forceRefresh: forceRefresh);
+  Future<void> _refresh() =>
+      context.read<Core>().item.getItem(widget.itemId, refresh: true);
+
+  void _push(Widget screen) => Navigator.of(context).push(getPageRoute(screen));
+
+  Future<void> _toggleArchive(Item item) async {
+    final items = context.read<Core>().item;
+    final saved = await items.setArchived(item.id, archived: !item.isArchived);
+    if (saved == null) {
+      showErrorToast(items.error ?? 'error_generic'.tr());
+    } else {
+      showSuccessToast(saved.isArchived ? 'item_archived'.tr() : 'item_restored'.tr());
     }
   }
 
-  void _deleteItem(BuildContext context, Item item) async {
-    final businessId = context.read<Core>().business.selectedBusiness?.id;
-    if (businessId == null) return;
-
-    final itemModule = context.read<Core>().item;
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => ConfirmationDialog(
-        title: 'delete_item'.tr(),
-        content: 'delete_item_confirm'.tr(),
-        confirmText: 'delete'.tr(),
-        isDestructive: true,
-        icon: Icons.delete_outline_rounded,
-      ),
-    );
-
-    if (confirm == true && context.mounted) {
-      final success = await itemModule.deleteItem(businessId, item.id);
-      if (success && context.mounted) {
-        Navigator.of(context).pop();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) showSuccessToast('item_deleted'.tr());
-        });
-      }
-    }
+  String? _price(double? price, bool includesTax) {
+    if (price == null) return null;
+    final note = includesTax ? 'incl_tax'.tr() : 'excl_tax'.tr();
+    return '${Formatters.formatCurrency(price)} ($note)';
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Select the latest updated item from context
-    final items = context.select<Core, List<Item>>((c) => c.item.items);
-    final matchedItem = items.firstWhere(
-      (i) => i.id == widget.item.id,
-      orElse: () => widget.item,
-    );
-
-    final quantitySummary = context.select<Core, ItemQuantitySummary?>(
-      (c) => c.item.quantitySummary,
-    );
-    final isLoadingSummary = context.select<Core, bool>(
-      (c) => c.item.isLoadingQuantitySummary,
-    );
-    final summaryError = context.select<Core, String?>(
-      (c) => c.item.quantitySummaryError,
-    );
-
-    final double netStock = quantitySummary?.overall.netStock ?? 0.0;
-    final bool isPositive = netStock >= 0;
+    final core = context.watch<Core>();
+    final state = core.item.detail(widget.itemId);
+    scheduleReload(state.needsReload, _refresh);
+    final item = state.value;
+    final isAccountant = core.can(MemberRole.accountant);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          matchedItem.name,
-          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-        ),
+        title: Text(item?.name ?? 'item'.tr()),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () {
-              Navigator.of(context).push(getPageRoute(ItemFormScreen(existingItem: matchedItem)));
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded),
-            onPressed: () => _deleteItem(context, matchedItem),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: RefreshIndicator(
-        color: AppTheme.primary,
-        onRefresh: () async => _loadData(forceRefresh: true),
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Big Available Stock Card (Color-Coded)
-              Card(
-                elevation: 0,
-                color: isDark ? AppTheme.cardDark : Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                    color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Row(
-                    children: [
-                      // Left Side: Stock details
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'current_stock'.tr().toUpperCase(),
-                              style: GoogleFonts.outfit(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? AppTheme.gray400 : AppTheme.slate500,
-                                letterSpacing: 0.8,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              textBaseline: TextBaseline.alphabetic,
-                              crossAxisAlignment: CrossAxisAlignment.baseline,
-                              children: [
-                                Text(
-                                  Formatters.formatDouble(netStock),
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 34,
-                                    fontWeight: FontWeight.w900,
-                                    color: isPositive
-                                        ? (isDark ? Colors.green[300] : Colors.green[800])
-                                        : (isDark ? Colors.red[300] : Colors.red[800]),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  matchedItem.measuringUnit,
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark ? AppTheme.gray500 : AppTheme.gray400,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            // Mini status description
-                            Row(
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: isPositive ? Colors.green : Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  netStock > 0
-                                      ? 'Everything looks good'
-                                      : netStock == 0
-                                          ? 'No stock remaining'
-                                          : 'Stock is in minus',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: isDark ? AppTheme.gray400 : AppTheme.slate500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // Right Side: Large visual badge
-                      Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: (isPositive ? Colors.green : Colors.red).withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              isPositive ? Icons.check_circle_rounded : Icons.warning_rounded,
-                              color: isPositive ? Colors.green : Colors.red,
-                              size: 28,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            netStock > 0
-                                ? 'IN STOCK'
-                                : netStock == 0
-                                    ? 'OUT OF STOCK'
-                                    : 'MINUS STOCK',
-                            style: GoogleFonts.outfit(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: isPositive ? Colors.green : Colors.red,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // 2. Activity Summary List
-              Text(
-                'quantity_summary'.tr(),
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : AppTheme.primary,
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              if (isLoadingSummary)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(40),
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-              else if (summaryError != null && quantitySummary == null)
-                _buildErrorRetry(context, summaryError)
-              else if (quantitySummary != null) ...[
-                _buildActivityItem(
-                  context,
-                  label: 'purchased_label'.tr() + ' (Bought)',
-                  value: quantitySummary.overall.purchased,
-                  unit: matchedItem.measuringUnit,
-                  icon: Icons.trending_down_rounded,
-                  color: AppTheme.success,
-                ),
-                _buildActivityItem(
-                  context,
-                  label: 'sold_label'.tr() + ' (Sales)',
-                  value: quantitySummary.overall.sold,
-                  unit: matchedItem.measuringUnit,
-                  icon: Icons.trending_up_rounded,
-                  color: AppTheme.warning,
-                ),
-                _buildActivityItem(
-                  context,
-                  label: 'sale_return_label'.tr() + ' (From Customer)',
-                  value: quantitySummary.overall.saleReturned,
-                  unit: matchedItem.measuringUnit,
-                  icon: Icons.keyboard_return_rounded,
-                  color: AppTheme.error,
-                ),
-                _buildActivityItem(
-                  context,
-                  label: 'purchase_return_label'.tr() + ' (To Supplier)',
-                  value: quantitySummary.overall.purchaseReturned,
-                  unit: matchedItem.measuringUnit,
-                  icon: Icons.keyboard_double_arrow_right_rounded,
-                  color: AppTheme.secondary,
+          if (item != null)
+            IconButton(
+              tooltip: 'edit'.tr(),
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => _push(ItemFormScreen(item: item)),
+            ),
+          if (item != null && isAccountant)
+            PopupMenuButton<String>(
+              onSelected: (_) => _toggleArchive(item),
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'archive',
+                  child: Text(item.isArchived ? 'restore'.tr() : 'archive'.tr()),
                 ),
               ],
-
-              const SizedBox(height: 20),
-
-              // 3. Product Info Card
-              _buildProductInfoCard(context, matchedItem),
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorRetry(BuildContext context, String error) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.error.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.error_outline_rounded, color: AppTheme.error, size: 28),
-          const SizedBox(height: 6),
-          Text(
-            error,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(fontSize: 13, color: AppTheme.error),
-          ),
-          const SizedBox(height: 10),
-          TextButton.icon(
-            onPressed: _loadData,
-            icon: const Icon(Icons.refresh_rounded, size: 16),
-            label: Text('retry'.tr()),
-          ),
+            ),
         ],
       ),
-    );
-  }
-
-  Widget _buildActivityItem(
-    BuildContext context, {
-    required String label,
-    required double value,
-    required String unit,
-    required IconData icon,
-    required Color color,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.cardDark : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? AppTheme.gray700 : AppTheme.gray200,
-        ),
-        boxShadow: AppTheme.shadowSm,
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+      body: LoadStateBody<Item>(
+        state: state,
+        onRetry: _refresh,
+        builder: (context, item) => RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.spaceLg,
+              AppTheme.spaceSm,
+              AppTheme.spaceLg,
+              AppTheme.space3xl,
             ),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: isDark ? AppTheme.gray300 : AppTheme.gray700,
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                Formatters.formatDouble(value),
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : AppTheme.primary,
+              AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item.name, style: context.text.titleLarge),
+                              Text(
+                                [item.itemType.displayName, ?item.categoryName].join(' · '),
+                                style: context.text.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (item.isArchived) StatusChip(label: 'archived'.tr()),
+                        if (item.isLowStock)
+                          StatusChip(label: 'low_stock'.tr(), tone: ChipTone.danger),
+                      ],
+                    ),
+                    if (item.trackStock) ...[
+                      const SizedBox(height: AppTheme.spaceLg),
+                      Text('in_stock'.tr(), style: context.text.labelMedium),
+                      Text(
+                        Formatters.formatQuantity(item.quantityOnHand ?? 0, item.unitCode),
+                        style: context.text.headlineSmall?.copyWith(
+                          color: item.isLowStock ? context.colors.danger : null,
+                        ),
+                      ),
+                      if (isAccountant) ...[
+                        const SizedBox(height: AppTheme.spaceMd),
+                        AppButton(
+                          text: 'adjust_stock'.tr(),
+                          icon: Icons.tune_rounded,
+                          variant: AppButtonVariant.secondary,
+                          compact: true,
+                          onPressed: () => _push(StockAdjustmentFormScreen(item: item)),
+                        ),
+                      ],
+                    ],
+                  ],
                 ),
               ),
-              Text(
-                unit,
-                style: GoogleFonts.outfit(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: isDark ? AppTheme.gray500 : AppTheme.gray400,
+              const SizedBox(height: AppTheme.spaceMd),
+              AppCard(
+                child: Column(
+                  children: [
+                    InfoRow(label: 'sale_price'.tr(), value: _price(item.salePrice, item.priceIncludesTax)),
+                    InfoRow(
+                      label: 'purchase_price'.tr(),
+                      value: _price(item.purchasePrice, item.priceIncludesTax),
+                    ),
+                    InfoRow(
+                      label: 'gst_rate'.tr(),
+                      value: item.taxRate == null
+                          ? 'no_gst_rate'.tr()
+                          : Formatters.formatPercent(item.taxRate!),
+                    ),
+                    if ((item.cessRate ?? 0) > 0)
+                      InfoRow(label: 'cess'.tr(), value: Formatters.formatPercent(item.cessRate!)),
+                    InfoRow(
+                      label: item.itemType == ItemType.service ? 'sac_code'.tr() : 'hsn_code'.tr(),
+                      value: item.hsnSac,
+                    ),
+                    InfoRow(label: 'unit'.tr(), value: item.unitCode),
+                    InfoRow(label: 'sku'.tr(), value: item.sku),
+                    InfoRow(label: 'barcode'.tr(), value: item.barcode),
+                    if (item.trackStock)
+                      InfoRow(
+                        label: 'low_stock_alert'.tr(),
+                        value: item.lowStockThreshold == null
+                            ? null
+                            : Formatters.formatQuantity(item.lowStockThreshold!, item.unitCode),
+                      ),
+                    if (item.trackStock && (item.openingStock ?? 0) > 0)
+                      InfoRow(
+                        label: 'opening_stock'.tr(),
+                        value: Formatters.formatQuantity(item.openingStock!, item.unitCode),
+                      ),
+                  ],
                 ),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProductInfoCard(BuildContext context, Item item) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.cardDark : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? AppTheme.gray700 : AppTheme.gray200,
         ),
-        boxShadow: AppTheme.shadowSm,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Product Details',
-            style: GoogleFonts.outfit(
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
-              color: isDark ? Colors.white : AppTheme.primary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Divider(height: 1, thickness: 1, color: isDark ? AppTheme.gray700 : AppTheme.gray200),
-          const SizedBox(height: 8),
-          _buildInfoRow(context, 'item_name_label'.tr(), item.name, Icons.shopping_bag_outlined),
-          _buildInfoRow(
-            context,
-            'Tax Code (HSN)',
-            (item.hsnCode != null && item.hsnCode!.trim().isNotEmpty) ? item.hsnCode! : 'not_provided'.tr(),
-            Icons.tag_rounded,
-          ),
-          _buildInfoRow(context, 'measuring_unit_label'.tr(), item.measuringUnit, Icons.scale_rounded),
-          _buildInfoRow(context, 'Added On', Formatters.formatDate(item.createdAt), Icons.calendar_today_rounded),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(BuildContext context, String label, String value, IconData icon) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: isDark ? AppTheme.gray400 : AppTheme.slate500),
-          const SizedBox(width: 10),
-          Text(
-            label,
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: isDark ? AppTheme.gray400 : AppTheme.slate500,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            value,
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : AppTheme.primary,
-            ),
-          ),
-        ],
       ),
     );
   }

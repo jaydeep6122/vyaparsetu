@@ -1,95 +1,97 @@
 import 'package:vyaparsetu/global/constants.dart';
+import 'package:vyaparsetu/helpers/json.dart';
+import 'package:vyaparsetu/types/invoice.dart';
 
 class Expense {
   final String id;
-  final String businessId;
-  final String expenseCategory;
   final String expenseNumber;
   final DateTime expenseDate;
-  final double totalAmount;
-  final double paidAmount;
-  final PaymentMode paymentMode;
-  final String? description;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final String? categoryId;
+  final String? categoryName;
 
-  Expense({
+  /// The vendor, when the expense is owed to someone.
+  final String? partyId;
+  final String? partyName;
+  final TaxMode taxMode;
+  final double taxableAmount;
+  final double cgstAmount;
+  final double sgstAmount;
+  final double igstAmount;
+  final double cessAmount;
+  final bool itcEligible;
+  final double totalAmount;
+  final double amountSettled;
+  final PaymentStatus paymentStatus;
+  final double outstanding;
+  final RecordStatus status;
+  final String? notes;
+  final DateTime? cancelledAt;
+  final String? cancelReason;
+  final DateTime? createdAt;
+
+  /// Empty in list responses. Expense payments are always money out.
+  final List<InvoicePaymentLink> payments;
+
+  const Expense({
     required this.id,
-    required this.businessId,
-    required this.expenseCategory,
     required this.expenseNumber,
     required this.expenseDate,
+    this.categoryId,
+    this.categoryName,
+    this.partyId,
+    this.partyName,
+    required this.taxMode,
+    required this.taxableAmount,
+    required this.cgstAmount,
+    required this.sgstAmount,
+    required this.igstAmount,
+    required this.cessAmount,
+    required this.itcEligible,
     required this.totalAmount,
-    required this.paidAmount,
-    required this.paymentMode,
-    this.description,
-    required this.createdAt,
-    required this.updatedAt,
+    required this.amountSettled,
+    required this.paymentStatus,
+    required this.outstanding,
+    required this.status,
+    this.notes,
+    this.cancelledAt,
+    this.cancelReason,
+    this.createdAt,
+    this.payments = const [],
   });
 
   factory Expense.fromJson(Map<String, dynamic> json) {
+    final total = asDouble(json['total_amount']);
+    final settled = asDouble(json['amount_settled']);
     return Expense(
       id: json['id'] as String,
-      businessId: json['business_id'] as String? ?? '',
-      expenseCategory: json['expense_category'] as String? ?? '',
-      expenseNumber: json['expense_number'] as String? ?? '',
-      expenseDate: json['expense_date'] != null
-          ? DateTime.parse(json['expense_date'] as String).toLocal()
-          : DateTime.now(),
-      totalAmount: double.tryParse(json['total_amount']?.toString() ?? '0') ?? 0.0,
-      paidAmount: double.tryParse(json['paid_amount']?.toString() ?? '0') ?? 0.0,
-      paymentMode: PaymentMode.fromString(json['payment_mode'] as String? ?? 'cash'),
-      description: json['description'] as String?,
-      createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at'] as String).toLocal()
-          : DateTime.now(),
-      updatedAt: json['updated_at'] != null 
-          ? DateTime.parse(json['updated_at'] as String).toLocal()
-          : DateTime.now(),
+      expenseNumber: asString(json['expense_number']),
+      expenseDate: asDate(json['expense_date']) ?? DateTime.now(),
+      categoryId: json['category_id'] as String?,
+      categoryName: json['category_name'] as String?,
+      partyId: json['party_id'] as String?,
+      partyName: json['party_name'] as String?,
+      taxMode: TaxMode.fromString(json['tax_mode'] as String?),
+      taxableAmount: asDouble(json['taxable_amount']),
+      cgstAmount: asDouble(json['cgst_amount']),
+      sgstAmount: asDouble(json['sgst_amount']),
+      igstAmount: asDouble(json['igst_amount']),
+      cessAmount: asDouble(json['cess_amount']),
+      itcEligible: asBool(json['itc_eligible']),
+      totalAmount: total,
+      amountSettled: settled,
+      paymentStatus: PaymentStatus.fromString(json['payment_status'] as String?),
+      outstanding: asDouble(json['outstanding'], total - settled),
+      status: RecordStatus.fromString(json['status'] as String?),
+      notes: json['notes'] as String?,
+      cancelledAt: asDate(json['cancelled_at']),
+      cancelReason: json['cancel_reason'] as String?,
+      createdAt: asDate(json['created_at']),
+      payments: asMapList(json['payments'])
+          .map((payment) => InvoicePaymentLink.fromJson({...payment, 'payment_type': 'out'}))
+          .toList(),
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'business_id': businessId,
-      'expense_category': expenseCategory,
-      'expense_number': expenseNumber,
-      'expense_date': expenseDate.toUtc().toIso8601String(),
-      'total_amount': totalAmount,
-      'paid_amount': paidAmount,
-      'payment_mode': paymentMode.value,
-      'description': description,
-      'created_at': createdAt.toUtc().toIso8601String(),
-      'updated_at': updatedAt.toUtc().toIso8601String(),
-    };
-  }
-
-  Expense copyWith({
-    String? id,
-    String? businessId,
-    String? expenseCategory,
-    String? expenseNumber,
-    DateTime? expenseDate,
-    double? totalAmount,
-    double? paidAmount,
-    PaymentMode? paymentMode,
-    String? description,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return Expense(
-      id: id ?? this.id,
-      businessId: businessId ?? this.businessId,
-      expenseCategory: expenseCategory ?? this.expenseCategory,
-      expenseNumber: expenseNumber ?? this.expenseNumber,
-      expenseDate: expenseDate ?? this.expenseDate,
-      totalAmount: totalAmount ?? this.totalAmount,
-      paidAmount: paidAmount ?? this.paidAmount,
-      paymentMode: paymentMode ?? this.paymentMode,
-      description: description ?? this.description,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
+  bool get isCancelled => status == RecordStatus.cancelled;
+  double get taxTotal => cgstAmount + sgstAmount + igstAmount + cessAmount;
 }

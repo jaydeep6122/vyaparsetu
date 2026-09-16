@@ -1,126 +1,95 @@
 # State Management
 
 ## Rule
-A single `Core` ChangeNotifier owns all application state through 9 module properties. No individual providers.
+One `Core` ChangeNotifier owns every module. The **server is the source of
+truth**: modules never recalculate balances, stock or totals — after a change
+they mark data stale so it reloads.
 
 ## Architecture
 
 ```
 Core (ChangeNotifier)
-├── auth        → AuthModule
-├── business    → BusinessModule
-├── party       → PartyModule
-├── item        → ItemModule
-├── invoice     → InvoiceModule
-├── payment     → PaymentModule
-├── expense     → ExpenseModule
-├── dashboard   → DashboardModule
-└── settings    → SettingsModule
+├── auth      → AuthModule        ├── account  → AccountModule
+├── business  → BusinessModule    ├── invoice  → InvoiceModule
+├── member    → MemberModule      ├── payment  → PaymentModule
+├── party     → PartyModule       ├── expense  → ExpenseModule
+├── item      → ItemModule        ├── stock    → StockModule
+├── master    → MasterModule      ├── report   → ReportModule
+└── settings  → SettingsModule
 ```
 
-Each module stores its own state (`_items`, `_isLoading`, `_error`, etc.) and calls `core.notifyListeners()` after every mutation to trigger UI rebuilds.
+`core.resetBusinessData()` clears everything when the business changes or the
+user signs out. `core.markBooksChanged()` marks parties, items, accounts,
+documents and reports stale after money or stock moves.
 
-## Access from Screens
+## CoreModule base (`core/components/moduleBase.dart`)
 
-### Reading once (callbacks, initState, event handlers)
+Every module extends `CoreModule` and gets:
+
+| Member | Purpose |
+|---|---|
+| `runSave(action)` | Runs a create/update/cancel; returns `null` and sets `error` on failure, toggles `isSaving` |
+| `loadPage(state, fetch:, parse:, refresh:, more:)` | Fills a `PagedState<T>`; drops responses that a newer request has superseded |
+| `loadValue(state, fetch, refresh:)` | Fills a `LoadState<T>`, reusing the value unless missing, stale or refreshed |
+
+`PagedState<T>` holds `data`, `isLoading`, `isLoadingMore`, `error`, `loaded`,
+`stale`, `isFetching`; `LoadState<T>` holds `value` and the same flags. Both
+expose `needsReload` — stale, nothing in flight, no error.
+
+## Screens
+
 ```dart
-final core = context.read<Core>();
-await core.auth.login(email, password);
+// one-off reads: initState, callbacks
+context.read<Core>().party.fetchParties();
 
-// Or inline:
-context.read<Core>().business.fetchBusinesses();
+// a single value in build
+final isSaving = context.select<Core, bool>((c) => c.item.isSaving);
+
+// a screen that shows several module values
+final core = context.watch<Core>();
+
+// reload data that changed elsewhere
+scheduleReload(core.invoice.list.needsReload, () => core.invoice.fetchInvoices(refresh: true));
 ```
 
-### Watching specific values (build method, granular rebuilds)
-```dart
-// Only rebuilds when selectedBusiness changes
-final businessId = context.select<Core, String?>(
-  (c) => c.business.selectedBusiness?.id,
-);
+Role checks come from `core/components/getters.dart`:
+`core.can(MemberRole.accountant)`, `core.role`, `core.businessId`.
 
-// Only rebuilds when invoice list changes
-final invoices = context.select<Core, List<Invoice>>(
-  (c) => c.invoice.invoices,
-);
-```
-
-### Multiple watches in one build (use Selector)
-```dart
-Selector<Core, List<Invoice>>(
-  selector: (context, core) => core.invoice.invoices,
-  builder: (context, invoices, child) {
-    if (invoices.isEmpty) return const EmptyState(...);
-    return ListView.builder(
-      itemCount: invoices.length,
-      itemBuilder: (context, index) => Text(invoices[index].name),
-    );
-  },
-)
-```
-
-For multiple independent dependencies, use separate `context.select` calls:
-```dart
-final invoices = context.select<Core, List<Invoice>>((c) => c.invoice.invoices);
-final isLoading = context.select<Core, bool>((c) => c.invoice.isLoading);
-final error = context.select<Core, String?>((c) => c.invoice.error);
-```
-
-### Loading data on screen init
-```dart
-@override
-void initState() {
-  super.initState();
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    context.read<Core>().item.fetchItems(businessId);
-  });
-}
-```
-
-## Module Pattern
+## Module pattern
 
 ```dart
-class BusinessModule {
-  final Core core;
-  BusinessModule(this.core);
+class PartyModule extends CoreModule {
+  PartyModule(super.core);
 
-  List<Business> _businesses = [];
-  bool _isLoading = false;
-  String? _error;
-  Business? _selectedBusiness;
+  final PagedState<Party> list = PagedState();
+  final Map<String, LoadState<Party>> _details = {};
 
-  List<Business> get businesses => _businesses;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
-  Business? get selectedBusiness => _selectedBusiness;
+  LoadState<Party> detail(String id) => _details.putIfAbsent(id, LoadState.new);
 
-  Future<void> fetchBusinesses() async {
-    _isLoading = true;
-    _error = null;
-    core.notifyListeners();
-    try {
-      _businesses = await Api.instance.business.getBusinesses();
-      _isLoading = false;
-      core.notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      core.notifyListeners();
-    }
+  Future<void> fetchParties({bool refresh = false, bool more = false}) => loadPage(
+    list,
+    fetch: (offset) => Api.instance.party.list(core.businessId, offset: offset),
+    parse: Party.fromJson,
+    refresh: refresh,
+    more: more,
+  );
+
+  Future<Party?> createParty(Map<String, dynamic> data) async {
+    final json = await runSave(() => Api.instance.party.create(core.businessId, data));
+    return json == null ? null : _saved(Party.fromJson(json));
   }
 }
 ```
 
+Screens pass plain `Map<String, dynamic>` payloads with snake_case keys; the
+module hands them to the API untouched.
+
 ## DO
-- Use `context.read<Core>()` in `initState`, callbacks, and event handlers
-- Use `context.select<Core, T>()` in `build()` to subscribe to specific state
-- Use `Selector<Core, T>(selector:builder:)` when rebuilding multiple widgets from a Core value
-- Use multiple `context.select<Core, T>()` calls for independent watches in `build()`
-- Call `core.notifyListeners()` after every state mutation in modules
-- Load data inside Core modules via `Api.instance`
+- Extend `CoreModule`; use `runSave` / `loadPage` / `loadValue`
+- Show `module.error` in a toast when a save returns null
+- Mark stale and refetch instead of patching local state after a write
 
 ## DON'T
-- Use `context.watch<Core>()` — use `context.select<Core, T>()` instead
-- Use `Consumer<Core>()` — use `Selector<Core, T>()` or `context.select<Core, T>()` instead
-- Use `Provider.of<XxxProvider>(context)` — old pattern, removed
-- Call `Api.instance` directly from screens — always go through Core modules
-- Create new `ChangeNotifier` classes outside of Core modules
+- Compute balances, stock or invoice totals in the app
+- Call `Api.instance` from a screen
+- Create `ChangeNotifier`s outside Core
