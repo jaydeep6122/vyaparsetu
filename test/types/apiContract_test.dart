@@ -70,6 +70,15 @@ void main() {
       expect(created.name, fetched.name);
       expect(fetched.balance, greaterThan(0));
       expect(fetched.openingBalance, 2500);
+
+      // Two billing addresses and one shipping address; with none marked, the
+      // first of each kind is the default.
+      expect(fetched.addresses, hasLength(3));
+      expect(fetched.addressesOf(AddressKind.billing), hasLength(2));
+      expect(fetched.defaultAddress(AddressKind.billing)?.label, 'Head office');
+      expect(fetched.defaultAddress(AddressKind.shipping)?.address.city, 'Morbi');
+      expect(fetched.billingAddress?.line1, '1 Main Road');
+      expect(fetched.addresses.every((address) => address.id != null), isTrue);
       expect(_list('party_list')!.map(Party.fromJson).length, greaterThan(1));
     });
 
@@ -92,6 +101,12 @@ void main() {
       expect(invoice.isGst, isTrue);
       expect(invoice.hasTransportDetails, isTrue);
       expect(invoice.charges.first.payeeName, isNotNull);
+
+      // The bill printed the Branch billing address and the warehouse.
+      expect(invoice.billingAddressId, isNotNull);
+      expect(invoice.billingAddress?.line1, '9 Ring Road');
+      expect(invoice.shippingAddressId, isNotNull);
+      expect(invoice.shippingAddress?.city, 'Morbi');
       expect(_list('invoice_list')!.map(Invoice.fromJson), isNotEmpty);
     });
 

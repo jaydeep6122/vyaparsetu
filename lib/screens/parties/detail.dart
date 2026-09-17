@@ -147,6 +147,10 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
             ),
             children: [
               _buildHeader(context, party),
+              if (party.addresses.isNotEmpty) ...[
+                const SizedBox(height: AppTheme.spaceMd),
+                _buildAddresses(context, party),
+              ],
               const SizedBox(height: AppTheme.spaceMd),
               _buildActions(party),
               const SizedBox(height: AppTheme.space2xl),
@@ -243,11 +247,6 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
           InfoRow(label: 'gstin'.tr(), icon: Icons.verified_outlined, value: party.gstin),
           InfoRow(label: 'state'.tr(), icon: Icons.place_outlined, value: stateNameFromCode(party.stateCode)),
           InfoRow(
-            label: 'billing_address'.tr(),
-            icon: Icons.home_work_outlined,
-            value: party.billingAddress?.singleLine,
-          ),
-          InfoRow(
             label: 'credit_days'.tr(),
             icon: Icons.schedule_outlined,
             value: party.creditDays == null
@@ -259,6 +258,39 @@ class _PartyDetailScreenState extends State<PartyDetailScreen> {
             icon: Icons.speed_outlined,
             value: party.creditLimit == null ? null : Formatters.formatCurrency(party.creditLimit!),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddresses(BuildContext context, Party party) {
+    return AppCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          for (final (index, address) in party.addresses.indexed) ...[
+            if (index > 0) const Divider(indent: 56),
+            ListTile(
+              leading: Icon(
+                address.kind == AddressKind.billing
+                    ? Icons.receipt_long_outlined
+                    : Icons.local_shipping_outlined,
+                color: context.colors.inkSecondary,
+              ),
+              title: Row(
+                children: [
+                  Flexible(
+                    child: Text(address.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  if (address.isDefault) ...[
+                    const SizedBox(width: AppTheme.spaceSm),
+                    StatusChip(label: 'default_address'.tr(), tone: ChipTone.primary),
+                  ],
+                ],
+              ),
+              subtitle: Text('${address.kind.displayName} · ${address.address.singleLine}'),
+            ),
+          ],
         ],
       ),
     );

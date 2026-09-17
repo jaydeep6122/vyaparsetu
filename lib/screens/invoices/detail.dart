@@ -24,6 +24,7 @@ import 'package:vyaparsetu/screens/payments/detail.dart';
 import 'package:vyaparsetu/screens/payments/form.dart';
 import 'package:vyaparsetu/services/invoicePdfService.dart';
 import 'package:vyaparsetu/types/account.dart';
+import 'package:vyaparsetu/types/address.dart';
 import 'package:vyaparsetu/types/invoice.dart';
 
 class InvoiceDetailScreen extends StatefulWidget {
@@ -184,6 +185,11 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
             ),
             children: [
               _buildHeader(context, invoice),
+              if (!(invoice.billingAddress?.isEmpty ?? true) ||
+                  !((invoice.shipTo ?? invoice.shippingAddress)?.isEmpty ?? true)) ...[
+                const SizedBox(height: AppTheme.spaceMd),
+                _buildAddresses(context, invoice),
+              ],
               const SizedBox(height: AppTheme.spaceMd),
               Row(
                 children: [
@@ -312,6 +318,56 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
               label: 'cancel_reason'.tr(),
               value: invoice.cancelReason ?? 'no_reason_given'.tr(),
             ),
+        ],
+      ),
+    );
+  }
+
+  /// The billing and shipping addresses exactly as printed on this bill.
+  Widget _buildAddresses(BuildContext context, Invoice invoice) {
+    Widget block(String title, IconData icon, Address? address, String emptyText) {
+      final lines = address == null || address.isEmpty ? null : address.lines;
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: context.colors.muted),
+          const SizedBox(width: AppTheme.spaceMd),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: context.text.labelMedium),
+                const SizedBox(height: 2),
+                Text(
+                  lines?.join('\n') ?? emptyText,
+                  style: lines == null
+                      ? context.text.bodySmall
+                      : context.text.bodyMedium?.copyWith(color: context.colors.ink),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          block(
+            'billing_address'.tr(),
+            Icons.receipt_long_outlined,
+            invoice.billingAddress,
+            'no_address_on_bill'.tr(),
+          ),
+          const Divider(height: AppTheme.space2xl),
+          block(
+            'shipping_address'.tr(),
+            Icons.local_shipping_outlined,
+            invoice.shipTo ?? invoice.shippingAddress,
+            'same_as_billing'.tr(),
+          ),
         ],
       ),
     );

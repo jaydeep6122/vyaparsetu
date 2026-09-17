@@ -45,7 +45,11 @@ class PartyModule extends CoreModule {
   Future<void> loadMore() => fetchParties(more: true);
 
   /// `customer` and `supplier` filters include parties marked `both`.
-  Future<void> setFilters({String? search, PartyType? type, bool clearType = false}) {
+  Future<void> setFilters({
+    String? search,
+    PartyType? type,
+    bool clearType = false,
+  }) {
     _search = search ?? _search;
     _typeFilter = clearType ? null : (type ?? _typeFilter);
     return fetchParties(refresh: true);
@@ -55,7 +59,8 @@ class PartyModule extends CoreModule {
     final businessId = core.businessId;
     return loadValue(
       detail(partyId),
-      () async => Party.fromJson(await Api.instance.party.get(businessId, partyId)),
+      () async =>
+          Party.fromJson(await Api.instance.party.get(businessId, partyId)),
       refresh: refresh,
     );
   }

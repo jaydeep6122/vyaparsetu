@@ -6,6 +6,7 @@ import 'package:vyaparsetu/components/appButton.dart';
 import 'package:vyaparsetu/components/appTextField.dart';
 import 'package:vyaparsetu/components/formFields.dart';
 import 'package:vyaparsetu/components/statePicker.dart';
+import 'package:vyaparsetu/components/statusChip.dart';
 import 'package:vyaparsetu/core/Core.dart';
 import 'package:vyaparsetu/global/constants.dart';
 import 'package:vyaparsetu/global/themes.dart';
@@ -15,7 +16,7 @@ import 'package:vyaparsetu/helpers/inputFormatters.dart';
 import 'package:vyaparsetu/helpers/json.dart';
 import 'package:vyaparsetu/helpers/toastNotifications.dart';
 import 'package:vyaparsetu/helpers/validators.dart';
-import 'package:vyaparsetu/types/address.dart';
+import 'package:vyaparsetu/screens/parties/addressSheet.dart';
 import 'package:vyaparsetu/types/party.dart';
 
 /// Adds or edits a customer, supplier or transporter. Pops with the saved
@@ -38,14 +39,6 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
   late final _phone = TextEditingController(text: _party?.phone);
   late final _email = TextEditingController(text: _party?.email);
   late final _gstin = TextEditingController(text: _party?.gstin);
-  late final _billLine1 = TextEditingController(text: _party?.billingAddress?.line1);
-  late final _billLine2 = TextEditingController(text: _party?.billingAddress?.line2);
-  late final _billCity = TextEditingController(text: _party?.billingAddress?.city);
-  late final _billPincode = TextEditingController(text: _party?.billingAddress?.pincode);
-  late final _shipLine1 = TextEditingController(text: _party?.shippingAddress?.line1);
-  late final _shipLine2 = TextEditingController(text: _party?.shippingAddress?.line2);
-  late final _shipCity = TextEditingController(text: _party?.shippingAddress?.city);
-  late final _shipPincode = TextEditingController(text: _party?.shippingAddress?.pincode);
   late final _creditDays = TextEditingController(text: _party?.creditDays?.toString());
   late final _creditLimit = TextEditingController(
     text: _party?.creditLimit == null ? null : Formatters.formatNumber(_party!.creditLimit!, maxDecimals: 2),
@@ -60,20 +53,20 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
   late PartyType _type = _party?.partyType ?? widget.initialType;
   late PartyGstType _gstType = _party?.gstType ?? PartyGstType.unregistered;
   late String? _stateCode = _party?.stateCode;
-  late bool _sameShipping = _party?.shippingAddress?.isEmpty ?? true;
   late BalanceType _openingType = _party?.openingBalanceType ??
       (widget.initialType.canSell ? BalanceType.receivable : BalanceType.payable);
   late DateTime? _openingDate = _party?.openingBalanceDate;
   late bool _showMore = _party != null;
+
+  /// The whole set of saved addresses; sent back in full on save.
+  late final List<PartyAddress> _addresses = [...?widget.party?.addresses];
 
   bool get _isEdit => _party != null;
 
   @override
   void dispose() {
     for (final controller in [
-      _name, _phone, _email, _gstin, _billLine1, _billLine2, _billCity,
-      _billPincode, _shipLine1, _shipLine2, _shipCity, _shipPincode,
-      _creditDays, _creditLimit, _opening, _notes,
+      _name, _phone, _email, _gstin, _creditDays, _creditLimit, _opening, _notes,
     ]) {
       controller.dispose();
     }
@@ -90,27 +83,72 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
     return value.isEmpty ? null : value;
   }
 
-  Map<String, dynamic>? _address(
-    TextEditingController line1,
-    TextEditingController line2,
-    TextEditingController city,
-    TextEditingController pincode,
-  ) {
-    final address = Address(
-      line1: line1.text,
-      line2: line2.text,
-      city: city.text,
-      pincode: pincode.text,
-    );
-    if (address.isEmpty) return null;
-    return Address(
-      line1: line1.text,
-      line2: line2.text,
-      city: city.text,
-      state: stateNameFromCode(_stateCode),
-      pincode: pincode.text,
-    ).toJson();
+  // ---------------------------------------------------------------- addresses
+
+  /// Every kind that has addresses keeps exactly one default.
+  void _normaliseDefaults() {
+    for (final kind in AddressKind.values) {
+      final indexes = [
+        for (var i = 0; i < _addresses.length; i++)
+          if (_addresses[i].kind == kind) i,
+      ];
+      if (indexes.isEmpty || indexes.any((i) => _addresses[i].isDefault)) continue;
+      _addresses[indexes.first] = _addresses[indexes.first].copyWith(isDefault: true);
+    }
   }
+
+  /// Clears the default flag from every other address of [kind].
+  void _clearOtherDefaults(AddressKind kind, {int? except}) {
+    for (var i = 0; i < _addresses.length; i++) {
+      if (i != except && _addresses[i].kind == kind && _addresses[i].isDefault) {
+        _addresses[i] = _addresses[i].copyWith(isDefault: false);
+      }
+    }
+  }
+
+  Future<void> _addAddress(AddressKind kind) async {
+    final created = await showAddressSheet(
+      context,
+      kind: kind,
+      startAsDefault: !_addresses.any((address) => address.kind == kind),
+    );
+    if (created == null || !mounted) return;
+    setState(() {
+      if (created.isDefault) _clearOtherDefaults(created.kind);
+      _addresses.add(created);
+      _normaliseDefaults();
+    });
+  }
+
+  Future<void> _editAddress(int index) async {
+    final updated = await showAddressSheet(
+      context,
+      kind: _addresses[index].kind,
+      initial: _addresses[index],
+    );
+    if (updated == null || !mounted) return;
+    setState(() {
+      if (updated.isDefault) _clearOtherDefaults(updated.kind, except: index);
+      _addresses[index] = updated;
+      _normaliseDefaults();
+    });
+  }
+
+  void _makeDefault(int index) {
+    setState(() {
+      _clearOtherDefaults(_addresses[index].kind, except: index);
+      _addresses[index] = _addresses[index].copyWith(isDefault: true);
+    });
+  }
+
+  void _removeAddress(int index) {
+    setState(() {
+      _addresses.removeAt(index);
+      _normaliseDefaults();
+    });
+  }
+
+  // --------------------------------------------------------------------- save
 
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
@@ -130,10 +168,7 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
       'gst_type': _gstType.value,
       'gstin': _gstType.needsGstin ? _text(_gstin)?.toUpperCase() : null,
       'state_code': _stateCode,
-      'billing_address': _address(_billLine1, _billLine2, _billCity, _billPincode),
-      'shipping_address': _sameShipping
-          ? null
-          : _address(_shipLine1, _shipLine2, _shipCity, _shipPincode),
+      'addresses': [for (final address in _addresses) address.toJson()],
       'credit_limit': apiAmount(_creditLimit.text),
       'credit_days': int.tryParse(_creditDays.text.trim()),
       'notes': _text(_notes),
@@ -157,49 +192,43 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
     navigator.pop(saved);
   }
 
-  List<Widget> _addressFields(
-    TextEditingController line1,
-    TextEditingController line2,
-    TextEditingController city,
-    TextEditingController pincode,
-  ) {
-    return [
-      AppTextField(
-        controller: line1,
-        labelText: 'address_line1'.tr(),
-        textCapitalization: TextCapitalization.words,
-      ),
-      AppTextField(
-        controller: line2,
-        labelText: 'address_line2'.tr(),
-        textCapitalization: TextCapitalization.words,
-      ),
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: AppTextField(
-              controller: city,
-              labelText: 'city'.tr(),
-              textCapitalization: TextCapitalization.words,
-            ),
+  // ----------------------------------------------------------------------- UI
+
+  Widget _buildAddresses(BuildContext context) {
+    return FormSection(
+      title: 'addresses'.tr(),
+      subtitle: 'addresses_hint'.tr(),
+      children: [
+        for (final kind in AddressKind.values) ...[
+          Text(
+            kind == AddressKind.billing ? 'billing_address'.tr() : 'shipping_address'.tr(),
+            style: context.text.labelMedium,
           ),
-          const SizedBox(width: AppTheme.spaceMd),
-          Expanded(
-            child: AppTextField(
-              controller: pincode,
-              labelText: 'pincode'.tr(),
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(6),
-              ],
-              validator: Validators.pincode,
+          for (final (index, address) in _addresses.indexed)
+            if (address.kind == kind)
+              _AddressTile(
+                address: address,
+                onEdit: () => _editAddress(index),
+                onMakeDefault: address.isDefault ? null : () => _makeDefault(index),
+                onRemove: () => _removeAddress(index),
+              ),
+          if (kind == AddressKind.shipping && !_addresses.any((a) => a.kind == kind))
+            Text('shipping_same_as_billing_hint'.tr(), style: context.text.bodySmall),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => _addAddress(kind),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: Text(
+                kind == AddressKind.billing
+                    ? 'add_billing_address'.tr()
+                    : 'add_shipping_address'.tr(),
+              ),
             ),
           ),
         ],
-      ),
-    ];
+      ],
+    );
   }
 
   @override
@@ -285,6 +314,8 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
               ],
             ),
             gap,
+            _buildAddresses(context),
+            gap,
             FormSection(
               title: 'opening_balance'.tr(),
               subtitle: 'party_opening_hint'.tr(),
@@ -365,24 +396,6 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
               ),
               gap,
               FormSection(
-                title: 'billing_address'.tr(),
-                children: _addressFields(_billLine1, _billLine2, _billCity, _billPincode),
-              ),
-              gap,
-              FormSection(
-                title: 'shipping_address'.tr(),
-                children: [
-                  SwitchRow(
-                    title: 'same_as_billing'.tr(),
-                    value: _sameShipping,
-                    onChanged: (value) => setState(() => _sameShipping = value),
-                  ),
-                  if (!_sameShipping)
-                    ..._addressFields(_shipLine1, _shipLine2, _shipCity, _shipPincode),
-                ],
-              ),
-              gap,
-              FormSection(
                 title: 'notes'.tr(),
                 children: [
                   AppTextField(
@@ -411,6 +424,88 @@ class _PartyFormScreenState extends State<PartyFormScreen> {
             text: _isEdit ? 'save_changes'.tr() : 'save_party'.tr(),
             isLoading: isSaving,
             onPressed: _save,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One saved address in the form: tap to edit, menu to make default or remove.
+class _AddressTile extends StatelessWidget {
+  final PartyAddress address;
+  final VoidCallback onEdit;
+  final VoidCallback? onMakeDefault;
+  final VoidCallback onRemove;
+
+  const _AddressTile({
+    required this.address,
+    required this.onEdit,
+    required this.onMakeDefault,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: context.colors.surfaceAlt,
+      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        onTap: onEdit,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.spaceMd,
+            AppTheme.spaceSm,
+            AppTheme.spaceXs,
+            AppTheme.spaceSm,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            address.title,
+                            style: context.text.titleSmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (address.isDefault) ...[
+                          const SizedBox(width: AppTheme.spaceSm),
+                          StatusChip(label: 'default_address'.tr(), tone: ChipTone.primary),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(address.address.singleLine, style: context.text.bodySmall),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                onSelected: (action) {
+                  switch (action) {
+                    case 'default':
+                      onMakeDefault?.call();
+                    case 'remove':
+                      onRemove();
+                    default:
+                      onEdit();
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(value: 'edit', child: Text('edit'.tr())),
+                  if (onMakeDefault != null)
+                    PopupMenuItem(value: 'default', child: Text('set_as_default'.tr())),
+                  PopupMenuItem(value: 'remove', child: Text('remove'.tr())),
+                ],
+              ),
+            ],
           ),
         ),
       ),

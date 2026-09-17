@@ -31,6 +31,7 @@ Invoice _invoice({required String taxMode, required String supplyType}) {
     'party_gstin': interState ? '27AAPFU0939F1ZV' : '24AAACC1206D1ZM',
     'party_state_code': interState ? '27' : '24',
     'billing_address': {'line1': 'Plot 7', 'city': 'Mumbai', 'state': 'Maharashtra'},
+    'shipping_address': {'line1': 'Godown 3, MIDC', 'city': 'Bhiwandi', 'state': 'Maharashtra', 'pincode': '421302'},
     'place_of_supply': interState ? '27' : '24',
     'supply_type': taxMode == 'gst' ? supplyType : null,
     'taxable_total': '1000.00',

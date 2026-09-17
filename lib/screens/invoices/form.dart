@@ -7,6 +7,7 @@ import 'package:vyaparsetu/components/appCard.dart';
 import 'package:vyaparsetu/components/appTextField.dart';
 import 'package:vyaparsetu/components/formFields.dart';
 import 'package:vyaparsetu/components/infoRow.dart';
+import 'package:vyaparsetu/components/pickerSheet.dart';
 import 'package:vyaparsetu/core/Core.dart';
 import 'package:vyaparsetu/global/constants.dart';
 import 'package:vyaparsetu/global/themes.dart';
@@ -16,7 +17,9 @@ import 'package:vyaparsetu/helpers/json.dart';
 import 'package:vyaparsetu/helpers/toastNotifications.dart';
 import 'package:vyaparsetu/helpers/validators.dart';
 import 'package:vyaparsetu/screens/common/pickers.dart';
+import 'package:vyaparsetu/screens/parties/addressSheet.dart';
 import 'package:vyaparsetu/types/account.dart';
+import 'package:vyaparsetu/types/address.dart';
 import 'package:vyaparsetu/types/invoice.dart';
 import 'package:vyaparsetu/types/item.dart';
 import 'package:vyaparsetu/types/party.dart';
@@ -158,6 +161,16 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   late final InvoiceType _type = _invoice?.invoiceType ?? widget.type;
   late TaxMode _taxMode = _invoice?.taxMode ?? TaxMode.gst;
   late _PartyRef? _party = _initialParty();
+
+  /// The chosen party's saved addresses, and the ones picked for this bill.
+  /// "Touched" means the user changed the choice, so it must be sent even
+  /// when it is empty (for example shipping cleared to "same as billing").
+  List<PartyAddress> _partyAddresses = const [];
+  PartyAddress? _billingAddress;
+  PartyAddress? _shippingAddress;
+  bool _billingTouched = false;
+  bool _shippingTouched = false;
+  bool _loadingAddresses = false;
   late DateTime _date = _invoice?.invoiceDate ?? DateTime.now();
   late DateTime? _dueDate = _invoice?.dueDate;
   late DateTime? _supplierDate = _invoice?.supplierInvoiceDate;
@@ -218,11 +231,13 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.party != null) _useAddressesOf(widget.party!);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final core = context.read<Core>();
       if (!_isEdit) {
         setState(() => _taxMode = core.business.selectedBusiness?.defaultTaxMode ?? TaxMode.gst);
       }
+      if (_invoice?.partyId != null) _loadAddressesForEdit();
       await core.account.fetchAccounts();
       if (mounted) setState(() => _account ??= core.account.defaultAccount);
     });
@@ -313,6 +328,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         stateCode: party.stateCode,
         creditDays: party.creditDays,
       );
+      _useAddressesOf(party);
       if (party.creditDays != null && _dueDate == null) {
         _dueDate = _date.add(Duration(days: party.creditDays!));
       }
@@ -367,6 +383,141 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     setState(() => charge.payee = (id: party.id, name: party.name));
   }
 
+  // ---------------------------------------------------------------- addresses
+
+  /// A newly chosen party: offer its addresses and pick its defaults.
+  void _useAddressesOf(Party party) {
+    _partyAddresses = party.addresses;
+    _billingAddress = party.defaultAddress(AddressKind.billing);
+    _shippingAddress = party.defaultAddress(AddressKind.shipping);
+    _billingTouched = false;
+    _shippingTouched = false;
+  }
+
+  void _clearAddresses() {
+    _partyAddresses = const [];
+    _billingAddress = null;
+    _shippingAddress = null;
+    _billingTouched = false;
+    _shippingTouched = false;
+  }
+
+  /// Editing a bill: show the addresses it was made with.
+  Future<void> _loadAddressesForEdit() async {
+    final invoice = _invoice;
+    final partyId = invoice?.partyId;
+    if (invoice == null || partyId == null) return;
+
+    setState(() => _loadingAddresses = true);
+    final party = await context.read<Core>().party.getParty(partyId, refresh: true);
+    if (!mounted) return;
+    setState(() {
+      _loadingAddresses = false;
+      _partyAddresses = party?.addresses ?? const [];
+      _billingAddress = _savedOrPrinted(AddressKind.billing, invoice.billingAddressId, invoice.billingAddress);
+      _shippingAddress = _savedOrPrinted(AddressKind.shipping, invoice.shippingAddressId, invoice.shippingAddress);
+    });
+  }
+
+  /// The saved address a bill points at or, if it has since been removed, the
+  /// address as printed on the bill (kept unless the user picks another).
+  PartyAddress? _savedOrPrinted(AddressKind kind, String? id, Address? printed) {
+    final saved = _partyAddresses.where((address) => address.id != null && address.id == id).firstOrNull;
+    if (saved != null) return saved;
+    if (printed == null || printed.isEmpty) return null;
+    return PartyAddress(kind: kind, label: 'address_on_bill'.tr(), address: printed);
+  }
+
+  Future<PartyAddress?> _pickAddress(AddressKind kind) {
+    final current = kind == AddressKind.billing ? _billingAddress : _shippingAddress;
+    // Addresses of the matching kind first; the others can still be used.
+    final options = [
+      ..._partyAddresses.where((address) => address.kind == kind),
+      ..._partyAddresses.where((address) => address.kind != kind),
+    ];
+    return showPickerSheet<PartyAddress>(
+      context: context,
+      title: kind == AddressKind.billing
+          ? 'select_billing_address'.tr()
+          : 'select_shipping_address'.tr(),
+      options: options,
+      searchable: options.length > 6,
+      labelOf: (address) => address.title,
+      subtitleOf: (address) => address.kind == kind
+          ? address.address.singleLine
+          : '${address.kind.displayName} · ${address.address.singleLine}',
+      isSelected: (address) => address.id != null && address.id == current?.id,
+      emptyText: 'no_addresses_yet'.tr(),
+      createLabel: 'add_new_address'.tr(),
+      onCreate: (sheetContext) => _createAddress(sheetContext, kind),
+    );
+  }
+
+  /// Saves a new address on the party straight away and returns it, so it can
+  /// be picked for this bill and reused on the next one.
+  Future<PartyAddress?> _createAddress(BuildContext sheetContext, AddressKind kind) async {
+    final party = _party;
+    if (party == null) return null;
+
+    final draft = await showAddressSheet(
+      sheetContext,
+      kind: kind,
+      startAsDefault: !_partyAddresses.any((address) => address.kind == kind),
+    );
+    if (draft == null || !mounted) return null;
+
+    final parties = context.read<Core>().party;
+    final knownIds = _partyAddresses.map((address) => address.id).toSet();
+    final saved = await parties.updateParty(party.id, {
+      'addresses': [
+        for (final address in _partyAddresses)
+          (draft.isDefault && address.kind == draft.kind ? address.copyWith(isDefault: false) : address)
+              .toJson(),
+        draft.toJson(),
+      ],
+    });
+    if (!mounted) return null;
+    if (saved == null) {
+      showErrorToast(parties.error ?? 'error_generic'.tr());
+      return null;
+    }
+    setState(() => _partyAddresses = saved.addresses);
+    return saved.addresses.where((address) => !knownIds.contains(address.id)).firstOrNull;
+  }
+
+  /// A picked saved address goes by id; a changed choice without one (typed
+  /// on the bill, or cleared) goes as the address itself; an untouched choice
+  /// is left out so the server keeps what the bill already has.
+  Map<String, dynamic> _addressPayload(AddressKind kind, PartyAddress? selected, bool touched) {
+    if (_party == null) return const {};
+    if (selected?.id != null) return {'${kind.value}_address_id': selected!.id};
+    if (!touched) return const {};
+    return {'${kind.value}_address': selected?.address.toJson()};
+  }
+
+  Widget _addressField(AddressKind kind) {
+    final isBilling = kind == AddressKind.billing;
+    return SelectField<PartyAddress>(
+      label: isBilling ? 'billing_address'.tr() : 'shipping_address'.tr(),
+      value: isBilling ? _billingAddress : _shippingAddress,
+      clearable: !isBilling,
+      hint: isBilling ? 'no_address_saved'.tr() : 'same_as_billing'.tr(),
+      helperText: _loadingAddresses ? 'loading_addresses'.tr() : null,
+      prefixIcon: isBilling ? Icons.receipt_long_outlined : Icons.local_shipping_outlined,
+      labelOf: (address) => '${address.title} · ${address.address.singleLine}',
+      onPick: () => _pickAddress(kind),
+      onChanged: (address) => setState(() {
+        if (isBilling) {
+          _billingAddress = address;
+          _billingTouched = true;
+        } else {
+          _shippingAddress = address;
+          _shippingTouched = true;
+        }
+      }),
+    );
+  }
+
   String? _text(TextEditingController controller) {
     final value = controller.text.trim();
     return value.isEmpty ? null : value;
@@ -385,6 +536,8 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
       'supplier_invoice_date': _supplierDate == null ? null : apiDate(_supplierDate!),
       'party_id': _party?.id,
       'party_name': _party == null ? _text(_walkInName) : null,
+      ..._addressPayload(AddressKind.billing, _billingAddress, _billingTouched),
+      ..._addressPayload(AddressKind.shipping, _shippingAddress, _shippingTouched),
       'is_reverse_charge': _isGst && _reverseCharge,
       'price_includes_tax': _priceIncludesTax,
       'vehicle_no': _text(_vehicleNo),
@@ -730,7 +883,10 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                     await _pickParty();
                     return null;
                   },
-                  onChanged: (party) => setState(() => _party = party),
+                  onChanged: (party) => setState(() {
+                    _party = party;
+                    if (party == null) _clearAddresses();
+                  }),
                 ),
                 if (_party == null)
                   AppTextField(
@@ -738,7 +894,11 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                     labelText: 'walk_in_name'.tr(),
                     helperText: 'walk_in_hint'.tr(),
                     textCapitalization: TextCapitalization.words,
-                  ),
+                  )
+                else ...[
+                  _addressField(AddressKind.billing),
+                  _addressField(AddressKind.shipping),
+                ],
                 DateField(
                   label: 'date'.tr(),
                   value: _date,
