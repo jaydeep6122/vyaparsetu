@@ -79,7 +79,7 @@ class HomeScreenState extends State<HomeScreen> {
               _visited.contains(i) ? tabs[i] : const SizedBox.shrink(),
           ],
         ),
-        floatingActionButton: _index <= _billsTab
+        floatingActionButton: _index == _billsTab
             ? FloatingActionButton.extended(
                 heroTag: 'new-bill',
                 onPressed: _newBill,

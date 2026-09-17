@@ -56,13 +56,18 @@ class StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    Color bg(Color normal) => isDark ? colors.surfaceAlt : normal;
+    Color fg(Color normal) => isDark ? normal.withValues(alpha: 0.8) : normal;
+
     final (Color background, Color foreground) = switch (tone) {
       ChipTone.neutral => (colors.surfaceAlt, colors.inkSecondary),
-      ChipTone.primary => (colors.primarySoft, colors.primary),
-      ChipTone.success => (colors.successSoft, colors.success),
-      ChipTone.warning => (colors.warningSoft, colors.warning),
-      ChipTone.danger => (colors.dangerSoft, colors.danger),
-      ChipTone.info => (colors.infoSoft, colors.info),
+      ChipTone.primary => (bg(colors.primarySoft), fg(colors.primary)),
+      ChipTone.success => (bg(colors.successSoft), fg(colors.success)),
+      ChipTone.warning => (bg(colors.warningSoft), fg(colors.warning)),
+      ChipTone.danger => (bg(colors.dangerSoft), fg(colors.danger)),
+      ChipTone.info => (bg(colors.infoSoft), fg(colors.info)),
     };
 
     return Container(
@@ -94,12 +99,17 @@ class StatusChip extends StatelessWidget {
 /// Foreground and soft background for a tone, for icons and badges.
 (Color background, Color foreground) toneColors(BuildContext context, ChipTone tone) {
   final colors = context.colors;
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  Color bg(Color normal) => isDark ? colors.surfaceAlt : normal;
+  Color fg(Color normal) => isDark ? normal.withValues(alpha: 0.8) : normal;
+
   return switch (tone) {
     ChipTone.neutral => (colors.surfaceAlt, colors.inkSecondary),
-    ChipTone.primary => (colors.primarySoft, colors.primary),
-    ChipTone.success => (colors.successSoft, colors.success),
-    ChipTone.warning => (colors.warningSoft, colors.warning),
-    ChipTone.danger => (colors.dangerSoft, colors.danger),
-    ChipTone.info => (colors.infoSoft, colors.info),
+    ChipTone.primary => (bg(colors.primarySoft), fg(colors.primary)),
+    ChipTone.success => (bg(colors.successSoft), fg(colors.success)),
+    ChipTone.warning => (bg(colors.warningSoft), fg(colors.warning)),
+    ChipTone.danger => (bg(colors.dangerSoft), fg(colors.danger)),
+    ChipTone.info => (bg(colors.infoSoft), fg(colors.info)),
   };
 }

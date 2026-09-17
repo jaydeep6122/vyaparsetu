@@ -5,15 +5,12 @@ import 'package:vyaparsetu/components/amountDisplay.dart';
 import 'package:vyaparsetu/components/appCard.dart';
 import 'package:vyaparsetu/components/avatar.dart';
 import 'package:vyaparsetu/components/emptyState.dart';
-import 'package:vyaparsetu/components/infoRow.dart';
 import 'package:vyaparsetu/components/loadStateBody.dart';
 import 'package:vyaparsetu/components/loadingIndicator.dart';
 import 'package:vyaparsetu/components/sectionHeader.dart';
 import 'package:vyaparsetu/components/statusChip.dart';
-import 'package:vyaparsetu/components/summaryCard.dart';
 import 'package:vyaparsetu/core/Core.dart';
 import 'package:vyaparsetu/core/components/getters.dart';
-import 'package:vyaparsetu/core/components/moduleBase.dart';
 import 'package:vyaparsetu/core/modules/invoiceModule.dart';
 import 'package:vyaparsetu/global/constants.dart';
 import 'package:vyaparsetu/global/themes.dart';
@@ -53,7 +50,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final core = context.read<Core>();
     if (!core.hasActiveBusiness) return;
     await Future.wait([
-      if (core.can(MemberRole.accountant)) core.report.fetchDashboard(refresh: refresh),
+      if (core.can(MemberRole.accountant)) ...[
+        core.report.fetchDashboard(refresh: refresh),
+        core.report.fetchProfitLoss(),
+      ],
       core.invoice.fetchInvoices(refresh: refresh),
     ]);
   }
@@ -61,7 +61,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _push(Widget screen) => Navigator.of(context).push(getPageRoute(screen));
 
   void _showOverdue() {
-    context.read<Core>().invoice.setFilter(const InvoiceFilter(overdueOnly: true));
+    context.read<Core>().invoice.setFilter(
+      const InvoiceFilter(overdueOnly: true),
+    );
     HomeScreenState.of(context)?.setTab(1);
   }
 
@@ -74,7 +76,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final canSeeReports = core.can(MemberRole.accountant);
     final dashboard = core.report.dashboard;
     scheduleReload(
-      (canSeeReports && dashboard.needsReload) || core.invoice.list.needsReload,
+      (canSeeReports && dashboard.needsReload) ||
+          core.invoice.list.needsReload ||
+          (canSeeReports && core.report.profitLoss.needsReload),
       _load,
     );
 
@@ -97,7 +101,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onSwitch: () => _push(const BusinessListScreen()),
               ),
               const SizedBox(height: AppTheme.spaceXl),
-              if (canSeeReports) ..._buildReportCards(context, dashboard),
+              if (canSeeReports) ..._buildReportCards(context, core),
               SectionHeader(title: 'quick_actions'.tr()),
               _QuickActions(onOpen: _push),
               const SizedBox(height: AppTheme.spaceXl),
@@ -107,7 +111,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onActionTap: () => HomeScreenState.of(context)?.setTab(1),
               ),
               ..._buildRecentBills(context, core),
-              if (canSeeReports && (dashboard.value?.lowStock.isNotEmpty ?? false)) ...[
+              if (canSeeReports &&
+                  (dashboard.value?.lowStock.isNotEmpty ?? false)) ...[
                 const SizedBox(height: AppTheme.spaceXl),
                 SectionHeader(
                   title: 'low_stock'.tr(),
@@ -126,10 +131,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  List<Widget> _buildReportCards(
-    BuildContext context,
-    LoadState<DashboardData> dashboardState,
-  ) {
+  List<Widget> _buildReportCards(BuildContext context, Core core) {
+    final dashboardState = core.report.dashboard;
     final data = dashboardState.value;
     final error = dashboardState.error;
 
@@ -142,7 +145,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Icon(Icons.cloud_off_rounded, color: context.colors.danger),
                 const SizedBox(width: AppTheme.spaceMd),
                 Expanded(child: Text(error, style: context.text.bodyMedium)),
-                TextButton(onPressed: () => _load(refresh: true), child: Text('retry'.tr())),
+                TextButton(
+                  onPressed: () => _load(refresh: true),
+                  child: Text('retry'.tr()),
+                ),
               ],
             ),
           ),
@@ -153,25 +159,371 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     return [
+      Builder(
+        builder: (context) {
+          final profitLoss = core.report.profitLoss.value;
+          final netProfit =
+              profitLoss?.netProfit ??
+              (data.sales.net - data.purchases.net - data.expenses);
+          final isProfit = netProfit >= 0;
+
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+
+          final gradient = isProfit
+              ? LinearGradient(
+                  colors: isDark
+                      ? const [
+                          Color(0xFF0F524F),
+                          Color(0xFF10736B),
+                        ] // Toned down teal
+                      : const [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : LinearGradient(
+                  colors: isDark
+                      ? const [
+                          Color(0xFF881337),
+                          Color(0xFFBE123C),
+                        ] // Toned down red
+                      : const [Color(0xFFBE123C), Color(0xFFF43F5E)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                );
+
+          return GestureDetector(
+            onTap: () => _push(const ProfitLossScreen()),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: gradient,
+                borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: -30,
+                      bottom: -30,
+                      child: Icon(
+                        isProfit
+                            ? Icons.auto_graph_rounded
+                            : Icons.trending_down_rounded,
+                        size: 140,
+                        color: Colors.white.withValues(alpha: 0.12),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(AppTheme.spaceMd),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppTheme.spaceSm,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusFull,
+                                  ),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isProfit
+                                          ? Icons.trending_up_rounded
+                                          : Icons.trending_down_rounded,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isProfit
+                                          ? 'net_profit'.tr()
+                                          : 'net_loss'.tr(),
+                                      style: context.text.labelSmall?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: AppTheme.spaceSm),
+                              Text(
+                                '${Formatters.formatDateShort(data.period.from)} – ${Formatters.formatDateShort(data.period.to)}',
+                                style: context.text.labelSmall?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  color: Colors.white,
+                                  size: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppTheme.spaceSm),
+                          AmountDisplay(
+                            amount: netProfit.abs(),
+                            tone: AmountTone.neutral,
+                            style: context.text.headlineMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 28,
+                              letterSpacing: -1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+      const SizedBox(height: AppTheme.spaceMd),
       Row(
         children: [
           Expanded(
-            child: SummaryCard(
-              title: 'to_collect'.tr(),
-              value: Formatters.formatCurrency(data.receivable),
-              icon: Icons.call_received_rounded,
-              tone: ChipTone.success,
-              onTap: () => _push(const OutstandingScreen(type: OutstandingType.receivable)),
-            ),
-          ),
-          const SizedBox(width: AppTheme.spaceMd),
-          Expanded(
-            child: SummaryCard(
-              title: 'to_pay'.tr(),
-              value: Formatters.formatCurrency(data.payable),
-              icon: Icons.call_made_rounded,
-              tone: ChipTone.danger,
-              onTap: () => _push(const OutstandingScreen(type: OutstandingType.payable)),
+            child: Container(
+              decoration: BoxDecoration(
+                color: context.colors.surface,
+                border: Border.all(color: context.colors.border),
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+              ),
+              child: Column(
+                children: [
+                  // Row 1: To Collect and To Pay
+                  IntrinsicHeight(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _push(
+                              const OutstandingScreen(
+                                type: OutstandingType.receivable,
+                              ),
+                            ),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(AppTheme.radiusLg),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(AppTheme.spaceLg),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.call_received_rounded,
+                                        size: 16,
+                                        color: context.colors.success,
+                                      ),
+                                      const SizedBox(width: AppTheme.spaceSm),
+                                      Expanded(
+                                        child: Text(
+                                          'to_collect'.tr(),
+                                          style: context.text.labelMedium
+                                              ?.copyWith(
+                                                color: context.colors.muted,
+                                              ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: AppTheme.spaceSm),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      Formatters.formatCurrency(
+                                        data.receivable,
+                                      ),
+                                      style: context.text.titleLarge?.copyWith(
+                                        color: context.colors.ink,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Container(width: 1, color: context.colors.border),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _push(
+                              const OutstandingScreen(
+                                type: OutstandingType.payable,
+                              ),
+                            ),
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(AppTheme.radiusLg),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(AppTheme.spaceLg),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.call_made_rounded,
+                                        size: 16,
+                                        color: context.colors.danger,
+                                      ),
+                                      const SizedBox(width: AppTheme.spaceSm),
+                                      Expanded(
+                                        child: Text(
+                                          'to_pay'.tr(),
+                                          style: context.text.labelMedium
+                                              ?.copyWith(
+                                                color: context.colors.muted,
+                                              ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: AppTheme.spaceSm),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      Formatters.formatCurrency(data.payable),
+                                      style: context.text.titleLarge?.copyWith(
+                                        color: context.colors.ink,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: context.colors.border,
+                  ),
+
+                  // Row 2: Cash and Bank
+                  InkWell(
+                    onTap: () => _push(const AccountListScreen()),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(AppTheme.radiusLg),
+                      bottomRight: Radius.circular(AppTheme.radiusLg),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppTheme.spaceLg),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: context.colors.infoSoft,
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusSm,
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.account_balance_wallet_rounded,
+                              color: context.colors.info,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: AppTheme.spaceLg),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'cash_in_hand'.tr(),
+                                  style: context.text.labelMedium?.copyWith(
+                                    color: context.colors.muted,
+                                  ),
+                                ),
+                                AmountDisplay(
+                                  amount: data.cashBalance,
+                                  tone: AmountTone.neutral,
+                                  style: context.text.titleMedium?.copyWith(
+                                    color: context.colors.ink,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            width: 1,
+                            height: 32,
+                            color: context.colors.border,
+                          ),
+                          const SizedBox(width: AppTheme.spaceLg),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'in_bank'.tr(),
+                                  style: context.text.labelMedium?.copyWith(
+                                    color: context.colors.muted,
+                                  ),
+                                ),
+                                AmountDisplay(
+                                  amount: data.bankBalance,
+                                  tone: AmountTone.neutral,
+                                  style: context.text.titleMedium?.copyWith(
+                                    color: context.colors.ink,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: AppTheme.spaceMd),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: context.colors.muted,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -188,11 +540,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: AppTheme.spaceMd),
               Expanded(
                 child: Text(
-                  'overdue_bills_message'.tr(namedArgs: {
-                    'count': '${data.overdueCount}',
-                    'amount': Formatters.formatCurrency(data.overdueAmount),
-                  }),
-                  style: context.text.bodyMedium?.copyWith(color: context.colors.danger),
+                  'overdue_bills_message'.tr(
+                    namedArgs: {
+                      'count': '${data.overdueCount}',
+                      'amount': Formatters.formatCurrency(data.overdueAmount),
+                    },
+                  ),
+                  style: context.text.bodyMedium?.copyWith(
+                    color: context.colors.danger,
+                  ),
                 ),
               ),
               Icon(Icons.chevron_right_rounded, color: context.colors.danger),
@@ -200,83 +556,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ],
-      const SizedBox(height: AppTheme.spaceMd),
-      AppCard(
-        onTap: () => _push(const AccountListScreen()),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(child: Text('cash_and_bank'.tr(), style: context.text.titleSmall)),
-                Icon(Icons.chevron_right_rounded, color: context.colors.muted),
-              ],
-            ),
-            const SizedBox(height: AppTheme.spaceMd),
-            Row(
-              children: [
-                Expanded(
-                  child: _MiniStat(
-                    icon: Icons.payments_outlined,
-                    label: 'cash_in_hand'.tr(),
-                    amount: data.cashBalance,
-                  ),
-                ),
-                Expanded(
-                  child: _MiniStat(
-                    icon: Icons.account_balance_outlined,
-                    label: 'in_bank'.tr(),
-                    amount: data.bankBalance,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: AppTheme.spaceMd),
-      AppCard(
-        onTap: () => _push(const ProfitLossScreen()),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(child: Text('this_year'.tr(), style: context.text.titleSmall)),
-                Text(
-                  '${Formatters.formatDateShort(data.period.from)} – ${Formatters.formatDateShort(data.period.to)}',
-                  style: context.text.bodySmall,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppTheme.spaceSm),
-            InfoRow(
-              label: 'net_sales'.tr(),
-              valueWidget: AmountDisplay(amount: data.sales.net, style: context.text.titleSmall),
-            ),
-            InfoRow(
-              label: 'net_purchases'.tr(),
-              valueWidget: AmountDisplay(amount: data.purchases.net, style: context.text.titleSmall),
-            ),
-            InfoRow(
-              label: 'money_received'.tr(),
-              valueWidget: AmountDisplay(
-                amount: data.received,
-                tone: AmountTone.positive,
-                style: context.text.titleSmall,
-              ),
-            ),
-            InfoRow(
-              label: 'money_paid'.tr(),
-              valueWidget: AmountDisplay(amount: data.paid, style: context.text.titleSmall),
-            ),
-            InfoRow(
-              label: 'expenses'.tr(),
-              valueWidget: AmountDisplay(amount: data.expenses, style: context.text.titleSmall),
-            ),
-          ],
-        ),
-      ),
       const SizedBox(height: AppTheme.spaceXl),
     ];
   }
@@ -312,7 +591,11 @@ class _Header extends StatelessWidget {
   final String userName;
   final VoidCallback onSwitch;
 
-  const _Header({required this.business, required this.userName, required this.onSwitch});
+  const _Header({
+    required this.business,
+    required this.userName,
+    required this.onSwitch,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -324,60 +607,69 @@ class _Header extends StatelessWidget {
         : 'greeting_evening';
     final firstName = userName.trim().split(' ').first;
 
-    return Row(
-      children: [
-        BusinessLogo(logoUrl: business.logoUrl, name: business.name, size: 44),
-        const SizedBox(width: AppTheme.spaceMd),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final fullGreeting = greetingKey.tr(namedArgs: {'name': firstName});
+    final simpleGreeting = fullGreeting.split(',').first.trim();
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onSwitch,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        splashColor: context.colors.ink.withValues(alpha: 0.05),
+        highlightColor: context.colors.ink.withValues(alpha: 0.02),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 4.0),
+          child: Row(
             children: [
-              Text(
-                greetingKey.tr(namedArgs: {'name': firstName}),
-                style: context.text.bodySmall,
+              BusinessLogo(
+                logoUrl: business.logoUrl,
+                name: business.name,
+                size: 42,
               ),
-              Text(
-                business.name,
-                style: context.text.titleLarge,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              const SizedBox(width: AppTheme.spaceMd),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      simpleGreeting,
+                      style: context.text.labelMedium?.copyWith(
+                        color: context.colors.muted,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      business.name,
+                      style: context.text.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: context.colors.ink,
+                        letterSpacing: -0.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppTheme.spaceMd),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: context.colors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.swap_horiz_rounded,
+                  color: context.colors.primary,
+                  size: 20,
+                ),
               ),
             ],
           ),
         ),
-        IconButton(
-          tooltip: 'switch_business'.tr(),
-          icon: const Icon(Icons.swap_horiz_rounded),
-          onPressed: onSwitch,
-        ),
-      ],
-    );
-  }
-}
-
-class _MiniStat extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final double amount;
-
-  const _MiniStat({required this.icon, required this.label, required this.amount});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: context.colors.muted),
-        const SizedBox(width: AppTheme.spaceSm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: context.text.bodySmall),
-              AmountDisplay(amount: amount, showMinus: true, style: context.text.titleMedium),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -399,64 +691,116 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actions = [
-      _QuickAction(Icons.receipt_long_rounded, 'action_sale'.tr(), ChipTone.primary,
-          const InvoiceFormScreen(type: InvoiceType.sale)),
-      _QuickAction(Icons.shopping_bag_outlined, 'action_purchase'.tr(), ChipTone.info,
-          const InvoiceFormScreen(type: InvoiceType.purchase)),
-      _QuickAction(Icons.call_received_rounded, 'action_payment_in'.tr(), ChipTone.success,
-          const PaymentFormScreen(direction: PaymentDirection.paymentIn)),
-      _QuickAction(Icons.call_made_rounded, 'action_payment_out'.tr(), ChipTone.danger,
-          const PaymentFormScreen(direction: PaymentDirection.paymentOut)),
-      _QuickAction(Icons.account_balance_wallet_outlined, 'action_expense'.tr(), ChipTone.warning,
-          const ExpenseFormScreen()),
-      _QuickAction(Icons.person_add_alt_1_outlined, 'action_party'.tr(), ChipTone.primary,
-          const PartyFormScreen()),
-      _QuickAction(Icons.add_box_outlined, 'action_item'.tr(), ChipTone.info, const ItemFormScreen()),
-      _QuickAction(Icons.assignment_return_outlined, 'action_sale_return'.tr(), ChipTone.neutral,
-          const InvoiceFormScreen(type: InvoiceType.saleReturn)),
+      _QuickAction(
+        Icons.receipt_long_rounded,
+        'action_sale'.tr(),
+        ChipTone.primary,
+        const InvoiceFormScreen(type: InvoiceType.sale),
+      ),
+      _QuickAction(
+        Icons.shopping_bag_outlined,
+        'action_purchase'.tr(),
+        ChipTone.info,
+        const InvoiceFormScreen(type: InvoiceType.purchase),
+      ),
+      _QuickAction(
+        Icons.call_received_rounded,
+        'action_payment_in'.tr(),
+        ChipTone.success,
+        const PaymentFormScreen(direction: PaymentDirection.paymentIn),
+      ),
+      _QuickAction(
+        Icons.call_made_rounded,
+        'action_payment_out'.tr(),
+        ChipTone.danger,
+        const PaymentFormScreen(direction: PaymentDirection.paymentOut),
+      ),
+      _QuickAction(
+        Icons.account_balance_wallet_outlined,
+        'action_expense'.tr(),
+        ChipTone.warning,
+        const ExpenseFormScreen(),
+      ),
+      _QuickAction(
+        Icons.person_add_alt_1_outlined,
+        'action_party'.tr(),
+        ChipTone.primary,
+        const PartyFormScreen(),
+      ),
+      _QuickAction(
+        Icons.add_box_outlined,
+        'action_item'.tr(),
+        ChipTone.info,
+        const ItemFormScreen(),
+      ),
+      _QuickAction(
+        Icons.assignment_return_outlined,
+        'action_sale_return'.tr(),
+        ChipTone.neutral,
+        const InvoiceFormScreen(type: InvoiceType.saleReturn),
+      ),
     ];
 
-    return AppCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spaceXs,
-        vertical: AppTheme.spaceMd,
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceLg),
+      decoration: BoxDecoration(
+        color: context.colors.surface,
+        border: Border.all(color: context.colors.border),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth / 4;
           return Wrap(
-            runSpacing: AppTheme.spaceMd,
+            runSpacing: AppTheme.spaceLg,
             children: [
               for (final action in actions)
                 SizedBox(
                   width: width,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                    onTap: () => onOpen(action.screen),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceXs),
-                      child: Column(
-                        children: [
-                          Builder(builder: (context) {
-                            final (background, foreground) = toneColors(context, action.tone);
-                            return Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: background,
-                                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                      onTap: () => onOpen(action.screen),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: Column(
+                          children: [
+                            Builder(
+                              builder: (context) {
+                                final (background, foreground) = toneColors(
+                                  context,
+                                  action.tone,
+                                );
+                                return Container(
+                                  width: 52,
+                                  height: 52,
+                                  decoration: BoxDecoration(
+                                    color: background,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    action.icon,
+                                    color: foreground,
+                                    size: 24,
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: AppTheme.spaceSm),
+                            Text(
+                              action.label,
+                              style: context.text.labelSmall?.copyWith(
+                                color: context.colors.ink,
+                                fontWeight: FontWeight.w600,
+                                height: 1.2,
                               ),
-                              child: Icon(action.icon, color: foreground, size: 22),
-                            );
-                          }),
-                          const SizedBox(height: AppTheme.spaceXs + 2),
-                          Text(
-                            action.label,
-                            style: context.text.labelSmall,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                          ),
-                        ],
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -484,15 +828,26 @@ class _LowStockCard extends StatelessWidget {
           for (final (index, item) in items.take(5).indexed) ...[
             if (index > 0) const Divider(indent: AppTheme.spaceLg),
             ListTile(
-              title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+              title: Text(
+                item.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               subtitle: Text(
-                'reorder_at'.tr(namedArgs: {
-                  'quantity': Formatters.formatQuantity(item.lowStockThreshold, item.unitCode),
-                }),
+                'reorder_at'.tr(
+                  namedArgs: {
+                    'quantity': Formatters.formatQuantity(
+                      item.lowStockThreshold,
+                      item.unitCode,
+                    ),
+                  },
+                ),
               ),
               trailing: Text(
                 Formatters.formatQuantity(item.quantityOnHand, item.unitCode),
-                style: context.text.titleSmall?.copyWith(color: context.colors.danger),
+                style: context.text.titleSmall?.copyWith(
+                  color: context.colors.danger,
+                ),
               ),
               onTap: () => onOpen(item.id),
             ),
