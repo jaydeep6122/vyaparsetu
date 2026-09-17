@@ -180,6 +180,10 @@ class Invoice {
   final String? partyStateCode;
   final Address? billingAddress;
   final Address? shippingAddress;
+
+  /// The saved party address each was copied from, when one was picked.
+  final String? billingAddressId;
+  final String? shippingAddressId;
   final String? placeOfSupply;
 
   /// 'intra' (CGST + SGST) or 'inter' (IGST); null on non-GST bills.
@@ -241,6 +245,8 @@ class Invoice {
     this.partyStateCode,
     this.billingAddress,
     this.shippingAddress,
+    this.billingAddressId,
+    this.shippingAddressId,
     this.placeOfSupply,
     this.supplyType,
     required this.isReverseCharge,
@@ -299,6 +305,8 @@ class Invoice {
       partyStateCode: json['party_state_code'] as String?,
       billingAddress: Address.fromJson(json['billing_address']),
       shippingAddress: Address.fromJson(json['shipping_address']),
+      billingAddressId: json['billing_address_id'] as String?,
+      shippingAddressId: json['shipping_address_id'] as String?,
       placeOfSupply: json['place_of_supply'] as String?,
       supplyType: json['supply_type'] as String?,
       isReverseCharge: asBool(json['is_reverse_charge']),

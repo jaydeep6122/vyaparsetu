@@ -68,6 +68,21 @@ enum BalanceType {
   String get displayName => 'balance_$value'.tr();
 }
 
+/// What a saved party address is mainly used for. Either kind can still be
+/// picked for either slot on a bill.
+enum AddressKind {
+  billing('billing'),
+  shipping('shipping');
+
+  const AddressKind(this.value);
+  final String value;
+
+  static AddressKind fromString(String? value) =>
+      AddressKind.values.firstWhere((e) => e.value == value, orElse: () => billing);
+
+  String get displayName => 'address_kind_$value'.tr();
+}
+
 enum ItemType {
   goods('goods'),
   service('service');

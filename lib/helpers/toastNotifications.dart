@@ -12,27 +12,32 @@ void _showToast({
   final context = navigatorKey.currentContext;
   if (context == null || message.trim().isEmpty) return;
 
-  Flushbar<void>(
-    message: message,
-    icon: Icon(icon, color: Colors.white, size: 22),
-    shouldIconPulse: false,
-    backgroundColor: color,
-    duration: Duration(seconds: durationSeconds),
-    flushbarPosition: FlushbarPosition.TOP,
-    flushbarStyle: FlushbarStyle.FLOATING,
-    messageColor: Colors.white,
-    messageSize: 14,
-    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-    margin: const EdgeInsets.all(AppTheme.spaceMd),
-    padding: const EdgeInsets.symmetric(
-      horizontal: AppTheme.spaceLg,
-      vertical: AppTheme.spaceMd + 2,
-    ),
-    animationDuration: const Duration(milliseconds: 300),
-    forwardAnimationCurve: Curves.easeOutCubic,
-    isDismissible: true,
-    dismissDirection: FlushbarDismissDirection.VERTICAL,
-  ).show(context);
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final activeContext = navigatorKey.currentContext;
+    if (activeContext == null) return;
+    
+    Flushbar<void>(
+      message: message,
+      icon: Icon(icon, color: Colors.white, size: 22),
+      shouldIconPulse: false,
+      backgroundColor: color,
+      duration: Duration(seconds: durationSeconds),
+      flushbarPosition: FlushbarPosition.TOP,
+      flushbarStyle: FlushbarStyle.FLOATING,
+      messageColor: Colors.white,
+      messageSize: 14,
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      margin: const EdgeInsets.all(AppTheme.spaceMd),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spaceLg,
+        vertical: AppTheme.spaceMd + 2,
+      ),
+      animationDuration: const Duration(milliseconds: 300),
+      forwardAnimationCurve: Curves.easeOutCubic,
+      isDismissible: true,
+      dismissDirection: FlushbarDismissDirection.VERTICAL,
+    ).show(activeContext);
+  });
 }
 
 void showSuccessToast(String message, {int durationSeconds = 3}) => _showToast(
