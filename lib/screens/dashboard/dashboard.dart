@@ -23,8 +23,6 @@ import 'package:vyaparsetu/screens/home/home.dart';
 import 'package:vyaparsetu/screens/invoices/form.dart';
 import 'package:vyaparsetu/screens/invoices/widgets.dart';
 import 'package:vyaparsetu/screens/items/detail.dart';
-import 'package:vyaparsetu/screens/items/form.dart';
-import 'package:vyaparsetu/screens/parties/form.dart';
 import 'package:vyaparsetu/screens/payments/form.dart';
 import 'package:vyaparsetu/screens/reports/outstanding.dart';
 import 'package:vyaparsetu/screens/reports/profitLoss.dart';
@@ -125,6 +123,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(
+    BuildContext context, {
+    required String title,
+    required double amount,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: Material(
+        color: context.colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          side: BorderSide(color: context.colors.border.withValues(alpha: 0.5)),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(AppTheme.spaceLg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: color, size: 16),
+                    ),
+                    const SizedBox(width: AppTheme.spaceSm),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: context.text.labelMedium?.copyWith(
+                          color: context.colors.muted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppTheme.spaceLg),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: AmountDisplay(
+                    amount: amount,
+                    tone: AmountTone.neutral,
+                    style: context.text.titleLarge?.copyWith(
+                      color: context.colors.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -304,227 +370,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
         },
       ),
       const SizedBox(height: AppTheme.spaceMd),
-      Row(
+      Column(
         children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: context.colors.surface,
-                border: Border.all(color: context.colors.border),
-                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          Row(
+            children: [
+              _buildSummaryCard(
+                context,
+                title: 'to_collect'.tr(),
+                amount: data.receivable,
+                icon: Icons.call_received_rounded,
+                color: context.colors.success,
+                onTap: () => _push(
+                  const OutstandingScreen(type: OutstandingType.receivable),
+                ),
               ),
-              child: Column(
-                children: [
-                  // Row 1: To Collect and To Pay
-                  IntrinsicHeight(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => _push(
-                              const OutstandingScreen(
-                                type: OutstandingType.receivable,
-                              ),
-                            ),
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(AppTheme.radiusLg),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(AppTheme.spaceLg),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.call_received_rounded,
-                                        size: 16,
-                                        color: context.colors.success,
-                                      ),
-                                      const SizedBox(width: AppTheme.spaceSm),
-                                      Expanded(
-                                        child: Text(
-                                          'to_collect'.tr(),
-                                          style: context.text.labelMedium
-                                              ?.copyWith(
-                                                color: context.colors.muted,
-                                              ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: AppTheme.spaceSm),
-                                  FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      Formatters.formatCurrency(
-                                        data.receivable,
-                                      ),
-                                      style: context.text.titleLarge?.copyWith(
-                                        color: context.colors.ink,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Container(width: 1, color: context.colors.border),
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => _push(
-                              const OutstandingScreen(
-                                type: OutstandingType.payable,
-                              ),
-                            ),
-                            borderRadius: const BorderRadius.only(
-                              topRight: Radius.circular(AppTheme.radiusLg),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(AppTheme.spaceLg),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.call_made_rounded,
-                                        size: 16,
-                                        color: context.colors.danger,
-                                      ),
-                                      const SizedBox(width: AppTheme.spaceSm),
-                                      Expanded(
-                                        child: Text(
-                                          'to_pay'.tr(),
-                                          style: context.text.labelMedium
-                                              ?.copyWith(
-                                                color: context.colors.muted,
-                                              ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: AppTheme.spaceSm),
-                                  FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      Formatters.formatCurrency(data.payable),
-                                      style: context.text.titleLarge?.copyWith(
-                                        color: context.colors.ink,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: context.colors.border,
-                  ),
-
-                  // Row 2: Cash and Bank
-                  InkWell(
-                    onTap: () => _push(const AccountListScreen()),
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(AppTheme.radiusLg),
-                      bottomRight: Radius.circular(AppTheme.radiusLg),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppTheme.spaceLg),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: context.colors.infoSoft,
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.radiusSm,
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.account_balance_wallet_rounded,
-                              color: context.colors.info,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: AppTheme.spaceLg),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'cash_in_hand'.tr(),
-                                  style: context.text.labelMedium?.copyWith(
-                                    color: context.colors.muted,
-                                  ),
-                                ),
-                                AmountDisplay(
-                                  amount: data.cashBalance,
-                                  tone: AmountTone.neutral,
-                                  style: context.text.titleMedium?.copyWith(
-                                    color: context.colors.ink,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            width: 1,
-                            height: 32,
-                            color: context.colors.border,
-                          ),
-                          const SizedBox(width: AppTheme.spaceLg),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'in_bank'.tr(),
-                                  style: context.text.labelMedium?.copyWith(
-                                    color: context.colors.muted,
-                                  ),
-                                ),
-                                AmountDisplay(
-                                  amount: data.bankBalance,
-                                  tone: AmountTone.neutral,
-                                  style: context.text.titleMedium?.copyWith(
-                                    color: context.colors.ink,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: AppTheme.spaceMd),
-                          Icon(
-                            Icons.chevron_right_rounded,
-                            color: context.colors.muted,
-                            size: 20,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+              const SizedBox(width: AppTheme.spaceMd),
+              _buildSummaryCard(
+                context,
+                title: 'to_pay'.tr(),
+                amount: data.payable,
+                icon: Icons.call_made_rounded,
+                color: context.colors.danger,
+                onTap: () => _push(
+                  const OutstandingScreen(type: OutstandingType.payable),
+                ),
               ),
-            ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spaceMd),
+          Row(
+            children: [
+              _buildSummaryCard(
+                context,
+                title: 'cash_in_hand'.tr(),
+                amount: data.cashBalance,
+                icon: Icons.account_balance_wallet_rounded,
+                color: context.colors.info,
+                onTap: () => _push(const AccountListScreen()),
+              ),
+              const SizedBox(width: AppTheme.spaceMd),
+              _buildSummaryCard(
+                context,
+                title: 'in_bank'.tr(),
+                amount: data.bankBalance,
+                icon: Icons.account_balance_rounded,
+                color: context.colors.primary,
+                onTap: () => _push(const AccountListScreen()),
+              ),
+            ],
           ),
         ],
       ),
@@ -688,6 +581,49 @@ class _QuickActions extends StatelessWidget {
 
   const _QuickActions({required this.onOpen});
 
+  Widget _buildActionChip(BuildContext context, _QuickAction action) {
+    final (background, foreground) = toneColors(context, action.tone);
+    return Material(
+      color: context.colors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        side: BorderSide(color: context.colors.border.withValues(alpha: 0.6)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        onTap: () => onOpen(action.screen),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: background.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(action.icon, color: foreground, size: 16),
+              ),
+              const SizedBox(width: 8.0),
+              Flexible(
+                child: Text(
+                  action.label,
+                  style: context.text.labelMedium?.copyWith(
+                    color: context.colors.ink,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final actions = [
@@ -704,6 +640,12 @@ class _QuickActions extends StatelessWidget {
         const InvoiceFormScreen(type: InvoiceType.purchase),
       ),
       _QuickAction(
+        Icons.account_balance_wallet_outlined,
+        'action_expense'.tr(),
+        ChipTone.warning,
+        const ExpenseFormScreen(),
+      ),
+      _QuickAction(
         Icons.call_received_rounded,
         'action_payment_in'.tr(),
         ChipTone.success,
@@ -715,99 +657,39 @@ class _QuickActions extends StatelessWidget {
         ChipTone.danger,
         const PaymentFormScreen(direction: PaymentDirection.paymentOut),
       ),
-      _QuickAction(
-        Icons.account_balance_wallet_outlined,
-        'action_expense'.tr(),
-        ChipTone.warning,
-        const ExpenseFormScreen(),
-      ),
-      _QuickAction(
-        Icons.person_add_alt_1_outlined,
-        'action_party'.tr(),
-        ChipTone.primary,
-        const PartyFormScreen(),
-      ),
-      _QuickAction(
-        Icons.add_box_outlined,
-        'action_item'.tr(),
-        ChipTone.info,
-        const ItemFormScreen(),
-      ),
-      _QuickAction(
-        Icons.assignment_return_outlined,
-        'action_sale_return'.tr(),
-        ChipTone.neutral,
-        const InvoiceFormScreen(type: InvoiceType.saleReturn),
-      ),
     ];
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceLg),
-      decoration: BoxDecoration(
-        color: context.colors.surface,
-        border: Border.all(color: context.colors.border),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth / 4;
-          return Wrap(
-            runSpacing: AppTheme.spaceLg,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceSm),
+      child: Column(
+        children: [
+          Row(
             children: [
-              for (final action in actions)
-                SizedBox(
-                  width: width,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                      onTap: () => onOpen(action.screen),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                        child: Column(
-                          children: [
-                            Builder(
-                              builder: (context) {
-                                final (background, foreground) = toneColors(
-                                  context,
-                                  action.tone,
-                                );
-                                return Container(
-                                  width: 52,
-                                  height: 52,
-                                  decoration: BoxDecoration(
-                                    color: background,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    action.icon,
-                                    color: foreground,
-                                    size: 24,
-                                  ),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: AppTheme.spaceSm),
-                            Text(
-                              action.label,
-                              style: context.text.labelSmall?.copyWith(
-                                color: context.colors.ink,
-                                fontWeight: FontWeight.w600,
-                                height: 1.2,
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              Expanded(child: _buildActionChip(context, actions[0])), // Sale
+              const SizedBox(width: AppTheme.spaceSm),
+              Expanded(
+                child: _buildActionChip(context, actions[1]),
+              ), // Purchase
             ],
-          );
-        },
+          ),
+          const SizedBox(height: AppTheme.spaceSm),
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionChip(context, actions[3]),
+              ), // Payment In
+              const SizedBox(width: AppTheme.spaceSm),
+              Expanded(
+                child: _buildActionChip(context, actions[4]),
+              ), // Payment Out
+            ],
+          ),
+          const SizedBox(height: AppTheme.spaceSm),
+          SizedBox(
+            width: double.infinity,
+            child: _buildActionChip(context, actions[2]), // Expense
+          ),
+        ],
       ),
     );
   }

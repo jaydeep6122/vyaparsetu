@@ -54,6 +54,7 @@ class InvoiceTile extends StatelessWidget {
     final iconColor = isDark ? color.withValues(alpha: 0.8) : color;
 
     return AppCard(
+      borderColor: Colors.transparent,
       padding: const EdgeInsets.symmetric(
         horizontal: AppTheme.spaceLg,
         vertical: AppTheme.spaceMd,
