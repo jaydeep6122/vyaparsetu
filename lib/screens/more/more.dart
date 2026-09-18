@@ -193,7 +193,11 @@ class MoreScreen extends StatelessWidget {
               if (isAdmin)
                 _MenuEntry(Icons.storefront_outlined, 'business_profile'.tr(),
                     () => push(BusinessFormScreen(business: business))),
-              _MenuEntry(Icons.groups_outlined, 'team'.tr(), () => push(const TeamScreen())),
+              _MenuEntry(Icons.groups_outlined, 'team'.tr(), () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('coming_soon'.tr())),
+                );
+              }),
               if (isAdmin)
                 _MenuEntry(Icons.numbers_rounded, 'invoice_numbering'.tr(), () => push(const DocumentSeriesScreen())),
               _MenuEntry(Icons.percent_rounded, 'tax_rates'.tr(), () => push(const TaxRatesScreen())),

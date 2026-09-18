@@ -131,7 +131,11 @@ class _BusinessListScreenState extends State<BusinessListScreen> {
               text: 'join_with_invite'.tr(),
               icon: Icons.group_add_outlined,
               variant: AppButtonVariant.text,
-              onPressed: () => showJoinBusinessDialog(context),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('coming_soon'.tr())),
+                );
+              },
             ),
           ],
         ),
